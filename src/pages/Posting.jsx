@@ -11,7 +11,7 @@ const AIR_OPTIONS = ['PDAM', 'Sumur Bor', 'Sumur Gali', 'Lainnya'];
 
 const emptyForm = {
   type: 'pribadi',
-  price: '',
+  priceRaw: '', // angka mentah tanpa titik, contoh "100000000"
   location: null, // { label, kabupaten, kecamatan, lat, lon }
   luasTanah: '',
   luasBangunan: '',
@@ -24,10 +24,18 @@ const emptyForm = {
   whatsapp: '',
 };
 
+const MAX_PHOTOS = 5;
+
+function formatThousands(digits) {
+  if (!digits) return '';
+  return new Intl.NumberFormat('id-ID').format(Number(digits));
+}
+
 export default function Posting() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState(emptyForm);
+  const [priceDisplay, setPriceDisplay] = useState('');
   const [files, setFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -37,8 +45,14 @@ export default function Posting() {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
+  function handlePriceChange(e) {
+    const digits = e.target.value.replace(/\D/g, '');
+    update('priceRaw', digits);
+    setPriceDisplay(formatThousands(digits));
+  }
+
   function handleFiles(e) {
-    const selected = Array.from(e.target.files || []).slice(0, 8);
+    const selected = Array.from(e.target.files || []).slice(0, MAX_PHOTOS);
     setFiles(selected);
     setPreviews(selected.map((f) => URL.createObjectURL(f)));
   }
@@ -47,7 +61,7 @@ export default function Posting() {
     e.preventDefault();
     setError('');
 
-    if (!form.price || !form.location || files.length === 0) {
+    if (!form.priceRaw || !form.location || files.length === 0) {
       setError('Harga, lokasi, dan minimal 1 foto wajib diisi.');
       return;
     }
@@ -64,7 +78,7 @@ export default function Posting() {
 
       const docRef = await addDoc(collection(db, 'listings'), {
         type: form.type,
-        price: Number(form.price),
+        price: Number(form.priceRaw),
         kabupaten: form.location.kabupaten,
         kecamatan: form.location.kecamatan,
         lat: form.location.lat,
@@ -119,7 +133,9 @@ export default function Posting() {
 
         {/* Upload gambar */}
         <div>
-          <label className="mb-2 block text-sm font-semibold text-ink">Foto Rumah</label>
+          <label className="mb-2 block text-sm font-semibold text-ink">
+            Foto Rumah <span className="font-normal text-ink/40">(maks. {MAX_PHOTOS})</span>
+          </label>
           <label className="flex h-28 w-28 cursor-pointer items-center justify-center rounded-xl bg-ink/70 text-3xl text-white hover:bg-ink/80">
             +
             <input type="file" accept="image/*" multiple onChange={handleFiles} className="hidden" />
@@ -134,14 +150,17 @@ export default function Posting() {
         </div>
 
         <Field label="Harga">
-          <input
-            type="number"
-            inputMode="numeric"
-            placeholder="Rp 100.000.000"
-            value={form.price}
-            onChange={(e) => update('price', e.target.value)}
-            className="input"
-          />
+          <div className="flex items-center gap-2 rounded-xl border border-line bg-white px-4 focus-within:border-forest">
+            <span className="text-ink/50">Rp</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              placeholder="100.000.000"
+              value={priceDisplay}
+              onChange={handlePriceChange}
+              className="w-full bg-transparent py-3 text-ink placeholder:text-ink/40 outline-none"
+            />
+          </div>
         </Field>
 
         <Field label="Lokasi">
@@ -263,4 +282,4 @@ function Field({ label, children }) {
       {children}
     </div>
   );
-}
+            }
