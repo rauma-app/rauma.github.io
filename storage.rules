@@ -1,0 +1,16 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /listings/{uid}/{fileName} {
+      // Siapa saja boleh melihat foto rumah (publik).
+      allow read: if true;
+
+      // Hanya user yang login dan mengunggah ke folder miliknya sendiri
+      // yang boleh menulis, maksimal 10MB, dan harus berupa gambar.
+      allow write: if request.auth != null
+                   && request.auth.uid == uid
+                   && request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

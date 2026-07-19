@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /listings/{listingId} {
+      // Siapa saja boleh baca listing (halaman publik).
+      allow read: if true;
+
+      // Hanya user yang sudah login yang boleh membuat listing,
+      // dan wajib menandai dirinya sendiri sebagai pemilik.
+      allow create: if request.auth != null
+                    && request.resource.data.ownerUid == request.auth.uid;
+
+      // Hanya pemilik listing yang boleh update/hapus iklannya sendiri.
+      allow update, delete: if request.auth != null
+                    && resource.data.ownerUid == request.auth.uid;
+    }
+  }
+}
