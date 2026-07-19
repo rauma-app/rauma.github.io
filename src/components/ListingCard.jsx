@@ -22,7 +22,7 @@ export default function ListingCard({ listing }) {
         <div className="mt-2 flex items-center gap-1.5 text-sm text-ink/60">
           <span aria-hidden>📍</span>
           <span>
-            {listing.kecamatan ? `${listing.kecamatan}, ` : ''}
+            {listing.kecamatan ? `${listing.kecamatan} - ` : ''}
             {listing.kabupaten}
           </span>
         </div>
