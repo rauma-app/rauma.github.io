@@ -23,6 +23,7 @@ export async function searchLocation(query) {
     q: query,
     format: 'jsonv2',
     addressdetails: '1',
+    namedetails: '1',
     countrycodes: 'id',
     'accept-language': 'id',
     limit: '8',
@@ -44,14 +45,30 @@ export async function searchLocation(query) {
   for (const item of data) {
     const addr = item.address || {};
     const kabupaten =
-      addr.city || addr.regency || addr.county || addr.town || addr.municipality || '';
-    const kecamatan =
-      addr.suburb || addr.city_district || addr.district || addr.subdistrict || '';
+      addr.city || addr.regency || addr.county || addr.municipality || '';
+
+    // Kandidat level kecamatan dari struktur alamat OSM.
+    let kecamatan =
+      addr.suburb || addr.city_district || addr.district || addr.subdistrict ||
+      addr.town || addr.village || '';
+
+    // Nama tempat yang benar-benar cocok dengan pencarian user kadang tidak
+    // muncul di "address" (misal kecamatan seperti "Cililin" hanya muncul
+    // sebagai nama hasil pencarian, bukan sebagai field address). Pakai itu
+    // sebagai kecamatan kalau lebih spesifik daripada yang sudah ada.
+    const matchedName = item.namedetails?.name || item.display_name?.split(',')[0]?.trim() || '';
+    if (matchedName && matchedName.toLowerCase() !== kabupaten.toLowerCase()) {
+      kecamatan = matchedName;
+    }
+
+    if (kecamatan && kabupaten && kecamatan.toLowerCase() === kabupaten.toLowerCase()) {
+      kecamatan = '';
+    }
 
     // Hanya ambil hasil yang setidaknya punya kota/kabupaten.
     if (!kabupaten) continue;
 
-    const label = kecamatan ? `${kecamatan}, ${kabupaten}` : kabupaten;
+    const label = kecamatan ? `${kecamatan} - ${kabupaten}` : kabupaten;
     const key = label.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
