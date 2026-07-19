@@ -4,7 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import ImageSlider from '../components/ImageSlider';
 import KPRSlider from '../components/KPRSlider';
-import { formatRupiah } from '../lib/kpr';
+import { formatRupiah, formatRupiahShort } from '../lib/kpr';
 
 const SPEC_ROWS = [
   { key: 'luasTanah', label: 'Luas Tanah', icon: '📐', suffix: ' m²' },
@@ -58,7 +58,7 @@ export default function Listing() {
   const waNumber = (listing.whatsapp || '').replace(/[^0-9]/g, '');
   const waLink = waNumber
     ? `https://wa.me/${waNumber.startsWith('0') ? '62' + waNumber.slice(1) : waNumber}?text=${encodeURIComponent(
-        `Halo, saya tertarik dengan rumah di ${listing.kecamatan ? listing.kecamatan + ', ' : ''}${listing.kabupaten} (${formatRupiah(listing.price)}).`
+        `Halo, saya tertarik dengan rumah di ${listing.kecamatan ? listing.kecamatan + ' - ' : ''}${listing.kabupaten} (${formatRupiah(listing.price)}).`
       )}`
     : null;
 
@@ -67,10 +67,10 @@ export default function Listing() {
       <ImageSlider images={listing.images} alt={listing.kecamatan} aspect="aspect-[16/10]" />
 
       <div className="mt-6">
-        <p className="font-display text-3xl font-bold text-navy">{formatRupiah(listing.price)}</p>
+        <p className="font-display text-3xl font-bold text-navy">{formatRupiahShort(listing.price)}</p>
         <div className="mt-1 flex items-center gap-1.5 text-ink/60">
           <span aria-hidden>📍</span>
-          <span>{listing.kecamatan ? `${listing.kecamatan}, ` : ''}{listing.kabupaten}</span>
+          <span>{listing.kecamatan ? `${listing.kecamatan} - ` : ''}{listing.kabupaten}</span>
         </div>
       </div>
 
@@ -123,4 +123,4 @@ export default function Listing() {
       </section>
     </div>
   );
-}
+          }
