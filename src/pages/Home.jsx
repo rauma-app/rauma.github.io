@@ -1,9 +1,17 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { collection, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
+          import React, { useEffect, useState, useCallback } from 'react';
+import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import ListingCard from '../components/ListingCard';
 import LocationPermissionPopup from '../components/LocationPermissionPopup';
 import { distanceKm } from '../lib/nominatim';
+
+function sortByCreatedDesc(items) {
+  return [...items].sort((a, b) => {
+    const ta = a.createdAt?.toMillis?.() ?? 0;
+    const tb = b.createdAt?.toMillis?.() ?? 0;
+    return tb - ta;
+  });
+}
 
 const CATEGORY_SHORTCUTS = [
   { icon: '🌿', label: 'Green House' },
@@ -37,21 +45,25 @@ export default function Home() {
       const perumahanQ = query(
         collection(db, 'listings'),
         where('type', '==', 'perumahan'),
-        orderBy('createdAt', 'desc'),
-        limit(4)
+        limit(20)
       );
       const pribadiQ = query(
         collection(db, 'listings'),
         where('type', '==', 'pribadi'),
-        orderBy('createdAt', 'desc'),
-        limit(8)
+        limit(20)
       );
       const [perumahanSnap, pribadiSnap] = await Promise.all([
         getDocs(perumahanQ),
         getDocs(pribadiQ),
       ]);
-      setPerumahan(perumahanSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setPribadi(pribadiSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const perumahanList = sortByCreatedDesc(
+        perumahanSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      ).slice(0, 4);
+      const pribadiList = sortByCreatedDesc(
+        pribadiSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      ).slice(0, 8);
+      setPerumahan(perumahanList);
+      setPribadi(pribadiList);
     } catch (err) {
       console.error('Gagal memuat listing:', err);
     } finally {
