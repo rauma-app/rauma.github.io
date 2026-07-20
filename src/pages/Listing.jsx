@@ -4,7 +4,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import ImageSlider from '../components/ImageSlider';
 import KPRSlider from '../components/KPRSlider';
-import { formatRupiah, formatRupiahShort } from '../lib/kpr';
+import { calculateKPR, formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
 
 const SPEC_ROWS = [
   { key: 'luasTanah', label: 'Luas Tanah', icon: '📐', suffix: ' m²' },
@@ -67,15 +67,16 @@ export default function Listing() {
       <ImageSlider images={listing.images} alt={listing.kecamatan} aspect="aspect-[16/10]" />
 
       <div className="mt-6">
-        <p className="font-display text-3xl font-bold text-navy">{formatRupiahShort(listing.price)}</p>
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <p className="font-display text-3xl font-bold text-navy">{formatRupiahShort(listing.price)}</p>
+          <p className="text-sm text-ink/50">
+            Mulai {formatMonthlyShort(calculateKPR(listing.price).monthly)}
+          </p>
+        </div>
         <div className="mt-1 flex items-center gap-1.5 text-ink/60">
           <span aria-hidden>📍</span>
           <span>{listing.kecamatan ? `${listing.kecamatan} - ` : ''}{listing.kabupaten}</span>
         </div>
-      </div>
-
-      <div className="mt-6">
-        <KPRSlider price={listing.price} />
       </div>
 
       <section className="mt-8">
@@ -97,9 +98,11 @@ export default function Listing() {
       {listing.description && (
         <section className="mt-8">
           <h2 className="section-rule font-display text-xl font-semibold text-navy">Deskripsi</h2>
-          <p className="whitespace-pre-line text-sm leading-relaxed text-ink/80">
-            {listing.description}
-          </p>
+          <div className="rounded-2xl border border-line bg-white p-4">
+            <p className="whitespace-pre-line text-sm leading-relaxed text-ink/80">
+              {listing.description}
+            </p>
+          </div>
         </section>
       )}
 
@@ -121,6 +124,10 @@ export default function Listing() {
           </a>
         )}
       </section>
+
+      <section className="mt-8">
+        <KPRSlider price={listing.price} />
+      </section>
     </div>
   );
-          }
+}
