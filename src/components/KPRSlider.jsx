@@ -22,6 +22,7 @@ export default function KPRSlider({ price }) {
         </div>
         <p className="text-right text-xs text-ink/40">
           {KPR_BANK_LABEL} {result.annualRatePercent}%/thn (fixed)
+          <br />estimasi, bukan penawaran resmi bank
         </p>
       </div>
 
@@ -65,6 +66,18 @@ export default function KPRSlider({ price }) {
         <span>Pokok pinjaman</span>
         <span className="font-medium text-ink">{formatRupiah(result.principal)}</span>
       </div>
+      <p className="mt-2 text-xs text-ink/50">
+        Tenor rendah makin murah, lihat promo{' '}
+        <a
+          href="https://rumahsaya.bca.co.id/simulasi/bandingkan-bunga"
+          target="_blank"
+          rel="noreferrer"
+          className="font-medium text-forest underline"
+        >
+          disini
+        </a>
+        .
+      </p>
     </div>
   );
 }
