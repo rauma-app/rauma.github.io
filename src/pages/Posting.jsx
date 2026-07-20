@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
-import { db, storage } from '../firebase';
+import { db } from '../firebase';
+import { uploadManyToCloudinary } from '../lib/cloudinary';
 import { useAuth } from '../context/AuthContext';
 import LocationAutocomplete from '../components/LocationAutocomplete';
 
@@ -68,13 +68,7 @@ export default function Posting() {
 
     setSubmitting(true);
     try {
-      const imageUrls = [];
-      for (const file of files) {
-        const path = `listings/${user.uid}/${Date.now()}-${file.name}`;
-        const storageRef = ref(storage, path);
-        await uploadBytes(storageRef, file);
-        imageUrls.push(await getDownloadURL(storageRef));
-      }
+      const imageUrls = await uploadManyToCloudinary(files);
 
       const docRef = await addDoc(collection(db, 'listings'), {
         type: form.type,
@@ -282,4 +276,4 @@ function Field({ label, children }) {
       {children}
     </div>
   );
-            }
+}
