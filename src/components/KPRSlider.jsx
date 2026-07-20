@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { KPR_DEFAULTS, KPR_LIMITS, calculateKPR, formatRupiah } from '../lib/kpr';
+import { KPR_BANK_LABEL, KPR_DEFAULTS, KPR_LIMITS, calculateKPR, formatRupiah } from '../lib/kpr';
 
 export default function KPRSlider({ price }) {
   const [dpPercent, setDpPercent] = useState(KPR_DEFAULTS.dpPercent);
@@ -12,16 +12,16 @@ export default function KPRSlider({ price }) {
 
   return (
     <div className="rounded-2xl border border-line bg-white p-5">
+      <p className="section-rule text-xs font-semibold uppercase tracking-wide text-navy">Estimasi Cicilan</p>
       <div className="flex items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wide text-ink/40">Estimasi cicilan</p>
           <p className="font-display text-3xl font-semibold text-forest">
             {formatRupiah(result.monthly)}
             <span className="text-base font-normal text-ink/50"> /bulan</span>
           </p>
         </div>
         <p className="text-right text-xs text-ink/40">
-          Bunga {result.annualRatePercent}%/thn (fixed)
+          {KPR_BANK_LABEL} {result.annualRatePercent}%/thn (fixed)
           <br />estimasi, bukan penawaran resmi bank
         </p>
       </div>
