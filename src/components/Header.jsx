@@ -34,7 +34,7 @@ export default function Header() {
     <header className="sticky top-0 z-30 border-b border-line bg-cream/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link to="/" className="flex items-center gap-2">
-          <span className="text-2xl" aria-hidden>🏠</span>
+          <img src="/rauma-logo.png" alt="Rauma" className="h-8 w-8 object-contain" />
           <span className="font-display text-2xl font-bold tracking-tight text-navy">
             RAUMA
           </span>
