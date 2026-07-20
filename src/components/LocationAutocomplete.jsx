@@ -47,7 +47,7 @@ export default function LocationAutocomplete({ value, onSelect, placeholder }) {
         value={query}
         onChange={handleChange}
         onFocus={() => query.length >= 3 && setOpen(true)}
-        placeholder={placeholder || 'Cari Kota/Kabupaten atau Kecamatan...'}
+        placeholder={placeholder || 'Cari Kecamatan...'}
         className="w-full rounded-xl border border-line bg-white px-4 py-3 text-ink placeholder:text-ink/40 outline-none focus:border-forest"
         autoComplete="off"
       />
@@ -80,4 +80,4 @@ export default function LocationAutocomplete({ value, onSelect, placeholder }) {
       )}
     </div>
   );
-}
+      }
