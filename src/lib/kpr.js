@@ -7,18 +7,18 @@
 //   i = suku bunga per bulan (suku bunga tahunan / 12)
 //   n = tenor dalam bulan
 //
-// Asumsi default (karena bunga riil tiap bank & tiap tahun beda-beda,
-// ini dipakai murni untuk ESTIMASI, bukan penawaran resmi bank):
-//   - DP default: 20% dari harga rumah (minimum umum utk KPR non-subsidi)
-//   - Suku bunga: 6.5% per tahun, fixed selama tenor (rata-rata suku bunga
-//     KPR komersial di Indonesia saat ini berkisar 5.5%-9%)
+// Asumsi default:
+//   - DP default: 20% dari harga rumah
+//   - Suku bunga: mengikuti KPR BCA Syariah, 7.69% per tahun, fixed
 //   - Tenor default: 15 tahun (rentang wajar 5-20 tahun)
 
 export const KPR_DEFAULTS = {
   dpPercent: 20,
   tenorYears: 15,
-  annualRatePercent: 6.5,
+  annualRatePercent: 7.69,
 };
+
+export const KPR_BANK_LABEL = 'BCA Syariah';
 
 export const KPR_LIMITS = {
   dpPercent: { min: 10, max: 50, step: 5 },
