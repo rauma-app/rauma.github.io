@@ -22,8 +22,7 @@ export default function KPRSlider({ price }) {
         </div>
         <p className="text-right text-xs text-ink/40">
           {KPR_BANK_LABEL} {result.annualRatePercent}%/thn (fixed)
-          <br />estimasi, bukan penawaran resmi bank
-        </p>
+          </p>
       </div>
 
       <div className="mt-5 space-y-5">
