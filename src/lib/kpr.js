@@ -22,7 +22,7 @@ export const KPR_BANK_LABEL = 'BCA Syariah';
 
 export const KPR_LIMITS = {
   dpPercent: { min: 10, max: 50, step: 5 },
-  tenorYears: { min: 5, max: 20, step: 1 },
+  tenorYears: { min: 5, max: 15, step: 1 },
 };
 
 /**
