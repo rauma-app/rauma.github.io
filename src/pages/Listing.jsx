@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import ImageSlider from '../components/ImageSlider';
 import KPRSlider from '../components/KPRSlider';
+import ListingCard from '../components/ListingCard';
 import { calculateKPR, formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
 
 const SPEC_ROWS = [
@@ -21,6 +22,7 @@ export default function Listing() {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [related, setRelated] = useState([]);
 
   useEffect(() => {
     async function load() {
@@ -41,6 +43,39 @@ export default function Listing() {
     }
     load();
   }, [id]);
+
+  // Cari iklan lain di kabupaten/kecamatan yang sama, kecuali iklan ini sendiri.
+  useEffect(() => {
+    if (!listing?.kabupaten) return;
+    let cancelled = false;
+
+    async function loadRelated() {
+      try {
+        const q = query(
+          collection(db, 'listings'),
+          where('kabupaten', '==', listing.kabupaten)
+        );
+        const snap = await getDocs(q);
+        if (cancelled) return;
+
+        const others = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .filter((l) => l.id !== listing.id);
+
+        // Prioritaskan yang kecamatannya sama persis, sisanya di belakang.
+        const sameKecamatan = others.filter((l) => l.kecamatan === listing.kecamatan);
+        const rest = others.filter((l) => l.kecamatan !== listing.kecamatan);
+        setRelated([...sameKecamatan, ...rest].slice(0, 4));
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    loadRelated();
+    return () => {
+      cancelled = true;
+    };
+  }, [listing]);
 
   if (loading) {
     return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-ink/50">Memuat...</div>;
@@ -128,6 +163,19 @@ export default function Listing() {
       <section className="mt-8">
         <KPRSlider price={listing.price} />
       </section>
+
+      {related.length > 0 && (
+        <section className="mt-8">
+          <h2 className="section-rule font-display text-xl font-semibold text-navy">
+            Rumah Lain di {listing.kecamatan || listing.kabupaten}
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+            {related.map((l) => (
+              <ListingCard key={l.id} listing={l} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
