@@ -1,6 +1,6 @@
-            import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { uploadManyToCloudinary } from '../lib/cloudinary';
 import { useAuth } from '../context/AuthContext';
@@ -34,12 +34,74 @@ function formatThousands(digits) {
 export default function Posting() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { id } = useParams(); // ada isinya kalau mode EDIT, kosong kalau mode TAMBAH BARU
+  const isEditMode = Boolean(id);
+
   const [form, setForm] = useState(emptyForm);
   const [priceDisplay, setPriceDisplay] = useState('');
-  const [files, setFiles] = useState([]);
-  const [previews, setPreviews] = useState([]);
+  const [files, setFiles] = useState([]); // foto BARU (File object) yang belum di-upload
+  const [existingImages, setExistingImages] = useState([]); // foto LAMA (url string), khusus edit mode
+  const [previews, setPreviews] = useState([]); // gabungan url lama + preview foto baru, untuk ditampilkan
   const [submitting, setSubmitting] = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(isEditMode);
   const [error, setError] = useState('');
+
+  // Mode edit: ambil data listing lama, isi form otomatis.
+  useEffect(() => {
+    if (!isEditMode || !user) return;
+    let cancelled = false;
+
+    async function loadExisting() {
+      setLoadingExisting(true);
+      try {
+        const snap = await getDoc(doc(db, 'listings', id));
+        if (!snap.exists()) {
+          setError('Iklan tidak ditemukan.');
+          return;
+        }
+        const data = snap.data();
+        if (data.ownerUid !== user.uid) {
+          setError('Kamu tidak punya akses untuk mengedit iklan ini.');
+          return;
+        }
+        if (cancelled) return;
+
+        setForm({
+          type: data.type || 'pribadi',
+          priceRaw: String(data.price || ''),
+          location: {
+            label: data.kecamatan ? `${data.kecamatan} - ${data.kabupaten}` : data.kabupaten,
+            kabupaten: data.kabupaten || '',
+            kecamatan: data.kecamatan || '',
+            lat: data.lat,
+            lon: data.lon,
+          },
+          luasTanah: data.luasTanah ?? '',
+          luasBangunan: data.luasBangunan ?? '',
+          bedrooms: data.bedrooms ?? '',
+          bathrooms: data.bathrooms ?? '',
+          electricity: data.electricity || '',
+          air: data.air || '',
+          sertifikat: data.sertifikat || '',
+          description: data.description || '',
+          whatsapp: data.whatsapp || '',
+        });
+        setPriceDisplay(formatThousands(String(data.price || '')));
+        setExistingImages(data.images || []);
+        setPreviews(data.images || []);
+      } catch (err) {
+        console.error(err);
+        setError('Gagal memuat data iklan.');
+      } finally {
+        if (!cancelled) setLoadingExisting(false);
+      }
+    }
+
+    loadExisting();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditMode, id, user]);
 
   function update(field, value) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -56,30 +118,42 @@ export default function Posting() {
     update('whatsapp', digits);
   }
 
+  function totalPhotoCount() {
+    return existingImages.length + files.length;
+  }
+
   function handleFiles(e) {
     const incoming = Array.from(e.target.files || []);
+    const room = MAX_PHOTOS - totalPhotoCount();
+    const accepted = incoming.slice(0, Math.max(room, 0));
     setFiles((prev) => {
-      const combined = [...prev, ...incoming].slice(0, MAX_PHOTOS);
-      setPreviews(combined.map((f) => URL.createObjectURL(f)));
+      const combined = [...prev, ...accepted];
+      setPreviews([...existingImages, ...combined.map((f) => URL.createObjectURL(f))]);
       return combined;
     });
-    // Reset input value supaya bisa pilih file yang sama lagi kalau perlu.
     e.target.value = '';
   }
 
   function removePhoto(index) {
-    setFiles((prev) => {
-      const updated = prev.filter((_, i) => i !== index);
-      setPreviews(updated.map((f) => URL.createObjectURL(f)));
-      return updated;
-    });
+    if (index < existingImages.length) {
+      // Hapus dari foto lama
+      const updatedExisting = existingImages.filter((_, i) => i !== index);
+      setExistingImages(updatedExisting);
+      setPreviews([...updatedExisting, ...files.map((f) => URL.createObjectURL(f))]);
+    } else {
+      // Hapus dari foto baru
+      const fileIndex = index - existingImages.length;
+      const updatedFiles = files.filter((_, i) => i !== fileIndex);
+      setFiles(updatedFiles);
+      setPreviews([...existingImages, ...updatedFiles.map((f) => URL.createObjectURL(f))]);
+    }
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
 
-    if (!form.priceRaw || !form.location || files.length === 0) {
+    if (!form.priceRaw || !form.location || totalPhotoCount() === 0) {
       setError('Harga, lokasi, dan minimal 1 foto wajib diisi.');
       return;
     }
@@ -91,9 +165,10 @@ export default function Posting() {
 
     setSubmitting(true);
     try {
-      const imageUrls = await uploadManyToCloudinary(files);
+      const newImageUrls = files.length ? await uploadManyToCloudinary(files) : [];
+      const imageUrls = [...existingImages, ...newImageUrls];
 
-      const docRef = await addDoc(collection(db, 'listings'), {
+      const payload = {
         type: form.type,
         price: Number(form.priceRaw),
         kabupaten: form.location.kabupaten,
@@ -110,24 +185,38 @@ export default function Posting() {
         description: form.description || '',
         whatsapp: form.whatsapp || '',
         images: imageUrls,
-        ownerUid: user.uid,
-        ownerName: user.displayName,
-        ownerPhoto: user.photoURL,
-        createdAt: serverTimestamp(),
-      });
+      };
 
-      navigate(`/id/${docRef.id}`);
+      if (isEditMode) {
+        await updateDoc(doc(db, 'listings', id), payload);
+        navigate(`/id/${id}`);
+      } else {
+        const docRef = await addDoc(collection(db, 'listings'), {
+          ...payload,
+          ownerUid: user.uid,
+          ownerName: user.displayName,
+          ownerPhoto: user.photoURL,
+          createdAt: serverTimestamp(),
+        });
+        navigate(`/id/${docRef.id}`);
+      }
     } catch (err) {
       console.error(err);
-      setError('Gagal memposting iklan. Coba lagi ya.');
+      setError('Gagal menyimpan iklan. Coba lagi ya.');
     } finally {
       setSubmitting(false);
     }
   }
 
+  if (loadingExisting) {
+    return <div className="mx-auto max-w-xl px-4 py-16 text-center text-ink/50">Memuat data iklan...</div>;
+  }
+
   return (
     <div className="mx-auto max-w-xl px-4 py-8">
-      <h1 className="font-display text-2xl font-semibold text-navy">Pasang Iklan</h1>
+      <h1 className="font-display text-2xl font-semibold text-navy">
+        {isEditMode ? 'Edit Iklan' : 'Pasang Iklan'}
+      </h1>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-5">
         {/* Toggle Pribadi/Perumahan */}
@@ -153,7 +242,7 @@ export default function Posting() {
           <label className="mb-2 block text-sm font-semibold text-ink">
             Foto Rumah <span className="font-normal text-ink/40">(maks. {MAX_PHOTOS}, pilih beberapa sekaligus)</span>
           </label>
-          {files.length < MAX_PHOTOS && (
+          {totalPhotoCount() < MAX_PHOTOS && (
             <label className="flex h-28 w-28 cursor-pointer items-center justify-center rounded-xl bg-ink/70 text-3xl text-white hover:bg-ink/80">
               +
               <input type="file" accept="image/*" multiple onChange={handleFiles} className="hidden" />
@@ -287,7 +376,7 @@ export default function Posting() {
             maxLength={13}
             value={form.whatsapp}
             onChange={handleWhatsappChange}
-            placeholder="Masukkan nomor WhatsApp.."
+            placeholder="Masukkan nomor WhatsApp (10-13 digit)"
             className="input"
           />
         </Field>
@@ -299,7 +388,7 @@ export default function Posting() {
           disabled={submitting}
           className="w-full rounded-full bg-forest py-3.5 text-center font-semibold text-white hover:bg-forest-dark disabled:opacity-60"
         >
-          {submitting ? 'Memposting...' : 'POSTING'}
+          {submitting ? 'Menyimpan...' : isEditMode ? 'SIMPAN PERUBAHAN' : 'POSTING'}
         </button>
       </form>
     </div>
@@ -313,4 +402,5 @@ function Field({ label, children }) {
       {children}
     </div>
   );
-}
+                          }
+                          
