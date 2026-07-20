@@ -1,17 +1,10 @@
-          import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import ListingCard from '../components/ListingCard';
 import LocationPermissionPopup from '../components/LocationPermissionPopup';
 import { distanceKm } from '../lib/nominatim';
-
-function sortByCreatedDesc(items) {
-  return [...items].sort((a, b) => {
-    const ta = a.createdAt?.toMillis?.() ?? 0;
-    const tb = b.createdAt?.toMillis?.() ?? 0;
-    return tb - ta;
-  });
-}
 
 const CATEGORY_SHORTCUTS = [
   { icon: '🌿', label: 'Green House' },
@@ -22,20 +15,32 @@ const CATEGORY_SHORTCUTS = [
   { icon: '🛡️', label: 'Awas Ketipu' },
 ];
 
+const PRIBADI_PAGE_SIZE = 8;
+const PERUMAHAN_ROW_LIMIT = 8;
+
+function sortByCreatedDesc(items) {
+  return [...items].sort((a, b) => {
+    const ta = a.createdAt?.toMillis?.() ?? 0;
+    const tb = b.createdAt?.toMillis?.() ?? 0;
+    return tb - ta;
+  });
+}
+
 function sortByDistance(items, userLoc) {
   if (!userLoc) return items;
   return [...items].sort((a, b) => {
     const da = distanceKm(userLoc.lat, userLoc.lon, a.lat, a.lon);
-    const db_ = distanceKm(userLoc.lat, userLoc.lon, b.lat, b.lon);
+    const dbb = distanceKm(userLoc.lat, userLoc.lon, b.lat, b.lon);
     if (da == null) return 1;
-    if (db_ == null) return -1;
-    return da - db_;
+    if (dbb == null) return -1;
+    return da - dbb;
   });
 }
 
 export default function Home() {
   const [perumahan, setPerumahan] = useState([]);
   const [pribadi, setPribadi] = useState([]);
+  const [pribadiVisible, setPribadiVisible] = useState(PRIBADI_PAGE_SIZE);
   const [userLoc, setUserLoc] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -45,25 +50,23 @@ export default function Home() {
       const perumahanQ = query(
         collection(db, 'listings'),
         where('type', '==', 'perumahan'),
-        limit(20)
+        limit(PERUMAHAN_ROW_LIMIT)
       );
       const pribadiQ = query(
         collection(db, 'listings'),
         where('type', '==', 'pribadi'),
-        limit(20)
+        limit(100)
       );
       const [perumahanSnap, pribadiSnap] = await Promise.all([
         getDocs(perumahanQ),
         getDocs(pribadiQ),
       ]);
-      const perumahanList = sortByCreatedDesc(
-        perumahanSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      ).slice(0, 4);
-      const pribadiList = sortByCreatedDesc(
-        pribadiSnap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      ).slice(0, 8);
-      setPerumahan(perumahanList);
-      setPribadi(pribadiList);
+      setPerumahan(
+        sortByCreatedDesc(perumahanSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      );
+      setPribadi(
+        sortByCreatedDesc(pribadiSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      );
     } catch (err) {
       console.error('Gagal memuat listing:', err);
     } finally {
@@ -76,8 +79,9 @@ export default function Home() {
   }, [loadListings]);
 
   const sortedPerumahan = sortByDistance(perumahan, userLoc);
-  const sortedPribadiRow2 = sortByDistance(pribadi.slice(0, 4), userLoc);
-  const sortedPribadiRow3 = sortByDistance(pribadi.slice(4, 8), userLoc);
+  const sortedPribadi = sortByDistance(pribadi, userLoc);
+  const visiblePribadi = sortedPribadi.slice(0, pribadiVisible);
+  const hasMorePribadi = pribadiVisible < sortedPribadi.length;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -100,35 +104,55 @@ export default function Home() {
         </p>
       )}
 
-      {/* Baris 1: Perumahan */}
+      {/* Baris 1: Perumahan - horizontal scroll, tidak melebarkan halaman */}
       <section className="mt-8">
         <h2 className="font-display text-xl font-semibold text-navy">Perumahan</h2>
-        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {sortedPerumahan.map((l) => (
-            <ListingCard key={l.id} listing={l} />
-          ))}
-          {!loading && sortedPerumahan.length === 0 && (
-            <p className="col-span-full text-sm text-ink/40">Belum ada listing perumahan.</p>
-          )}
-        </div>
+        {sortedPerumahan.length === 0 && !loading ? (
+          <p className="mt-4 text-sm text-ink/40">Belum ada listing perumahan.</p>
+        ) : (
+          <div className="-mx-4 mt-4 overflow-x-auto px-4 pb-2">
+            <div className="flex gap-4" style={{ width: 'max-content' }}>
+              {sortedPerumahan.map((l) => (
+                <div key={l.id} className="w-44 flex-shrink-0 sm:w-60">
+                  <ListingCard listing={l} />
+                </div>
+              ))}
+              {sortedPerumahan.length >= PERUMAHAN_ROW_LIMIT && (
+                <Link
+                  to="/perumahan"
+                  className="flex w-44 flex-shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line bg-white text-center sm:w-60"
+                >
+                  <span className="text-2xl" aria-hidden>➡️</span>
+                  <span className="text-sm font-semibold text-forest">Lihat lainnya</span>
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
       </section>
 
-      {/* Baris 2 & 3: Rumah Pribadi */}
+      {/* Baris 2+: Rumah Pribadi, dengan pagination "Muat lebih banyak" */}
       <section className="mt-10">
         <h2 className="font-display text-xl font-semibold text-navy">Rumah Pribadi</h2>
-        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {sortedPribadiRow2.map((l) => (
-            <ListingCard key={l.id} listing={l} />
-          ))}
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {sortedPribadiRow3.map((l) => (
-            <ListingCard key={l.id} listing={l} />
-          ))}
-          {!loading && sortedPribadiRow2.length === 0 && sortedPribadiRow3.length === 0 && (
-            <p className="col-span-full text-sm text-ink/40">Belum ada listing rumah pribadi.</p>
-          )}
-        </div>
+        {visiblePribadi.length === 0 && !loading ? (
+          <p className="mt-4 text-sm text-ink/40">Belum ada listing rumah pribadi.</p>
+        ) : (
+          <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            {visiblePribadi.map((l) => (
+              <ListingCard key={l.id} listing={l} />
+            ))}
+          </div>
+        )}
+        {hasMorePribadi && (
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={() => setPribadiVisible((v) => v + PRIBADI_PAGE_SIZE)}
+              className="rounded-full bg-forest px-6 py-2.5 text-sm font-semibold text-white hover:bg-forest-dark"
+            >
+              Muat lebih banyak
+            </button>
+          </div>
+        )}
       </section>
 
       <LocationPermissionPopup onLocationGranted={setUserLoc} />
