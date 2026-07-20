@@ -35,9 +35,6 @@ export default function Header() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link to="/" className="flex items-center gap-2">
           <img src="/rauma-logo.png" alt="Rauma" className="h-8 w-8 object-contain" />
-          <span className="font-display text-2xl font-bold tracking-tight text-navy">
-            RAUMA
-          </span>
         </Link>
 
         {!user ? (
