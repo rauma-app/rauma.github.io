@@ -4,6 +4,7 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
+import PerumahanList from './pages/PerumahanList';
 import Posting from './pages/Posting';
 import Listing from './pages/Listing';
 import MyListings from './pages/MyListings';
@@ -15,9 +16,18 @@ export default function App() {
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/perumahan" element={<PerumahanList />} />
           <Route path="/id/:id" element={<Listing />} />
           <Route
             path="/posting"
+            element={
+              <ProtectedRoute>
+                <Posting />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/posting/:id"
             element={
               <ProtectedRoute>
                 <Posting />
