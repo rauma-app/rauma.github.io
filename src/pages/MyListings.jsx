@@ -1,8 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import ListingCard from '../components/ListingCard';
+
+function sortByCreatedDesc(items) {
+  return [...items].sort((a, b) => {
+    const ta = a.createdAt?.toMillis?.() ?? 0;
+    const tb = b.createdAt?.toMillis?.() ?? 0;
+    return tb - ta;
+  });
+}
 
 export default function MyListings() {
   const { user } = useAuth();
@@ -16,11 +24,10 @@ export default function MyListings() {
       try {
         const q = query(
           collection(db, 'listings'),
-          where('ownerUid', '==', user.uid),
-          orderBy('createdAt', 'desc')
+          where('ownerUid', '==', user.uid)
         );
         const snap = await getDocs(q);
-        setListings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setListings(sortByCreatedDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
       } catch (err) {
         console.error(err);
       } finally {
