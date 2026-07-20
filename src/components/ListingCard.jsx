@@ -12,16 +12,16 @@ export default function ListingCard({ listing }) {
       className="group block overflow-hidden rounded-2xl border border-line bg-paper transition-shadow hover:shadow-lg"
     >
       <ImageSlider images={listing.images} alt={listing.title || listing.kecamatan} rounded="rounded-none" />
-      <div className="p-4">
-        <div className="flex items-baseline gap-2">
-          <span className="font-display text-xl font-semibold text-navy">
+      <div className="p-3 sm:p-4">
+        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+          <span className="font-display text-base font-semibold text-navy sm:text-xl">
             {formatRupiahShort(listing.price)}
           </span>
-          <span className="text-sm text-ink/50">· {formatMonthlyShort(monthly)}</span>
+          <span className="text-xs text-ink/50 sm:text-sm">· {formatMonthlyShort(monthly)}</span>
         </div>
-        <div className="mt-2 flex items-center gap-1.5 text-sm text-ink/60">
+        <div className="mt-1.5 flex items-center gap-1 text-xs text-ink/60 sm:mt-2 sm:text-sm">
           <span aria-hidden>📍</span>
-          <span>
+          <span className="line-clamp-1">
             {listing.kecamatan ? `${listing.kecamatan} - ` : ''}
             {listing.kabupaten}
           </span>
