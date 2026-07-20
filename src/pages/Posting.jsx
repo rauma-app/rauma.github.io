@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+            import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -51,10 +51,28 @@ export default function Posting() {
     setPriceDisplay(formatThousands(digits));
   }
 
+  function handleWhatsappChange(e) {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 13);
+    update('whatsapp', digits);
+  }
+
   function handleFiles(e) {
-    const selected = Array.from(e.target.files || []).slice(0, MAX_PHOTOS);
-    setFiles(selected);
-    setPreviews(selected.map((f) => URL.createObjectURL(f)));
+    const incoming = Array.from(e.target.files || []);
+    setFiles((prev) => {
+      const combined = [...prev, ...incoming].slice(0, MAX_PHOTOS);
+      setPreviews(combined.map((f) => URL.createObjectURL(f)));
+      return combined;
+    });
+    // Reset input value supaya bisa pilih file yang sama lagi kalau perlu.
+    e.target.value = '';
+  }
+
+  function removePhoto(index) {
+    setFiles((prev) => {
+      const updated = prev.filter((_, i) => i !== index);
+      setPreviews(updated.map((f) => URL.createObjectURL(f)));
+      return updated;
+    });
   }
 
   async function handleSubmit(e) {
@@ -63,6 +81,11 @@ export default function Posting() {
 
     if (!form.priceRaw || !form.location || files.length === 0) {
       setError('Harga, lokasi, dan minimal 1 foto wajib diisi.');
+      return;
+    }
+
+    if (form.whatsapp.length < 10 || form.whatsapp.length > 13) {
+      setError('Nomor WhatsApp harus 10-13 digit.');
       return;
     }
 
@@ -128,16 +151,28 @@ export default function Posting() {
         {/* Upload gambar */}
         <div>
           <label className="mb-2 block text-sm font-semibold text-ink">
-            Foto Rumah <span className="font-normal text-ink/40">(maks. {MAX_PHOTOS})</span>
+            Foto Rumah <span className="font-normal text-ink/40">(maks. {MAX_PHOTOS}, pilih beberapa sekaligus)</span>
           </label>
-          <label className="flex h-28 w-28 cursor-pointer items-center justify-center rounded-xl bg-ink/70 text-3xl text-white hover:bg-ink/80">
-            +
-            <input type="file" accept="image/*" multiple onChange={handleFiles} className="hidden" />
-          </label>
+          {files.length < MAX_PHOTOS && (
+            <label className="flex h-28 w-28 cursor-pointer items-center justify-center rounded-xl bg-ink/70 text-3xl text-white hover:bg-ink/80">
+              +
+              <input type="file" accept="image/*" multiple onChange={handleFiles} className="hidden" />
+            </label>
+          )}
           {previews.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {previews.map((src, i) => (
-                <img key={i} src={src} alt={`preview ${i + 1}`} className="h-20 w-20 rounded-lg object-cover" />
+                <div key={i} className="relative h-20 w-20">
+                  <img src={src} alt={`preview ${i + 1}`} className="h-20 w-20 rounded-lg object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(i)}
+                    aria-label="Hapus foto"
+                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink text-xs text-white"
+                  >
+                    ×
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -161,7 +196,7 @@ export default function Posting() {
           <LocationAutocomplete
             value={form.location}
             onSelect={(loc) => update('location', loc)}
-            placeholder="Kota/Kabupaten - Kecamatan"
+            placeholder="Cari Kecamatan..."
           />
         </Field>
 
@@ -248,9 +283,11 @@ export default function Posting() {
         <Field label="WhatsApp">
           <input
             type="tel"
+            inputMode="numeric"
+            maxLength={13}
             value={form.whatsapp}
-            onChange={(e) => update('whatsapp', e.target.value)}
-            placeholder="Masukkan nomor WhatsApp"
+            onChange={handleWhatsappChange}
+            placeholder="Masukkan nomor WhatsApp.."
             className="input"
           />
         </Field>
