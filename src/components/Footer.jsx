@@ -13,7 +13,7 @@ const SOCIAL_LINKS = [
 const CONTACT = {
   phone: '+62 851-5622-2635',
   email: 'halo@rauma.id',
-  hours: 'Senin – Sabtu, 09:00 – 17:00 WIB',
+  
 };
 
 const QUICK_LINKS = [
