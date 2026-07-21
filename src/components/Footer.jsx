@@ -34,7 +34,7 @@ export default function Footer() {
               <img 
                 src="/rauma-logo2.png" 
                 alt="Rauma" 
-                className="h-16 md:h-20 w-auto object-contain" 
+                className="h-14 md:h-18 w-auto object-contain" 
               />
             </Link>
             <p className="mt-3 max-w-xs text-sm">
