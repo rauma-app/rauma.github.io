@@ -127,6 +127,23 @@ export default function Listing() {
               </dd>
             </div>
           ))}
+          {listing.videoUrl && (
+            <div className="flex items-center justify-between px-4 py-3">
+              <dt className="flex items-center gap-2 text-sm text-ink/60">
+                <span aria-hidden>🎥</span> Video
+              </dt>
+              <dd className="text-sm font-medium">
+                <a
+                  href={listing.videoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-forest underline"
+                >
+                  Lihat Video
+                </a>
+              </dd>
+            </div>
+          )}
         </dl>
       </section>
 
