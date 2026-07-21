@@ -20,6 +20,7 @@ const emptyForm = {
   electricity: '',
   air: '',
   sertifikat: '',
+  videoUrl: '',
   description: '',
   whatsapp: '',
 };
@@ -83,6 +84,7 @@ export default function Posting() {
           electricity: data.electricity || '',
           air: data.air || '',
           sertifikat: data.sertifikat || '',
+          videoUrl: data.videoUrl || '',
           description: data.description || '',
           whatsapp: data.whatsapp || '',
         });
@@ -163,6 +165,11 @@ export default function Posting() {
       return;
     }
 
+    if (form.videoUrl && !/^https?:\/\//i.test(form.videoUrl.trim())) {
+      setError('URL video harus diawali http:// atau https://');
+      return;
+    }
+
     setSubmitting(true);
     try {
       const newImageUrls = files.length ? await uploadManyToCloudinary(files) : [];
@@ -182,6 +189,7 @@ export default function Posting() {
         electricity: form.electricity || null,
         air: form.air || null,
         sertifikat: form.sertifikat || null,
+        videoUrl: form.videoUrl ? form.videoUrl.trim() : null,
         description: form.description || '',
         whatsapp: form.whatsapp || '',
         images: imageUrls,
@@ -359,6 +367,17 @@ export default function Posting() {
           </select>
         </Field>
 
+        <Field label="URL Video">
+          <input
+            type="url"
+            value={form.videoUrl}
+            onChange={(e) => update('videoUrl', e.target.value)}
+            placeholder="Masukkan link video jika ada (YouTube/TikTok/Instagram)"
+            className="input"
+          />
+          <p className="mt-1.5 text-xs text-ink/40">Opsional. Tempel link video tur rumah kalau ada.</p>
+        </Field>
+
         <Field label="Deskripsi">
           <textarea
             rows={4}
@@ -402,5 +421,4 @@ function Field({ label, children }) {
       {children}
     </div>
   );
-                          }
-                          
+          }
