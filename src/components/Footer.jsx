@@ -4,14 +4,14 @@ import { FaInstagram, FaFacebook, FaTiktok, FaYoutube } from 'react-icons/fa';
 
 // GANTI nilai-nilai placeholder di bawah ini dengan data asli kamu.
 const SOCIAL_LINKS = [
-  { label: 'Instagram', Icon: FaInstagram, href: '#' },
+  { label: 'Instagram', Icon: FaInstagram, href: 'https://www.instagram.com/rauma.id' },
   { label: 'Facebook', Icon: FaFacebook, href: '#' },
-  { label: 'TikTok', Icon: FaTiktok, href: '#' },
+  { label: 'TikTok', Icon: FaTiktok, href: 'https://tiktok.com/@rauma.id' },
   { label: 'YouTube', Icon: FaYoutube, href: '#' },
 ];
 
 const CONTACT = {
-  phone: '0812-3456-7890',
+  phone: '+62 851-5622-2635',
   email: 'halo@rauma.id',
   hours: 'Senin – Sabtu, 09:00 – 17:00 WIB',
 };
