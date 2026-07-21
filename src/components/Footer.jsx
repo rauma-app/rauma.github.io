@@ -32,7 +32,7 @@ export default function Footer() {
           <div>
             <Link to="/" className="flex items-center gap-2 overflow-visible">
               <img 
-                src="/rauma-logo.png" 
+                src="/rauma-logo2.png" 
                 alt="Rauma" 
                 className="h-16 md:h-20 w-auto object-contain" 
               />
