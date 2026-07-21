@@ -28,12 +28,15 @@ export default function Footer() {
     <footer className="mt-16 bg-navy text-cream/80">
       <div className="mx-auto max-w-6xl px-4 py-10">
         <div className="grid gap-10 sm:grid-cols-[1.3fr_1fr_1.3fr]">
-          {/* Kolom 1: Logo, deskripsi, social media */}
+          {/* Kolom 1: Logo gambar baru, deskripsi, social media */}
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-2xl" aria-hidden>🏠</span>
-              <span className="font-display text-2xl font-bold text-white">RAUMA</span>
-            </div>
+            <Link to="/" className="flex items-center gap-2 overflow-visible">
+              <img 
+                src="/rauma-logo.png" 
+                alt="Rauma" 
+                className="h-16 md:h-20 w-auto object-contain" 
+              />
+            </Link>
             <p className="mt-3 max-w-xs text-sm">
               Rauma.id adalah platform jual beli rumah KPR yang mudah dan gratis untuk
               seluruh masyarakat Indonesia.
