@@ -121,9 +121,7 @@ export default function Footer() {
                 <li className="flex items-center gap-2">
                   <span aria-hidden>✉️</span> {CONTACT.email}
                 </li>
-                <li className="flex items-center gap-2">
-                  <span aria-hidden>🕒</span> {CONTACT.hours}
-                </li>
+                
               </ul>
             </div>
           </div>
