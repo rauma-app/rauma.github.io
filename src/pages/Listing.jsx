@@ -53,7 +53,8 @@ export default function Listing() {
       try {
         const q = query(
           collection(db, 'listings'),
-          where('kabupaten', '==', listing.kabupaten)
+          where('kabupaten', '==', listing.kabupaten),
+          where('status', '==', 'approved')
         );
         const snap = await getDocs(q);
         if (cancelled) return;
