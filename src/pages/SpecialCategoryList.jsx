@@ -11,11 +11,13 @@ export function SpecialCategoryList({ type, title, intro }) {
     async function load() {
       setLoading(true);
       try {
-        const q = query(collection(db, 'listings'), where('type', '==', type));
-        const snap = await getDocs(q);
-        setListings(
-          snap.docs.map((d) => ({ id: d.id, ...d.data() })).filter((l) => l.status === 'approved')
+        const q = query(
+          collection(db, 'listings'),
+          where('type', '==', type),
+          where('status', '==', 'approved')
         );
+        const snap = await getDocs(q);
+        setListings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error(err);
       } finally {
