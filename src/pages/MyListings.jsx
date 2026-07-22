@@ -1,18 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, deleteDoc, doc, getDocs, query, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import ImageSlider from '../components/ImageSlider';
 import { calculateKPR, formatMonthlyShort, formatRupiahShort } from '../lib/kpr';
-
-function sortByCreatedDesc(items) {
-  return [...items].sort((a, b) => {
-    const ta = a.createdAt?.toMillis?.() ?? 0;
-    const tb = b.createdAt?.toMillis?.() ?? 0;
-    return tb - ta;
-  });
-}
 
 export default function MyListings() {
   const { user } = useAuth();
@@ -29,9 +21,9 @@ export default function MyListings() {
     if (!user) return;
     setLoading(true);
     try {
-      const q = query(collection(db, 'listings'), where('ownerUid', '==', user.uid));
+      const q = query(collection(db, 'listings'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
       const snap = await getDocs(q);
-      setListings(sortByCreatedDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
+      setListings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (err) {
       console.error(err);
     } finally {
@@ -114,4 +106,4 @@ export default function MyListings() {
       </div>
     </div>
   );
-}
+              }
