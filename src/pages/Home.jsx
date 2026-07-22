@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getDocs, limit, query, where } from 'firebase/firestore';
+import { collection, getDocs, limit, orderBy, query, startAfter, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import ListingCard from '../components/ListingCard';
 import LocationPermissionPopup from '../components/LocationPermissionPopup';
@@ -18,14 +18,6 @@ const CATEGORY_SHORTCUTS = [
 const PRIBADI_PAGE_SIZE = 8;
 const PERUMAHAN_ROW_LIMIT = 8;
 
-function sortByCreatedDesc(items) {
-  return [...items].sort((a, b) => {
-    const ta = a.createdAt?.toMillis?.() ?? 0;
-    const tb = b.createdAt?.toMillis?.() ?? 0;
-    return tb - ta;
-  });
-}
-
 function sortByDistance(items, userLoc) {
   if (!userLoc) return items;
   return [...items].sort((a, b) => {
@@ -40,33 +32,36 @@ function sortByDistance(items, userLoc) {
 export default function Home() {
   const [perumahan, setPerumahan] = useState([]);
   const [pribadi, setPribadi] = useState([]);
-  const [pribadiVisible, setPribadiVisible] = useState(PRIBADI_PAGE_SIZE);
+  const [lastPribadiDoc, setLastPribadiDoc] = useState(null);
+  const [hasMorePribadi, setHasMorePribadi] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [userLoc, setUserLoc] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const loadListings = useCallback(async () => {
+  const loadInitial = useCallback(async () => {
     setLoading(true);
     try {
       const perumahanQ = query(
         collection(db, 'listings'),
         where('type', '==', 'perumahan'),
+        orderBy('createdAt', 'desc'),
         limit(PERUMAHAN_ROW_LIMIT)
       );
       const pribadiQ = query(
         collection(db, 'listings'),
         where('type', '==', 'pribadi'),
-        limit(100)
+        orderBy('createdAt', 'desc'),
+        limit(PRIBADI_PAGE_SIZE)
       );
       const [perumahanSnap, pribadiSnap] = await Promise.all([
         getDocs(perumahanQ),
         getDocs(pribadiQ),
       ]);
-      setPerumahan(
-        sortByCreatedDesc(perumahanSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
-      );
-      setPribadi(
-        sortByCreatedDesc(pribadiSnap.docs.map((d) => ({ id: d.id, ...d.data() })))
-      );
+
+      setPerumahan(perumahanSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setPribadi(pribadiSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setLastPribadiDoc(pribadiSnap.docs[pribadiSnap.docs.length - 1] || null);
+      setHasMorePribadi(pribadiSnap.docs.length === PRIBADI_PAGE_SIZE);
     } catch (err) {
       console.error('Gagal memuat listing:', err);
     } finally {
@@ -75,13 +70,33 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    loadListings();
-  }, [loadListings]);
+    loadInitial();
+  }, [loadInitial]);
+
+  async function loadMorePribadi() {
+    if (!lastPribadiDoc || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const nextQ = query(
+        collection(db, 'listings'),
+        where('type', '==', 'pribadi'),
+        orderBy('createdAt', 'desc'),
+        startAfter(lastPribadiDoc),
+        limit(PRIBADI_PAGE_SIZE)
+      );
+      const snap = await getDocs(nextQ);
+      setPribadi((prev) => [...prev, ...snap.docs.map((d) => ({ id: d.id, ...d.data() }))]);
+      setLastPribadiDoc(snap.docs[snap.docs.length - 1] || lastPribadiDoc);
+      setHasMorePribadi(snap.docs.length === PRIBADI_PAGE_SIZE);
+    } catch (err) {
+      console.error('Gagal memuat listing tambahan:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   const sortedPerumahan = sortByDistance(perumahan, userLoc);
   const sortedPribadi = sortByDistance(pribadi, userLoc);
-  const visiblePribadi = sortedPribadi.slice(0, pribadiVisible);
-  const hasMorePribadi = pribadiVisible < sortedPribadi.length;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -100,7 +115,7 @@ export default function Home() {
 
       {userLoc && (
         <p className="mt-6 text-sm text-forest">
-          Menampilkan rumah terdekat dari lokasi kamu.
+          Mengurutkan berdasar jarak terdekat dari lokasi kamu.
         </p>
       )}
 
@@ -134,11 +149,11 @@ export default function Home() {
       {/* Baris 2+: Rumah Pribadi, dengan pagination "Muat lebih banyak" */}
       <section className="mt-10">
         <h2 className="font-display text-xl font-semibold text-navy">Rumah Pribadi</h2>
-        {visiblePribadi.length === 0 && !loading ? (
+        {sortedPribadi.length === 0 && !loading ? (
           <p className="mt-4 text-sm text-ink/40">Belum ada listing rumah pribadi.</p>
         ) : (
           <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {visiblePribadi.map((l) => (
+            {sortedPribadi.map((l) => (
               <ListingCard key={l.id} listing={l} />
             ))}
           </div>
@@ -146,10 +161,11 @@ export default function Home() {
         {hasMorePribadi && (
           <div className="mt-6 flex justify-center">
             <button
-              onClick={() => setPribadiVisible((v) => v + PRIBADI_PAGE_SIZE)}
-              className="rounded-full bg-forest px-6 py-2.5 text-sm font-semibold text-white hover:bg-forest-dark"
+              onClick={loadMorePribadi}
+              disabled={loadingMore}
+              className="rounded-full bg-forest px-6 py-2.5 text-sm font-semibold text-white hover:bg-forest-dark disabled:opacity-60"
             >
-              Muat lebih banyak
+              {loadingMore ? 'Memuat...' : 'Muat lebih banyak'}
             </button>
           </div>
         )}
@@ -158,4 +174,5 @@ export default function Home() {
       <LocationPermissionPopup onLocationGranted={setUserLoc} />
     </div>
   );
-}
+        }
+            
