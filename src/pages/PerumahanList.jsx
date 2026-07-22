@@ -1,15 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import ListingCard from '../components/ListingCard';
-
-function sortByCreatedDesc(items) {
-  return [...items].sort((a, b) => {
-    const ta = a.createdAt?.toMillis?.() ?? 0;
-    const tb = b.createdAt?.toMillis?.() ?? 0;
-    return tb - ta;
-  });
-}
 
 export default function PerumahanList() {
   const [listings, setListings] = useState([]);
@@ -19,9 +11,9 @@ export default function PerumahanList() {
     async function load() {
       setLoading(true);
       try {
-        const q = query(collection(db, 'listings'), where('type', '==', 'perumahan'));
+        const q = query(collection(db, 'listings'), where('type', '==', 'perumahan'), orderBy('createdAt', 'desc'));
         const snap = await getDocs(q);
-        setListings(sortByCreatedDesc(snap.docs.map((d) => ({ id: d.id, ...d.data() }))));
+        setListings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error(err);
       } finally {
@@ -49,4 +41,3 @@ export default function PerumahanList() {
     </div>
   );
 }
-
