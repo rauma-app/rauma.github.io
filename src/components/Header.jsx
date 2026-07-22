@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { isAdmin } from '../lib/admin';
 
 export default function Header() {
   const { user, loginWithGoogle, logout } = useAuth();
@@ -18,13 +19,9 @@ export default function Header() {
 
   async function handlePostingClick() {
     if (!user) {
-      // Belum login -> arahkan ke Google Sign-In, lalu langsung ke halaman posting.
-      try {
-        await loginWithGoogle();
-        navigate('/posting');
-      } catch (err) {
-        console.error('Login gagal:', err);
-      }
+      // Belum login -> pindah ke halaman Google Sign-In. Setelah berhasil,
+      // AuthContext yang akan mengarahkan balik ke /posting otomatis.
+      await loginWithGoogle('/posting');
     } else {
       navigate('/posting');
     }
@@ -32,15 +29,14 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-cream/95 backdrop-blur">
-  <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 relative">
-    <Link to="/" className="flex items-center gap-2 overflow-visible">
-      <img 
-        src="/rauma-logo.png" 
-        alt="Rauma" 
-        className="h-10 md:h-14 w-auto object-contain" 
-      />
-    </Link>
-    
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 relative">
+        <Link to="/" className="flex items-center gap-2 overflow-visible">
+          <img
+            src="/rauma-logo.png"
+            alt="Rauma"
+            className="h-10 md:h-14 w-auto object-contain"
+          />
+        </Link>
 
         {!user ? (
           <button
@@ -75,6 +71,15 @@ export default function Header() {
                 >
                   Iklan Saya
                 </Link>
+                {isAdmin(user) && (
+                  <Link
+                    to="/admin"
+                    onClick={() => setOpen(false)}
+                    className="block px-4 py-3 text-sm text-forest hover:bg-cream"
+                  >
+                    Tinjau Iklan (Admin)
+                  </Link>
+                )}
                 <Link
                   to="/posting"
                   onClick={() => setOpen(false)}
