@@ -4,6 +4,7 @@ import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc } from 'fir
 import { db } from '../firebase';
 import { uploadManyToCloudinary } from '../lib/cloudinary';
 import { useAuth } from '../context/AuthContext';
+import { isAdmin } from '../lib/admin';
 import LocationAutocomplete from '../components/LocationAutocomplete';
 
 const SERTIFIKAT_OPTIONS = ['SHM', 'SHGB', 'HGB', 'AJB', 'Girik', 'PPJB', 'Lainnya'];
@@ -196,11 +197,13 @@ export default function Posting() {
       };
 
       if (isEditMode) {
+        // Status TIDAK ikut di-update di sini, biar gak bisa approve iklan sendiri.
         await updateDoc(doc(db, 'listings', id), payload);
         navigate(`/id/${id}`);
       } else {
         const docRef = await addDoc(collection(db, 'listings'), {
           ...payload,
+          status: isAdmin(user) ? 'approved' : 'pending',
           ownerUid: user.uid,
           ownerName: user.displayName,
           ownerPhoto: user.photoURL,
@@ -227,9 +230,9 @@ export default function Posting() {
       </h1>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-        {/* Toggle Pribadi/Perumahan */}
-        <div className="flex gap-2">
-          {['pribadi', 'perumahan'].map((t) => (
+        {/* Toggle Pribadi/Perumahan (+ Subsidi khusus admin) */}
+        <div className="flex flex-wrap gap-2">
+          {['pribadi', 'perumahan', ...(isAdmin(user) ? ['subsidi', 'jual_cepat'] : [])].map((t) => (
             <button
               type="button"
               key={t}
@@ -240,10 +243,15 @@ export default function Posting() {
                   : 'border-line bg-white text-ink/60'
               }`}
             >
-              {t}
+              {t === 'jual_cepat' ? 'Jual Cepat' : t}
             </button>
           ))}
         </div>
+        {!isAdmin(user) && (
+          <p className="-mt-3 text-xs text-ink/40">
+            Iklan kamu akan ditinjau dulu sebelum tayang publik (biasanya cepat).
+          </p>
+        )}
 
         {/* Upload gambar */}
         <div>
@@ -421,4 +429,4 @@ function Field({ label, children }) {
       {children}
     </div>
   );
-          }
+}
