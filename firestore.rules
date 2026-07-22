@@ -4,7 +4,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return request.auth != null && request.auth.uid in [
-        'GANTI_DENGAN_UID_KAMU'
+        'al7pklcovEhT9Dfusg6diEmrzfO2'
       ];
     }
 
