@@ -44,12 +44,14 @@ export default function Home() {
       const perumahanQ = query(
         collection(db, 'listings'),
         where('type', '==', 'perumahan'),
+        where('status', '==', 'approved'),
         orderBy('createdAt', 'desc'),
         limit(PERUMAHAN_ROW_LIMIT)
       );
       const pribadiQ = query(
         collection(db, 'listings'),
         where('type', '==', 'pribadi'),
+        where('status', '==', 'approved'),
         orderBy('createdAt', 'desc'),
         limit(PRIBADI_PAGE_SIZE)
       );
@@ -58,12 +60,8 @@ export default function Home() {
         getDocs(pribadiQ),
       ]);
 
-      // Filter status di sisi klien: cuma tampilkan yang sudah "approved".
-      const onlyApproved = (docs) =>
-        docs.map((d) => ({ id: d.id, ...d.data() })).filter((l) => l.status === 'approved');
-
-      setPerumahan(onlyApproved(perumahanSnap.docs));
-      setPribadi(onlyApproved(pribadiSnap.docs));
+      setPerumahan(perumahanSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setPribadi(pribadiSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setLastPribadiDoc(pribadiSnap.docs[pribadiSnap.docs.length - 1] || null);
       setHasMorePribadi(pribadiSnap.docs.length === PRIBADI_PAGE_SIZE);
     } catch (err) {
@@ -84,14 +82,13 @@ export default function Home() {
       const nextQ = query(
         collection(db, 'listings'),
         where('type', '==', 'pribadi'),
+        where('status', '==', 'approved'),
         orderBy('createdAt', 'desc'),
         startAfter(lastPribadiDoc),
         limit(PRIBADI_PAGE_SIZE)
       );
       const snap = await getDocs(nextQ);
-      const approvedOnly = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
-        .filter((l) => l.status === 'approved');
+      const approvedOnly = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
       setPribadi((prev) => [...prev, ...approvedOnly]);
       setLastPribadiDoc(snap.docs[snap.docs.length - 1] || lastPribadiDoc);
       setHasMorePribadi(snap.docs.length === PRIBADI_PAGE_SIZE);
@@ -182,4 +179,5 @@ export default function Home() {
       <LocationPermissionPopup onLocationGranted={setUserLoc} />
     </div>
   );
-}
+        }
+                
