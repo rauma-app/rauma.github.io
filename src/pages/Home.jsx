@@ -7,12 +7,12 @@ import LocationPermissionPopup from '../components/LocationPermissionPopup';
 import { distanceKm } from '../lib/nominatim';
 
 const CATEGORY_SHORTCUTS = [
-  { icon: '🌿', label: 'Green House' },
-  { icon: '⚡', label: 'Jual Cepat' },
-  { icon: '📄', label: 'Take Over KPR' },
-  { icon: '💎', label: 'TerMewah' },
-  { icon: '🧮', label: 'Kalkulator Kredit' },
-  { icon: '🛡️', label: 'Awas Ketipu' },
+  { icon: '📉', label: 'Termurah', to: '/termurah' },
+  { icon: '📈', label: 'Termahal', to: '/termahal' },
+  { icon: '🏘️', label: 'Rumah Subsidi', to: '/subsidi' },
+  { icon: '⚡', label: 'Jual Cepat', to: '/jual-cepat' },
+  { icon: '🕌', label: 'KPR Syariah', to: '/kpr-syariah' },
+  { icon: '🌱', label: 'Nabung', to: '/nabung' },
 ];
 
 const PRIBADI_PAGE_SIZE = 8;
@@ -58,8 +58,12 @@ export default function Home() {
         getDocs(pribadiQ),
       ]);
 
-      setPerumahan(perumahanSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setPribadi(pribadiSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      // Filter status di sisi klien: cuma tampilkan yang sudah "approved".
+      const onlyApproved = (docs) =>
+        docs.map((d) => ({ id: d.id, ...d.data() })).filter((l) => l.status === 'approved');
+
+      setPerumahan(onlyApproved(perumahanSnap.docs));
+      setPribadi(onlyApproved(pribadiSnap.docs));
       setLastPribadiDoc(pribadiSnap.docs[pribadiSnap.docs.length - 1] || null);
       setHasMorePribadi(pribadiSnap.docs.length === PRIBADI_PAGE_SIZE);
     } catch (err) {
@@ -85,7 +89,10 @@ export default function Home() {
         limit(PRIBADI_PAGE_SIZE)
       );
       const snap = await getDocs(nextQ);
-      setPribadi((prev) => [...prev, ...snap.docs.map((d) => ({ id: d.id, ...d.data() }))]);
+      const approvedOnly = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }))
+        .filter((l) => l.status === 'approved');
+      setPribadi((prev) => [...prev, ...approvedOnly]);
       setLastPribadiDoc(snap.docs[snap.docs.length - 1] || lastPribadiDoc);
       setHasMorePribadi(snap.docs.length === PRIBADI_PAGE_SIZE);
     } catch (err) {
@@ -103,13 +110,14 @@ export default function Home() {
       {/* Shortcut kategori */}
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
         {CATEGORY_SHORTCUTS.map((c) => (
-          <button
+          <Link
             key={c.label}
+            to={c.to}
             className="flex flex-col items-center gap-2 rounded-xl border border-line bg-white px-2 py-4 text-center hover:border-forest"
           >
             <span className="text-2xl" aria-hidden>{c.icon}</span>
             <span className="text-xs font-medium text-ink/70">{c.label}</span>
-          </button>
+          </Link>
         ))}
       </div>
 
@@ -174,5 +182,4 @@ export default function Home() {
       <LocationPermissionPopup onLocationGranted={setUserLoc} />
     </div>
   );
-        }
-            
+}
