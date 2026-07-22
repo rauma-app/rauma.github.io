@@ -11,7 +11,12 @@ export default function PerumahanList() {
     async function load() {
       setLoading(true);
       try {
-        const q = query(collection(db, 'listings'), where('type', '==', 'perumahan'), orderBy('createdAt', 'desc'));
+        const q = query(
+          collection(db, 'listings'),
+          where('type', '==', 'perumahan'),
+          where('status', '==', 'approved'),
+          orderBy('createdAt', 'desc')
+        );
         const snap = await getDocs(q);
         setListings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
