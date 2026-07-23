@@ -19,9 +19,13 @@ export default function Header() {
 
   async function handlePostingClick() {
     if (!user) {
-      // Belum login -> pindah ke halaman Google Sign-In. Setelah berhasil,
-      // AuthContext yang akan mengarahkan balik ke /posting otomatis.
-      await loginWithGoogle('/posting');
+      try {
+        await loginWithGoogle();
+        navigate('/posting');
+      } catch (err) {
+        console.error('Login gagal:', err);
+        alert(`Login gagal: ${err.code || err.message}`);
+      }
     } else {
       navigate('/posting');
     }
@@ -104,4 +108,4 @@ export default function Header() {
       </div>
     </header>
   );
-}
+            }
