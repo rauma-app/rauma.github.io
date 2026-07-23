@@ -16,7 +16,7 @@ import { compressImages } from './imageCompress';
 // Cara paling rapi: taruh di file .env sebagai VITE_UPLOAD_WORKER_URL,
 // biar tidak perlu edit kode ini langsung.
 const WORKER_URL =
-  import.meta.env.VITE_UPLOAD_WORKER_URL || 'https://rauma-uploads.YOUR_SUBDOMAIN.workers.dev';
+  import.meta.env.VITE_UPLOAD_WORKER_URL || 'https://rauma-uploader.abduloh-salam7.workers.dev';
 
 /**
  * Upload satu file gambar ke R2 (via Worker). Otomatis dikompres dulu.
