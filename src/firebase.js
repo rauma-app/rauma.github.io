@@ -4,8 +4,11 @@ import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 // Sign-in pakai redirect (bukan popup) karena jauh lebih reliable di browser HP.
 import { getFirestore } from 'firebase/firestore';
 // Catatan: Firebase Storage TIDAK dipakai (butuh paket Blaze/billing aktif).
-// Upload gambar memakai Cloudinary (lihat src/lib/cloudinary.js) yang gratis
-// tanpa perlu kartu.
+// Upload gambar memakai Cloudflare R2 (lihat src/lib/r2.js +
+// cloudflare-worker/) karena R2 gratis tanpa kartu DAN tidak charge
+// bandwidth -- lebih hemat daripada Cloudinary untuk situs dengan trafik
+// tinggi. (src/lib/cloudinary.js masih ada di repo tapi sudah tidak dipakai,
+// aman dihapus.)
 
 // Firebase config for the rauma-e0aff project.
 // These values are safe to expose client-side (they identify the project,
