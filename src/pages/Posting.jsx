@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+        import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -197,8 +197,12 @@ export default function Posting() {
       };
 
       if (isEditMode) {
-        // Status TIDAK ikut di-update di sini, biar gak bisa approve iklan sendiri.
-        await updateDoc(doc(db, 'listings', id), payload);
+        // User biasa yang edit -> balik ke 'pending', ditinjau ulang admin.
+        // Admin yang edit -> tetap 'approved', gak perlu antri lagi.
+        await updateDoc(doc(db, 'listings', id), {
+          ...payload,
+          status: isAdmin(user) ? 'approved' : 'pending',
+        });
         navigate(`/id/${id}`);
       } else {
         const docRef = await addDoc(collection(db, 'listings'), {
@@ -429,4 +433,5 @@ function Field({ label, children }) {
       {children}
     </div>
   );
-}
+        }
+          
