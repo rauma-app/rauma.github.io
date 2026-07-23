@@ -2,7 +2,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { uploadManyToCloudinary } from '../lib/cloudinary';
+import { uploadManyToR2 } from '../lib/r2';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../lib/admin';
 import LocationAutocomplete from '../components/LocationAutocomplete';
@@ -173,7 +173,7 @@ export default function Posting() {
 
     setSubmitting(true);
     try {
-      const newImageUrls = files.length ? await uploadManyToCloudinary(files) : [];
+      const newImageUrls = files.length ? await uploadManyToR2(files) : [];
       const imageUrls = [...existingImages, ...newImageUrls];
 
       const payload = {
@@ -434,4 +434,5 @@ function Field({ label, children }) {
     </div>
   );
         }
-          
+
+                             
