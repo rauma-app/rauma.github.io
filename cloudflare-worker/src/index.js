@@ -121,7 +121,7 @@ export default {
         const ext = extFromType(file.type);
         const key = `listings/${uid}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
 
-        await env.RAUMA_IMAGES.put(key, await file.arrayBuffer(), {
+        await env.MY_BUCKET.put(key, await file.arrayBuffer(), {
           httpMetadata: { contentType: file.type },
         });
 
@@ -138,7 +138,7 @@ export default {
     // --- Serve gambar (publik, tidak perlu login) ---
     if (request.method === 'GET' && url.pathname.startsWith('/i/')) {
       const key = url.pathname.slice('/i/'.length);
-      const object = await env.RAUMA_IMAGES.get(key);
+      const object = await env.MY_BUCKET.get(key);
       if (!object) return new Response('Not found', { status: 404 });
 
       return new Response(object.body, {
