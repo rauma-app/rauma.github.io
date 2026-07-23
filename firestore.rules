@@ -29,12 +29,13 @@ service cloud.firestore {
                       || isAdmin()
                     );
 
-      // Pemilik boleh edit isi iklannya SENDIRI, tapi TIDAK BOLEH mengubah
-      // status-nya sendiri (biar gak bisa asal approve iklan sendiri).
+      // Pemilik boleh edit isi iklannya SENDIRI, dan status otomatis balik
+      // ke 'pending' tiap kali diedit -- tapi TIDAK BOLEH set status jadi
+      // 'approved' sendiri (cuma admin yang bisa approve).
       // Admin bebas ubah apapun termasuk status (buat approve/reject).
       allow update: if request.auth != null && (
                       (resource.data.ownerUid == request.auth.uid
-                       && request.resource.data.status == resource.data.status)
+                       && request.resource.data.status != 'approved')
                       || isAdmin()
                     );
 
