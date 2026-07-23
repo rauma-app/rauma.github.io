@@ -1,0 +1,13 @@
+name = "rauma-uploads"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+
+# Bucket R2 tempat gambar disimpan. Buat dulu dengan:
+#   npx wrangler r2 bucket create rauma-images
+[[r2_buckets]]
+binding = "RAUMA_IMAGES"
+bucket_name = "rauma-images"
+
+[vars]
+# Project ID Firebase kamu (sama seperti di src/firebase.js -> projectId)
+FIREBASE_PROJECT_ID = "rauma-e0aff"
