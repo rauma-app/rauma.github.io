@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { onAuthStateChanged, signInWithRedirect, signOut } from 'firebase/auth';
+import { getRedirectResult, onAuthStateChanged, signInWithRedirect, signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { auth, googleProvider } from '../firebase';
 
@@ -12,8 +12,14 @@ export function AuthProvider({ children }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // onAuthStateChanged juga yang menangkap hasil signInWithRedirect
-    // begitu user kembali dari halaman login Google.
+    // Tangkap hasil signInWithRedirect secara eksplisit, biar kalau ada
+    // error (misal domain belum diizinkan, storage diblokir browser, dst)
+    // kelihatan jelas -- bukan gagal diam-diam.
+    getRedirectResult(auth).catch((err) => {
+      console.error('Redirect sign-in error:', err);
+      alert(`Login gagal: ${err.code || err.message}`);
+    });
+
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
@@ -32,9 +38,12 @@ export function AuthProvider({ children }) {
   // redirectTo: halaman yang mau dituju SETELAH login berhasil (misal '/posting')
   async function loginWithGoogle(redirectTo = '/posting') {
     sessionStorage.setItem(REDIRECT_KEY, redirectTo);
-    await signInWithRedirect(auth, googleProvider);
-    // Baris setelah ini biasanya tidak sempat jalan karena browser
-    // langsung pindah halaman ke Google.
+    try {
+      await signInWithRedirect(auth, googleProvider);
+    } catch (err) {
+      console.error('Gagal memulai sign-in:', err);
+      alert(`Gagal memulai login: ${err.code || err.message}`);
+    }
   }
 
   async function logout() {
