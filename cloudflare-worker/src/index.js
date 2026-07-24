@@ -98,14 +98,46 @@ export default {
 
     // --- Upload (perlu login) ---
     if (request.method === 'POST' && url.pathname === '/upload') {
+      // Cek konfigurasi dulu SEBELUM verifikasi token. Kalau var/binding ini
+      // kosong, request akan selalu gagal untuk SIAPA SAJA (bukan cuma user
+      // tertentu) -- jadi jangan sampai kesalahan konfigurasi begini malah
+      // dilaporkan ke browser sebagai "Login tidak valid", karena itu
+      // langsung menyesatkan (kelihatan cuma masalah akun user, padahal
+      // servernya sendiri yang belum di-setup lengkap).
+      if (!env.FIREBASE_PROJECT_ID) {
+        console.error('FIREBASE_PROJECT_ID belum di-set di Worker ini.');
+        return jsonError(
+          'Konfigurasi server belum lengkap (FIREBASE_PROJECT_ID kosong). Cek Settings > Variables and secrets di Worker rauma-uploader.',
+          500,
+          origin
+        );
+      }
+      if (!env.RAUMA_IMAGES) {
+        console.error('R2 binding RAUMA_IMAGES tidak ditemukan di Worker ini.');
+        return jsonError(
+          'Konfigurasi server belum lengkap (R2 bucket binding RAUMA_IMAGES tidak ditemukan). Cek tab Bindings di Worker rauma-uploader.',
+          500,
+          origin
+        );
+      }
+
+      const authHeader = request.headers.get('Authorization') || '';
+      const idToken = authHeader.replace(/^Bearer\s+/i, '');
+      if (!idToken) return jsonError('Harus login.', 401, origin);
+
+      let uid;
       try {
-        const authHeader = request.headers.get('Authorization') || '';
-        const idToken = authHeader.replace(/^Bearer\s+/i, '');
-        if (!idToken) return jsonError('Harus login.', 401, origin);
-
         const payload = await verifyFirebaseToken(idToken, env.FIREBASE_PROJECT_ID);
-        const uid = payload.sub;
+        uid = payload.sub;
+      } catch (err) {
+        // Ini KHUSUS kegagalan verifikasi token Firebase (token kedaluwarsa,
+        // salah project, dsb) -- baru di sini pesan "login tidak valid" itu
+        // benar-benar akurat.
+        console.error('Verifikasi token gagal:', err);
+        return jsonError('Login tidak valid atau sudah kedaluwarsa.', 401, origin);
+      }
 
+      try {
         const form = await request.formData();
         const file = form.get('file');
         if (!file || typeof file === 'string') {
@@ -130,8 +162,10 @@ export default {
           headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
         });
       } catch (err) {
-        console.error(err);
-        return jsonError('Login tidak valid atau sudah kedaluwarsa.', 401, origin);
+        // Kegagalan setelah token valid -- biasanya masalah R2 (bucket
+        // penuh/salah nama/dsb), bukan soal login. Jangan dilabeli 401.
+        console.error('Upload ke R2 gagal:', err);
+        return jsonError('Gagal menyimpan gambar ke server. Coba lagi ya.', 500, origin);
       }
     }
 
@@ -156,4 +190,5 @@ export default {
     return new Response('Not found', { status: 404 });
   },
 };
-    
+
+                                                  
