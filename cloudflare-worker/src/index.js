@@ -34,12 +34,21 @@ let cachedJwksExpiryMs = 0;
 async function getGoogleJwk(kid) {
   const now = Date.now();
   if (!cachedJwks || now > cachedJwksExpiryMs) {
-    // Endpoint JWK (bukan x509) -- balikin public key format JWK yang bisa
-    // langsung dipakai crypto.subtle.importKey tanpa parsing sertifikat.
     const res = await fetch(
       'https://www.googleapis.com/service_accounts/v1/jwk/[email protected]'
     );
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => '');
+      throw new Error(
+        `Gagal ambil kunci publik Google (HTTP ${res.status}): ${bodyText.slice(0, 200)}`
+      );
+    }
     const data = await res.json();
+    if (!data || !Array.isArray(data.keys)) {
+      throw new Error(
+        `Format balasan Google tidak sesuai: ${JSON.stringify(data).slice(0, 200)}`
+      );
+    }
     cachedJwks = {};
     for (const key of data.keys) cachedJwks[key.kid] = key;
     const cacheControl = res.headers.get('cache-control') || '';
