@@ -209,15 +209,22 @@ export default function Posting() {
           ...payload,
           status: isAdmin(user) ? 'approved' : 'pending',
           ownerUid: user.uid,
-          ownerName: user.displayName,
-          ownerPhoto: user.photoURL,
+          // Firestore menolak field bernilai `undefined`. Sebagian akun
+          // Google bisa saja tidak punya displayName/photoURL, jadi fallback
+          // ke null biar addDoc tidak gagal untuk akun-akun itu.
+          ownerName: user.displayName || null,
+          ownerPhoto: user.photoURL || null,
           createdAt: serverTimestamp(),
         });
         navigate(`/id/${docRef.id}`);
       }
     } catch (err) {
-      console.error(err);
-      setError('Gagal menyimpan iklan. Coba lagi ya.');
+      console.error('Gagal menyimpan iklan:', err.code || err.message, err);
+      // Sertakan kode/pesan error asli biar gampang didiagnosis -- jangan
+      // digeneralisir jadi satu pesan yang sama untuk semua jenis kegagalan
+      // (rules, upload gambar, jaringan, dsb).
+      const detail = err.code || err.message;
+      setError(`Gagal menyimpan iklan${detail ? ` (${detail})` : ''}. Coba lagi ya.`);
     } finally {
       setSubmitting(false);
     }
@@ -435,4 +442,5 @@ function Field({ label, children }) {
   );
         }
 
-                             
+
+            
