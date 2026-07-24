@@ -174,7 +174,11 @@ export default {
         uid = payload.sub;
       } catch (err) {
         console.error('Verifikasi token gagal:', err);
-        return jsonError('Login tidak valid atau sudah kedaluwarsa.', 401, origin);
+        return jsonError(
+          `Login tidak valid atau sudah kedaluwarsa. (${err.message})`,
+          401,
+          origin
+        );
       }
 
       try {
