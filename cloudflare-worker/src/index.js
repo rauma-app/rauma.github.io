@@ -35,7 +35,7 @@ async function getGoogleJwk(kid) {
   const now = Date.now();
   if (!cachedJwks || now > cachedJwksExpiryMs) {
     const res = await fetch(
-      'https://www.googleapis.com/service_accounts/v1/jwk/[email protected]'
+     'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com'
     );
     if (!res.ok) {
       const bodyText = await res.text().catch(() => '');
