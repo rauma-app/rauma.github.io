@@ -16,29 +16,38 @@
  *     kontrol itu hilang dan siapa saja bisa upload apa saja ke bucket kita.
  */
 
-import { importX509, jwtVerify } from 'jose';
+// TIDAK pakai library 'jose' -- itu npm package yang cuma bisa di-bundle
+// lewat `wrangler deploy` di CLI. Kalau kode ini di-edit langsung di editor
+// browser Cloudflare (Quick Edit / Edit code) tanpa CLI, import package
+// akan gagal. Jadi verifikasi token ditulis manual pakai Web Crypto API
+// (crypto.subtle) yang sudah bawaan di runtime Workers, tanpa dependency
+// apapun.
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024; // 8MB -- generous, karena browser sudah mengompres duluan
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
-// Cache sertifikat publik Google di memori isolate Worker ini, supaya tidak
-// fetch ulang ke Google di setiap request upload.
-let cachedCerts = null;
-let cachedCertsExpiryMs = 0;
+// Cache JWK publik Google di memori isolate Worker ini, supaya tidak fetch
+// ulang ke Google di setiap request upload.
+let cachedJwks = null;
+let cachedJwksExpiryMs = 0;
 
-async function getGoogleCert(kid) {
+async function getGoogleJwk(kid) {
   const now = Date.now();
-  if (!cachedCerts || now > cachedCertsExpiryMs) {
+  if (!cachedJwks || now > cachedJwksExpiryMs) {
+    // Endpoint JWK (bukan x509) -- balikin public key format JWK yang bisa
+    // langsung dipakai crypto.subtle.importKey tanpa parsing sertifikat.
     const res = await fetch(
-      'https://www.googleapis.com/robot/v1/metadata/x509/[email protected]'
+      'https://www.googleapis.com/service_accounts/v1/jwk/[email protected]'
     );
-    cachedCerts = await res.json();
+    const data = await res.json();
+    cachedJwks = {};
+    for (const key of data.keys) cachedJwks[key.kid] = key;
     const cacheControl = res.headers.get('cache-control') || '';
     const maxAgeMatch = cacheControl.match(/max-age=(\d+)/);
     const maxAgeMs = maxAgeMatch ? Number(maxAgeMatch[1]) * 1000 : 60 * 60 * 1000;
-    cachedCertsExpiryMs = now + maxAgeMs;
+    cachedJwksExpiryMs = now + maxAgeMs;
   }
-  return cachedCerts[kid];
+  return cachedJwks[kid];
 }
 
 function base64UrlToJson(b64url) {
@@ -46,23 +55,63 @@ function base64UrlToJson(b64url) {
   return JSON.parse(atob(b64));
 }
 
-/** Verifikasi Firebase ID token TANPA Firebase Admin SDK (Worker tidak
- * mendukung Admin SDK). Ini mengikuti langkah manual resmi dari dokumentasi
- * Firebase: https://firebase.google.com/docs/auth/admin/verify-id-tokens
+function base64UrlToBytes(b64url) {
+  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+/** Verifikasi Firebase ID token TANPA library eksternal, murni Web Crypto
+ * API. Mengikuti aturan resmi Firebase:
+ * https://firebase.google.com/docs/auth/admin/verify-id-tokens
  */
 async function verifyFirebaseToken(idToken, projectId) {
-  const [headerB64] = idToken.split('.');
+  const parts = idToken.split('.');
+  if (parts.length !== 3) throw new Error('Format token tidak valid.');
+  const [headerB64, payloadB64, sigB64] = parts;
+
   const header = base64UrlToJson(headerB64);
+  const payload = base64UrlToJson(payloadB64);
 
-  const cert = await getGoogleCert(header.kid);
-  if (!cert) throw new Error('Token tidak valid (kunci publik tidak ditemukan).');
+  if (header.alg !== 'RS256') throw new Error('Algoritma token tidak didukung.');
 
-  const publicKey = await importX509(cert, 'RS256');
-  const { payload } = await jwtVerify(idToken, publicKey, {
-    issuer: `https://securetoken.google.com/${projectId}`,
-    audience: projectId,
-    algorithms: ['RS256'],
-  });
+  const now = Math.floor(Date.now() / 1000);
+  if (typeof payload.exp !== 'number' || payload.exp < now) {
+    throw new Error('Token sudah kedaluwarsa.');
+  }
+  if (typeof payload.iat === 'number' && payload.iat > now + 60) {
+    throw new Error('Token belum berlaku.');
+  }
+  if (payload.aud !== projectId) throw new Error('Token bukan untuk project ini.');
+  if (payload.iss !== `https://securetoken.google.com/${projectId}`) {
+    throw new Error('Issuer token tidak valid.');
+  }
+  if (!payload.sub) throw new Error('Token tidak punya subject (uid).');
+
+  const jwk = await getGoogleJwk(header.kid);
+  if (!jwk) throw new Error('Kunci publik Google tidak ditemukan untuk kid ini.');
+
+  const publicKey = await crypto.subtle.importKey(
+    'jwk',
+    jwk,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['verify']
+  );
+
+  const signature = base64UrlToBytes(sigB64);
+  const signedData = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
+
+  const valid = await crypto.subtle.verify(
+    'RSASSA-PKCS1-v1_5',
+    publicKey,
+    signature,
+    signedData
+  );
+  if (!valid) throw new Error('Tanda tangan token tidak valid.');
+
   return payload; // payload.sub = uid Firebase user yang login
 }
 
@@ -98,12 +147,6 @@ export default {
 
     // --- Upload (perlu login) ---
     if (request.method === 'POST' && url.pathname === '/upload') {
-      // Cek konfigurasi dulu SEBELUM verifikasi token. Kalau var/binding ini
-      // kosong, request akan selalu gagal untuk SIAPA SAJA (bukan cuma user
-      // tertentu) -- jadi jangan sampai kesalahan konfigurasi begini malah
-      // dilaporkan ke browser sebagai "Login tidak valid", karena itu
-      // langsung menyesatkan (kelihatan cuma masalah akun user, padahal
-      // servernya sendiri yang belum di-setup lengkap).
       if (!env.FIREBASE_PROJECT_ID) {
         console.error('FIREBASE_PROJECT_ID belum di-set di Worker ini.');
         return jsonError(
@@ -130,9 +173,6 @@ export default {
         const payload = await verifyFirebaseToken(idToken, env.FIREBASE_PROJECT_ID);
         uid = payload.sub;
       } catch (err) {
-        // Ini KHUSUS kegagalan verifikasi token Firebase (token kedaluwarsa,
-        // salah project, dsb) -- baru di sini pesan "login tidak valid" itu
-        // benar-benar akurat.
         console.error('Verifikasi token gagal:', err);
         return jsonError('Login tidak valid atau sudah kedaluwarsa.', 401, origin);
       }
@@ -162,8 +202,6 @@ export default {
           headers: { 'Content-Type': 'application/json', ...corsHeaders(origin) },
         });
       } catch (err) {
-        // Kegagalan setelah token valid -- biasanya masalah R2 (bucket
-        // penuh/salah nama/dsb), bukan soal login. Jangan dilabeli 401.
         console.error('Upload ke R2 gagal:', err);
         return jsonError('Gagal menyimpan gambar ke server. Coba lagi ya.', 500, origin);
       }
@@ -178,9 +216,6 @@ export default {
       return new Response(object.body, {
         headers: {
           'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
-          // Nama file sudah unik (timestamp + random), jadi aman di-cache
-          // selamanya -- ini yang bikin gambar yang sering dibuka nyaris
-          // gak pernah "menyentuh" R2 lagi setelah di-cache Cloudflare.
           'Cache-Control': 'public, max-age=31536000, immutable',
           'Access-Control-Allow-Origin': '*',
         },
@@ -190,5 +225,3 @@ export default {
     return new Response('Not found', { status: 404 });
   },
 };
-
-                                                  
