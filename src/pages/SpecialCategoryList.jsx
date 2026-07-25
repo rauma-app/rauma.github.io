@@ -2,8 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import ListingCard from '../components/ListingCard';
+import Seo from '../components/Seo';
 
-export function SpecialCategoryList({ type, title, intro }) {
+export function SpecialCategoryList({ type, title, intro, seoDescription, path }) {
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,6 +30,7 @@ export function SpecialCategoryList({ type, title, intro }) {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
+      <Seo title={title} description={seoDescription || intro} path={path} />
       <h1 className="font-display text-2xl font-semibold text-navy">{title}</h1>
       {intro && <p className="mt-2 max-w-2xl text-sm text-ink/60">{intro}</p>}
 
@@ -55,6 +57,8 @@ export function SubsidiList() {
       type="subsidi"
       title="Rumah Subsidi"
       intro="Listing rumah subsidi resmi yang dikurasi langsung oleh tim Rauma. Hubungi admin lewat kontak di tiap listing untuk info program subsidi lebih lanjut."
+      seoDescription="Cari rumah subsidi pemerintah harga murah di seluruh Indonesia. Listing rumah subsidi resmi dan terkurasi, cocok untuk KPR subsidi FLPP."
+      path="/subsidi"
     />
   );
 }
@@ -65,6 +69,8 @@ export function JualCepatList() {
       type="jual_cepat"
       title="Jual Cepat"
       intro="Rumah dari penjual yang butuh terjual cepat, dipromosikan lewat program Jual Cepat Rauma."
+      seoDescription="Rumah dijual cepat dengan harga terbaik dari penjual yang butuh transaksi segera. Temukan penawaran rumah jual cepat terbaru di Rauma."
+      path="/jual-cepat"
     />
   );
 }
