@@ -1,5 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://rauma-app.abduloh-salam7.workers.dev/sitemap.xml
-Sitemap: https://rauma-uploader.abduloh-salam7.workers.dev/sitemap-listings.xml
