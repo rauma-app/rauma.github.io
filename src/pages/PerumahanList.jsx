@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import ListingCard from '../components/ListingCard';
+import Seo from '../components/Seo';
 
 export default function PerumahanList() {
   const [listings, setListings] = useState([]);
@@ -30,6 +31,11 @@ export default function PerumahanList() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
+      <Seo
+        title="Semua Perumahan"
+        description="Jelajahi daftar perumahan baru dari berbagai developer di seluruh Indonesia, lengkap dengan harga dan simulasi KPR."
+        path="/perumahan"
+      />
       <h1 className="font-display text-2xl font-semibold text-navy">Semua Perumahan</h1>
 
       {loading && <p className="mt-6 text-sm text-ink/50">Memuat...</p>}
