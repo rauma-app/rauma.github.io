@@ -1,4 +1,5 @@
 import React from 'react';
+import Seo from '../components/Seo';
 
 // Data dirangkum dari berbagai sumber publik (situs resmi bank & portal properti),
 // per Mei 2026. Margin/bunga KPR sering berubah dan promo biasanya berlaku syarat
@@ -34,6 +35,11 @@ const BANKS = [
 export default function KPRSyariahPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
+      <Seo
+        title="KPR Syariah"
+        description="Bandingkan margin KPR syariah dari berbagai bank di Indonesia — BSI, Muamalat, dan lainnya. Cari cicilan rumah syariah termurah tanpa riba."
+        path="/kpr-syariah"
+      />
       <h1 className="font-display text-2xl font-semibold text-navy">KPR Syariah</h1>
       <p className="mt-2 text-sm text-ink/60">
         Rangkuman margin/bunga KPR syariah dari beberapa bank di Indonesia, diurutkan dari yang
