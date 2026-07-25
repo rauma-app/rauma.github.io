@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { FaInstagram, FaFacebook, FaTiktok, FaYoutube } from 'react-icons/fa';
+import rauLogo2 from '../assets/logo/rauma-logo2.svg';
 
 // GANTI nilai-nilai placeholder di bawah ini dengan data asli kamu.
 const SOCIAL_LINKS = [
@@ -30,13 +31,15 @@ export default function Footer() {
         <div className="grid gap-10 sm:grid-cols-[1.3fr_1fr_1.3fr]">
           {/* Kolom 1: Logo gambar baru, deskripsi, social media */}
           <div>
-            <Link to="/" className="flex items-center gap-2 overflow-visible">
-              <img 
-                src="/rauma-logo2.png" 
-                alt="Rauma" 
-                className="h-12 md:h-16 w-auto object-contain" 
+            <span className="flex select-none items-center gap-2">
+              <img
+                src={rauLogo2}
+                alt="Rauma"
+                draggable={false}
+                onContextMenu={(e) => e.preventDefault()}
+                className="h-12 w-auto object-contain pointer-events-none md:h-16"
               />
-            </Link>
+            </span>
             <p className="mt-3 max-w-xs text-sm">
               Rauma.id adalah platform jual beli rumah KPR yang mudah dan gratis untuk
               seluruh masyarakat Indonesia.
