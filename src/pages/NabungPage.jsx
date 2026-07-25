@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import Seo from '../components/Seo';
 
 // GANTI dengan kode referral Bibit asli kamu.
 const BIBIT_REFERRAL_CODE = 'GANTI_KODE_REFERRAL_BIBIT';
@@ -48,6 +49,11 @@ export default function NabungPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
+      <Seo
+        title="Nabung untuk DP Rumah"
+        description="Simulasi menabung rutin di reksadana syariah untuk membangun modal DP rumah tanpa beban cicilan berbunga."
+        path="/nabung"
+      />
       <h1 className="font-display text-2xl font-semibold text-navy">Nabung, Bukan Ngutang</h1>
       <p className="mt-2 text-sm text-ink/60">
         Sebelum buru-buru ambil KPR, coba pertimbangkan: menabung rutin di Reksadana Syariah bisa
