@@ -125,9 +125,9 @@ export default function Home() {
         path="/"
       />
       {/* Hero + search bar */}
-      <section className="relative overflow-hidden bg-[#F6F3EC]/90 py-12 sm:py-16">
+      <section className="relative overflow-hidden bg-[#036441]/90 pt-12 pb-6 sm:pt-16 sm:pb-8">
         <div className="mx-auto max-w-3xl px-4 text-center">
-          <h1 className="font-display text-3xl font-semibold text-black sm:text-4xl">
+          <h1 className="font-display text-3xl font-semibold text-white sm:text-4xl">
             Temukan Hunian Impianmu
           </h1>
           <form onSubmit={handleSearch} className="mx-auto mt-6 max-w-2xl">
@@ -164,7 +164,7 @@ export default function Home() {
         </div>
       </section>
 
-      <div className="mx-auto max-w-6xl px-4 py-8">
+      <div className="relative z-10 mx-auto -mt-4 max-w-6xl px-4 pb-8 pt-0 sm:-mt-6">
       {/* Shortcut kategori */}
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
         {CATEGORY_SHORTCUTS.map((c) => (
@@ -241,4 +241,4 @@ export default function Home() {
       </div>
     </div>
   );
-        }
+      }
