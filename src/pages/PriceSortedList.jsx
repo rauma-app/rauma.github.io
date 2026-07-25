@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import ListingCard from '../components/ListingCard';
+import Seo from '../components/Seo';
 import { distanceKm } from '../lib/nominatim';
 
 const NEARBY_RADIUS_KM = 30;
@@ -63,6 +64,15 @@ export default function PriceSortedList() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
+      <Seo
+        title={isCheapest ? 'Rumah Termurah' : 'Rumah Termahal'}
+        description={
+          isCheapest
+            ? 'Daftar rumah termurah dari seluruh listing Rauma, bisa diurutkan berdasarkan jarak terdekat dari lokasi kamu.'
+            : 'Daftar rumah dengan harga tertinggi dari seluruh listing Rauma untuk kamu yang cari hunian premium.'
+        }
+        path={isCheapest ? '/termurah' : '/termahal'}
+      />
       <h1 className="font-display text-2xl font-semibold text-navy">
         {isCheapest ? 'Rumah Termurah' : 'Rumah Termahal'}
       </h1>
