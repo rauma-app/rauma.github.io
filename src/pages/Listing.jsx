@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import ImageSlider from '../components/ImageSlider';
 import KPRSlider from '../components/KPRSlider';
 import ListingCard from '../components/ListingCard';
+import Seo from '../components/Seo';
 import { calculateKPR, formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
 
 const SPEC_ROWS = [
@@ -98,8 +99,45 @@ export default function Listing() {
       )}`
     : null;
 
+  const lokasiText = listing.kecamatan ? `${listing.kecamatan}, ${listing.kabupaten}` : listing.kabupaten;
+  const seoTitle = `Rumah Dijual di ${lokasiText} - ${formatRupiahShort(listing.price)}`;
+  const seoDescription = `Rumah dijual di ${lokasiText} harga ${formatRupiah(listing.price)}${
+    listing.luasTanah ? `, LT ${listing.luasTanah}m²` : ''
+  }${listing.luasBangunan ? `, LB ${listing.luasBangunan}m²` : ''}${
+    listing.bedrooms ? `, ${listing.bedrooms} kamar tidur` : ''
+  }. Cicilan KPR mulai ${formatMonthlyShort(calculateKPR(listing.price).monthly)}. Lihat detail & hubungi penjual di Rauma.`;
+  const seoJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: seoTitle,
+    description: seoDescription,
+    image: listing.images && listing.images.length ? listing.images : undefined,
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'IDR',
+      price: listing.price,
+      availability: 'https://schema.org/InStock',
+    },
+    ...(listing.lat && listing.lon
+      ? {
+          additionalProperty: {
+            '@type': 'PropertyValue',
+            name: 'Lokasi',
+            value: lokasiText,
+          },
+        }
+      : {}),
+  };
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
+      <Seo
+        title={seoTitle}
+        description={seoDescription}
+        path={`/id/${listing.id}`}
+        image={listing.images && listing.images[0]}
+        jsonLd={seoJsonLd}
+      />
       <ImageSlider images={listing.images} alt={listing.kecamatan} aspect="aspect-[16/10]" />
 
       <div className="mt-6">
