@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { collection, getDocs, limit, orderBy, query, startAfter, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import ListingCard from '../components/ListingCard';
 import LocationPermissionPopup from '../components/LocationPermissionPopup';
+import Seo from '../components/Seo';
 import { distanceKm } from '../lib/nominatim';
 import iconTermurah from '../assets/icons/termurah.svg';
 import iconTermahal from '../assets/icons/termahal.svg';
@@ -36,6 +37,8 @@ function sortByDistance(items, userLoc) {
 }
 
 export default function Home() {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState('');
   const [perumahan, setPerumahan] = useState([]);
   const [pribadi, setPribadi] = useState([]);
   const [lastPribadiDoc, setLastPribadiDoc] = useState(null);
@@ -108,8 +111,60 @@ export default function Home() {
   const sortedPerumahan = sortByDistance(perumahan, userLoc);
   const sortedPribadi = sortByDistance(pribadi, userLoc);
 
+  function handleSearch(e) {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    navigate(q ? `/cari?q=${encodeURIComponent(q)}` : '/cari');
+  }
+
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
+    <div>
+      <Seo
+        title="Jual Beli Rumah KPR Murah Seluruh Indonesia"
+        description="Rauma adalah platform jual beli rumah KPR gratis dan mudah — temukan rumah termurah, rumah subsidi, hingga KPR syariah sesuai lokasi dan budget kamu."
+        path="/"
+      />
+      {/* Hero + search bar */}
+      <section className="relative overflow-hidden bg-[#036441]/90 py-12 sm:py-16">
+        <div className="mx-auto max-w-3xl px-4 text-center">
+          <h1 className="font-display text-3xl font-semibold text-white sm:text-4xl">
+            Temukan Hunian Impianmu
+          </h1>
+          <form onSubmit={handleSearch} className="mx-auto mt-6 max-w-2xl">
+            <div className="flex items-center gap-2 rounded-2xl bg-white px-4 py-3 shadow-lg">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-5 w-5 flex-shrink-0 text-ink/40"
+                aria-hidden
+              >
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Cari lokasi dan harga yang sesuai untuk mu..."
+                className="w-full bg-transparent text-sm text-ink placeholder:text-ink/40 focus:outline-none sm:text-base"
+              />
+              <button
+                type="submit"
+                className="flex-shrink-0 rounded-full bg-forest px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-forest-dark"
+              >
+                Cari
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-6xl px-4 py-8">
       {/* Shortcut kategori */}
       <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
         {CATEGORY_SHORTCUTS.map((c) => (
@@ -118,7 +173,7 @@ export default function Home() {
             to={c.to}
             className="flex flex-col items-center gap-2 rounded-xl border border-line bg-white px-2 py-4 text-center hover:border-forest"
           >
-            <img src={c.icon} alt="" className="h-12 w-12" aria-hidden />
+            <img src={c.icon} alt="" className="h-8 w-8" aria-hidden />
             <span className="text-xs font-medium text-ink/70">{c.label}</span>
           </Link>
         ))}
@@ -183,6 +238,7 @@ export default function Home() {
       </section>
 
       <LocationPermissionPopup onLocationGranted={setUserLoc} />
+      </div>
     </div>
   );
-}
+        }
