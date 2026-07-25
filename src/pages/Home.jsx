@@ -125,7 +125,7 @@ export default function Home() {
         path="/"
       />
       {/* Hero + search bar */}
-      <section className="relative overflow-hidden bg-[#036441]/90 py-12 sm:py-16">
+      <section className="relative overflow-hidden bg-[#F6F3EC]/90 py-12 sm:py-16">
         <div className="mx-auto max-w-3xl px-4 text-center">
           <h1 className="font-display text-3xl font-semibold text-white sm:text-4xl">
             Temukan Hunian Impianmu
