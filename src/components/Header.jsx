@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../lib/admin';
+import rauLogo from '../assets/logo/rauma-logo.svg';
 
 export default function Header() {
   const { user, loginWithGoogle, logout } = useAuth();
@@ -36,7 +37,7 @@ export default function Header() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 relative">
         <Link to="/" className="flex items-center gap-2 overflow-visible">
           <img
-            src="/rauma-logo.png"
+            src={rauLogo}
             alt="Rauma"
             className="h-10 md:h-14 w-auto object-contain"
           />
@@ -108,4 +109,4 @@ export default function Header() {
       </div>
     </header>
   );
-            }
+}
