@@ -5,14 +5,20 @@ import { db } from '../firebase';
 import ListingCard from '../components/ListingCard';
 import LocationPermissionPopup from '../components/LocationPermissionPopup';
 import { distanceKm } from '../lib/nominatim';
+import iconTermurah from '../assets/icons/termurah.svg';
+import iconTermahal from '../assets/icons/termahal.svg';
+import iconSubsidi from '../assets/icons/rumah_subsidi.svg';
+import iconJualCepat from '../assets/icons/jual_cepat.svg';
+import iconKprSyariah from '../assets/icons/kpr_syariah.svg';
+import iconNabung from '../assets/icons/nabung.svg';
 
 const CATEGORY_SHORTCUTS = [
-  { icon: '📉', label: 'Termurah', to: '/termurah' },
-  { icon: '📈', label: 'Termahal', to: '/termahal' },
-  { icon: '🏘️', label: 'Rumah Subsidi', to: '/subsidi' },
-  { icon: '⚡', label: 'Jual Cepat', to: '/jual-cepat' },
-  { icon: '🕌', label: 'KPR Syariah', to: '/kpr-syariah' },
-  { icon: '🌱', label: 'Nabung', to: '/nabung' },
+  { icon: iconTermurah, label: 'Termurah', to: '/termurah' },
+  { icon: iconTermahal, label: 'Termahal', to: '/termahal' },
+  { icon: iconSubsidi, label: 'Rumah Subsidi', to: '/subsidi' },
+  { icon: iconJualCepat, label: 'Jual Cepat', to: '/jual-cepat' },
+  { icon: iconKprSyariah, label: 'KPR Syariah', to: '/kpr-syariah' },
+  { icon: iconNabung, label: 'Nabung', to: '/nabung' },
 ];
 
 const PRIBADI_PAGE_SIZE = 8;
@@ -112,7 +118,7 @@ export default function Home() {
             to={c.to}
             className="flex flex-col items-center gap-2 rounded-xl border border-line bg-white px-2 py-4 text-center hover:border-forest"
           >
-            <span className="text-2xl" aria-hidden>{c.icon}</span>
+            <img src={c.icon} alt="" className="h-8 w-8" aria-hidden />
             <span className="text-xs font-medium text-ink/70">{c.label}</span>
           </Link>
         ))}
@@ -179,5 +185,4 @@ export default function Home() {
       <LocationPermissionPopup onLocationGranted={setUserLoc} />
     </div>
   );
-        }
-                
+}
