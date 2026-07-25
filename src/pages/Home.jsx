@@ -171,9 +171,9 @@ export default function Home() {
           <Link
             key={c.label}
             to={c.to}
-            className="flex flex-col items-center gap-2 rounded-xl border border-line bg-white px-2 py-4 text-center hover:border-forest"
+            className="flex flex-col items-center gap-1.5 rounded-xl border border-line bg-white px-1 py-2.5 text-center hover:border-forest"
           >
-            <img src={c.icon} alt="" className="h-8 w-8" aria-hidden />
+            <img src={c.icon} alt="" className="h-11 w-11" aria-hidden />
             <span className="text-xs font-medium text-ink/70">{c.label}</span>
           </Link>
         ))}
@@ -241,4 +241,4 @@ export default function Home() {
       </div>
     </div>
   );
-      }
+}
