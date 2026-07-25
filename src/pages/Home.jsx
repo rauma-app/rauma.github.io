@@ -118,7 +118,7 @@ export default function Home() {
             to={c.to}
             className="flex flex-col items-center gap-2 rounded-xl border border-line bg-white px-2 py-4 text-center hover:border-forest"
           >
-            <img src={c.icon} alt="" className="h-8 w-8" aria-hidden />
+            <img src={c.icon} alt="" className="h-12 w-12" aria-hidden />
             <span className="text-xs font-medium text-ink/70">{c.label}</span>
           </Link>
         ))}
