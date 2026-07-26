@@ -4,14 +4,19 @@ import { Pagination } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
 
-export default function ImageSlider({ images = [], alt = '', aspect = 'aspect-[5/3]', rounded = 'rounded-2xl' }) {
+// `ratio` dipakai lewat inline style (CSS aspect-ratio), BUKAN lewat
+// class Tailwind seperti sebelumnya -- supaya nggak bergantung pada
+// Tailwind berhasil men-generate class arbitrary value dari default
+// parameter. Formatnya string biasa, misal "5 / 3" atau "7 / 4".
+export default function ImageSlider({ images = [], alt = '', ratio = '5 / 3', rounded = 'rounded-2xl' }) {
   const list = images.length ? images : ['/placeholder-house.jpg'];
 
   return (
     <Swiper
       modules={[Pagination]}
       pagination={{ clickable: true }}
-      className={`w-full ${aspect} ${rounded} overflow-hidden`}
+      style={{ aspectRatio: ratio }}
+      className={`w-full ${rounded} overflow-hidden`}
     >
       {list.map((src, i) => (
         <SwiperSlide key={i}>
