@@ -1,33 +1,117 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Pagination } from 'swiper/modules';
+import { Pagination, Navigation, Keyboard } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
+import 'swiper/css/navigation';
 
 // `ratio` dipakai lewat inline style (CSS aspect-ratio), BUKAN lewat
 // class Tailwind seperti sebelumnya -- supaya nggak bergantung pada
 // Tailwind berhasil men-generate class arbitrary value dari default
 // parameter. Formatnya string biasa, misal "5 / 3" atau "7 / 4".
-export default function ImageSlider({ images = [], alt = '', ratio = '7 / 5', rounded = 'rounded-2xl' }) {
+//
+// `enableLightbox`: kalau true, klik foto akan membuka foto ukuran
+// penuh (tidak di-crop) dengan tombol close & bisa geser ke foto lain.
+// Sengaja default-nya FALSE supaya kartu di grid Home (ListingCard)
+// tidak berubah perilakunya -- di situ klik foto tetap berarti
+// "buka halaman listing ini", bukan buka lightbox.
+export default function ImageSlider({
+  images = [],
+  alt = '',
+  ratio = '7 / 5',
+  rounded = 'rounded-2xl',
+  enableLightbox = false,
+}) {
   const list = images.length ? images : ['/placeholder-house.jpg'];
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+
+  // Kunci scroll halaman belakang selagi lightbox terbuka.
+  useEffect(() => {
+    if (lightboxOpen) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [lightboxOpen]);
+
+  // Tutup dengan tombol Escape.
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    function onKeyDown(e) {
+      if (e.key === 'Escape') setLightboxOpen(false);
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [lightboxOpen]);
+
+  function openLightbox(i) {
+    if (!enableLightbox) return;
+    setLightboxIndex(i);
+    setLightboxOpen(true);
+  }
 
   return (
-    <Swiper
-      modules={[Pagination]}
-      pagination={{ clickable: true }}
-      style={{ aspectRatio: ratio }}
-      className={`w-full ${rounded} overflow-hidden`}
-    >
-      {list.map((src, i) => (
-        <SwiperSlide key={i}>
-          <img
-            src={src}
-            alt={`${alt} - foto ${i + 1}`}
-            className="h-full w-full object-cover"
-            loading="lazy"
-          />
-        </SwiperSlide>
-      ))}
-    </Swiper>
+    <>
+      <Swiper
+        modules={[Pagination]}
+        pagination={{ clickable: true }}
+        style={{ aspectRatio: ratio }}
+        className={`w-full ${rounded} overflow-hidden`}
+      >
+        {list.map((src, i) => (
+          <SwiperSlide key={i}>
+            <img
+              src={src}
+              alt={`${alt} - foto ${i + 1}`}
+              className={`h-full w-full object-cover ${enableLightbox ? 'cursor-zoom-in' : ''}`}
+              loading="lazy"
+              onClick={() => openLightbox(i)}
+            />
+          </SwiperSlide>
+        ))}
+      </Swiper>
+
+      {enableLightbox && lightboxOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setLightboxOpen(false);
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(false)}
+            aria-label="Tutup"
+            className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-6 w-6">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+
+          <Swiper
+            modules={[Navigation, Keyboard]}
+            navigation
+            keyboard={{ enabled: true }}
+            initialSlide={lightboxIndex}
+            className="h-full w-full"
+          >
+            {list.map((src, i) => (
+              <SwiperSlide key={i} className="flex items-center justify-center">
+                <img
+                  src={src}
+                  alt={`${alt} - foto ${i + 1}`}
+                  className="max-h-full max-w-full object-contain"
+                />
+              </SwiperSlide>
+            ))}
+          </Swiper>
+        </div>
+      )}
+    </>
   );
 }
