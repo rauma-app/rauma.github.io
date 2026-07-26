@@ -4,7 +4,7 @@ import { Pagination } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
 
-export default function ImageSlider({ images = [], alt = '', aspect = 'aspect-[3/2]', rounded = 'rounded-2xl' }) {
+export default function ImageSlider({ images = [], alt = '', aspect = 'aspect-[5/3]', rounded = 'rounded-2xl' }) {
   const list = images.length ? images : ['/placeholder-house.jpg'];
 
   return (
