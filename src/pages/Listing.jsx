@@ -138,7 +138,7 @@ export default function Listing() {
         image={listing.images && listing.images[0]}
         jsonLd={seoJsonLd}
       />
-      <ImageSlider images={listing.images} alt={listing.kecamatan} ratio="7 / 4" />
+      <ImageSlider images={listing.images} alt={listing.kecamatan} ratio="3 / 2" />
 
       <div className="mt-6">
         <div className="flex flex-wrap items-baseline gap-x-2">
