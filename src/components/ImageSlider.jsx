@@ -8,7 +8,7 @@ import 'swiper/css/pagination';
 // class Tailwind seperti sebelumnya -- supaya nggak bergantung pada
 // Tailwind berhasil men-generate class arbitrary value dari default
 // parameter. Formatnya string biasa, misal "5 / 3" atau "7 / 4".
-export default function ImageSlider({ images = [], alt = '', ratio = '5 / 3', rounded = 'rounded-2xl' }) {
+export default function ImageSlider({ images = [], alt = '', ratio = '7 / 5', rounded = 'rounded-2xl' }) {
   const list = images.length ? images : ['/placeholder-house.jpg'];
 
   return (
