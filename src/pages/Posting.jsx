@@ -10,12 +10,25 @@ import LocationAutocomplete from '../components/LocationAutocomplete';
 const SERTIFIKAT_OPTIONS = ['SHM', 'SHGB', 'HGB', 'AJB', 'Girik', 'PPJB', 'Lainnya'];
 const AIR_OPTIONS = ['PDAM', 'Sumur Bor', 'Sumur Gali', 'Lainnya'];
 
+const TYPE_LABELS = {
+  pribadi: 'Pribadi',
+  perumahan: 'Perumahan',
+  take_over_kpr: 'Take Over KPR',
+  subsidi: 'Subsidi',
+  jual_cepat: 'Jual Cepat',
+};
+
+// Tipe listing yang punya field "Cicilan Mulai dari" manual.
+const CICILAN_TYPES = ['perumahan', 'subsidi', 'take_over_kpr'];
+
 const emptyForm = {
   type: 'pribadi',
   priceRaw: '', // angka mentah tanpa titik, contoh "100000000"
+  cicilanRaw: '', // angka mentah cicilan bulanan manual, contoh "2500000"
   location: null, // { label, kabupaten, kecamatan, lat, lon }
   luasTanah: '',
   luasBangunan: '',
+  unitTersedia: '',
   bedrooms: '',
   bathrooms: '',
   electricity: '',
@@ -41,6 +54,7 @@ export default function Posting() {
 
   const [form, setForm] = useState(emptyForm);
   const [priceDisplay, setPriceDisplay] = useState('');
+  const [cicilanDisplay, setCicilanDisplay] = useState('');
   const [files, setFiles] = useState([]); // foto BARU (File object) yang belum di-upload
   const [existingImages, setExistingImages] = useState([]); // foto LAMA (url string), khusus edit mode
   const [previews, setPreviews] = useState([]); // gabungan url lama + preview foto baru, untuk ditampilkan
@@ -71,6 +85,7 @@ export default function Posting() {
         setForm({
           type: data.type || 'pribadi',
           priceRaw: String(data.price || ''),
+          cicilanRaw: data.cicilanPerBulan ? String(data.cicilanPerBulan) : '',
           location: {
             label: data.kecamatan ? `${data.kecamatan} - ${data.kabupaten}` : data.kabupaten,
             kabupaten: data.kabupaten || '',
@@ -80,6 +95,7 @@ export default function Posting() {
           },
           luasTanah: data.luasTanah ?? '',
           luasBangunan: data.luasBangunan ?? '',
+          unitTersedia: data.unitTersedia ?? '',
           bedrooms: data.bedrooms ?? '',
           bathrooms: data.bathrooms ?? '',
           electricity: data.electricity || '',
@@ -90,6 +106,7 @@ export default function Posting() {
           whatsapp: data.whatsapp || '',
         });
         setPriceDisplay(formatThousands(String(data.price || '')));
+        setCicilanDisplay(data.cicilanPerBulan ? formatThousands(String(data.cicilanPerBulan)) : '');
         setExistingImages(data.images || []);
         setPreviews(data.images || []);
       } catch (err) {
@@ -114,6 +131,12 @@ export default function Posting() {
     const digits = e.target.value.replace(/\D/g, '');
     update('priceRaw', digits);
     setPriceDisplay(formatThousands(digits));
+  }
+
+  function handleCicilanChange(e) {
+    const digits = e.target.value.replace(/\D/g, '');
+    update('cicilanRaw', digits);
+    setCicilanDisplay(formatThousands(digits));
   }
 
   function handleWhatsappChange(e) {
@@ -179,12 +202,14 @@ export default function Posting() {
       const payload = {
         type: form.type,
         price: Number(form.priceRaw),
+        cicilanPerBulan: CICILAN_TYPES.includes(form.type) && form.cicilanRaw ? Number(form.cicilanRaw) : null,
         kabupaten: form.location.kabupaten,
         kecamatan: form.location.kecamatan,
         lat: form.location.lat,
         lon: form.location.lon,
         luasTanah: form.luasTanah ? Number(form.luasTanah) : null,
         luasBangunan: form.luasBangunan ? Number(form.luasBangunan) : null,
+        unitTersedia: form.type === 'perumahan' && form.unitTersedia ? Number(form.unitTersedia) : null,
         bedrooms: form.bedrooms ? Number(form.bedrooms) : null,
         bathrooms: form.bathrooms ? Number(form.bathrooms) : null,
         electricity: form.electricity || null,
@@ -241,20 +266,20 @@ export default function Posting() {
       </h1>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-        {/* Toggle Pribadi/Perumahan (+ Subsidi khusus admin) */}
+        {/* Toggle Pribadi/Perumahan/Take Over KPR (+ Subsidi & Jual Cepat khusus admin) */}
         <div className="flex flex-wrap gap-2">
-          {['pribadi', 'perumahan', ...(isAdmin(user) ? ['subsidi', 'jual_cepat'] : [])].map((t) => (
+          {['pribadi', 'perumahan', 'take_over_kpr', ...(isAdmin(user) ? ['subsidi', 'jual_cepat'] : [])].map((t) => (
             <button
               type="button"
               key={t}
               onClick={() => update('type', t)}
-              className={`rounded-full border px-5 py-2 text-sm font-semibold capitalize transition-colors ${
+              className={`rounded-full border px-5 py-2 text-sm font-semibold transition-colors ${
                 form.type === t
                   ? 'border-navy bg-navy text-white'
                   : 'border-line bg-white text-ink/60'
               }`}
             >
-              {t === 'jual_cepat' ? 'Jual Cepat' : t}
+              {TYPE_LABELS[t] || t}
             </button>
           ))}
         </div>
@@ -294,19 +319,38 @@ export default function Posting() {
           )}
         </div>
 
-        <Field label="Harga">
-          <div className="flex items-center gap-2 rounded-xl border border-line bg-white px-4 focus-within:border-forest">
-            <span className="text-ink/50">Rp</span>
-            <input
-              type="text"
-              inputMode="numeric"
-              placeholder="100.000.000"
-              value={priceDisplay}
-              onChange={handlePriceChange}
-              className="w-full bg-transparent py-3 text-ink placeholder:text-ink/40 outline-none"
-            />
-          </div>
-        </Field>
+        <div className={CICILAN_TYPES.includes(form.type) ? 'grid grid-cols-2 gap-4' : ''}>
+          <Field label="Harga">
+            <div className="flex items-center gap-2 rounded-xl border border-line bg-white px-4 focus-within:border-forest">
+              <span className="text-ink/50">Rp</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="100.000.000"
+                value={priceDisplay}
+                onChange={handlePriceChange}
+                className="w-full bg-transparent py-3 text-ink placeholder:text-ink/40 outline-none"
+              />
+            </div>
+          </Field>
+
+          {CICILAN_TYPES.includes(form.type) && (
+            <Field label="Cicilan Mulai dari">
+              <div className="flex items-center gap-2 rounded-xl border border-line bg-white px-4 focus-within:border-forest">
+                <span className="text-ink/50">Rp</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="2.500.000"
+                  value={cicilanDisplay}
+                  onChange={handleCicilanChange}
+                  className="w-full bg-transparent py-3 text-ink placeholder:text-ink/40 outline-none"
+                />
+              </div>
+              <p className="mt-1.5 text-xs text-ink/40">Opsional. Cicilan per bulan, tampil berdampingan dengan harga jual.</p>
+            </Field>
+          )}
+        </div>
 
         <Field label="Lokasi">
           <LocationAutocomplete
@@ -386,6 +430,18 @@ export default function Posting() {
           </select>
         </Field>
 
+        {form.type === 'perumahan' && (
+          <Field label="Unit Tersedia">
+            <input
+              type="number"
+              value={form.unitTersedia}
+              onChange={(e) => update('unitTersedia', e.target.value)}
+              placeholder="Masukkan jumlah unit tersedia"
+              className="input"
+            />
+          </Field>
+        )}
+
         <Field label="URL Video">
           <input
             type="url"
@@ -443,4 +499,4 @@ function Field({ label, children }) {
         }
 
 
-            
+
