@@ -10,6 +10,7 @@ import { formatRupiah } from '../lib/kpr';
 export default function AdminPending() {
   const { user, loading: authLoading } = useAuth();
   const [pending, setPending] = useState([]);
+  const [orphaned, setOrphaned] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
 
@@ -25,10 +26,33 @@ export default function AdminPending() {
       const q = query(collection(db, 'listings'), where('status', '==', 'pending'));
       const snap = await getDocs(q);
       setPending(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+
+      // Firestore tidak bisa query "field tidak ada" secara langsung, jadi
+      // kita ambil semua listing approved lalu saring di sisi client untuk
+      // cari yang belum punya ownerUid (biasanya listing lama yang dulu
+      // ditambahkan manual lewat Firestore Console, bukan lewat form
+      // Posting -- makanya nggak nyantol ke akun siapapun).
+      const allQ = query(collection(db, 'listings'), where('status', '==', 'approved'));
+      const allSnap = await getDocs(allQ);
+      const all = allSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setOrphaned(all.filter((l) => !l.ownerUid));
     } catch (err) {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function claimListing(id) {
+    setBusyId(id);
+    try {
+      await updateDoc(doc(db, 'listings', id), { ownerUid: user.uid });
+      setOrphaned((prev) => prev.filter((l) => l.id !== id));
+    } catch (err) {
+      console.error(err);
+      alert('Gagal mengklaim iklan. Coba lagi ya.');
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -102,6 +126,41 @@ export default function AdminPending() {
           </div>
         ))}
       </div>
+
+      <h2 className="mt-12 font-display text-xl font-semibold text-navy">
+        Iklan Tanpa Pemilik ({orphaned.length})
+      </h2>
+      <p className="mt-1 text-sm text-ink/50">
+        Listing lama yang belum tercatat kepemilikannya, jadi tidak muncul di halaman "Iklan Saya" siapapun. Klaim biar bisa kamu kelola dari sana.
+      </p>
+
+      {!loading && orphaned.length === 0 && (
+        <div className="mt-4 rounded-2xl border border-dashed border-line bg-white p-6 text-center">
+          <p className="text-ink/60">Tidak ada iklan tanpa pemilik. 🎉</p>
+        </div>
+      )}
+
+      <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {orphaned.map((listing) => (
+          <div key={listing.id} className="overflow-hidden rounded-2xl border border-line bg-white">
+            <ImageSlider images={listing.images} alt={listing.kecamatan} ratio="7 / 5" rounded="rounded-none" />
+            <div className="p-3">
+              <p className="font-display text-base font-semibold text-navy">{formatRupiah(listing.price)}</p>
+              <p className="mt-1 text-xs text-ink/60">
+                {listing.kecamatan ? `${listing.kecamatan} - ` : ''}
+                {listing.kabupaten}
+              </p>
+              <button
+                onClick={() => claimListing(listing.id)}
+                disabled={busyId === listing.id}
+                className="mt-3 w-full rounded-full bg-forest py-1.5 text-xs font-semibold text-white hover:bg-forest-dark disabled:opacity-50"
+              >
+                {busyId === listing.id ? 'Mengklaim...' : 'Klaim sebagai punya saya'}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
-                }
+}
