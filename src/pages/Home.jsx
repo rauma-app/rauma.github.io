@@ -10,7 +10,7 @@ import iconTermurah from '../assets/icons/termurah.svg';
 import iconTermahal from '../assets/icons/termahal.svg';
 import iconSubsidi from '../assets/icons/rumah_subsidi.svg';
 import iconJualCepat from '../assets/icons/jual_cepat.svg';
-import iconKprSyariah from '../assets/icons/kpr_syariah.svg';
+import iconTakeOverKPR from '../assets/icons/kpr_syariah.svg';
 import iconNabung from '../assets/icons/nabung.svg';
 
 const CATEGORY_SHORTCUTS = [
@@ -18,7 +18,7 @@ const CATEGORY_SHORTCUTS = [
   { icon: iconTermahal, label: 'Termahal', to: '/termahal' },
   { icon: iconSubsidi, label: 'Rumah Subsidi', to: '/subsidi' },
   { icon: iconJualCepat, label: 'Jual Cepat', to: '/jual-cepat' },
-  { icon: iconKprSyariah, label: 'KPR Syariah', to: '/kpr-syariah' },
+  { icon: iconTakeOverKPR, label: 'Take Over KPR', to: '/take-over-kpr' },
   { icon: iconNabung, label: 'Nabung', to: '/nabung' },
 ];
 
@@ -121,7 +121,7 @@ export default function Home() {
     <div>
       <Seo
         title="Jual Beli Rumah KPR Murah Seluruh Indonesia"
-        description="Rauma adalah platform jual beli rumah KPR gratis dan mudah — temukan rumah termurah, rumah subsidi, hingga KPR syariah sesuai lokasi dan budget kamu."
+        description="Rauma adalah platform jual beli rumah KPR gratis dan mudah — temukan rumah termurah, rumah subsidi, hingga rumah take over KPR sesuai lokasi dan budget kamu."
         path="/"
       />
       {/* Hero + search bar */}
