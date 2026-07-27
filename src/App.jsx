@@ -7,7 +7,7 @@ import Home from './pages/Home';
 import PerumahanList from './pages/PerumahanList';
 import PriceSortedList from './pages/PriceSortedList';
 import { SubsidiList, JualCepatList } from './pages/SpecialCategoryList';
-import KPRSyariahPage from './pages/KPRSyariahPage';
+import TakeOverKPRPage from './pages/TakeOverKPRPage';
 import NabungPage from './pages/NabungPage';
 import Posting from './pages/Posting';
 import Listing from './pages/Listing';
@@ -27,7 +27,7 @@ export default function App() {
           <Route path="/termahal" element={<PriceSortedList />} />
           <Route path="/subsidi" element={<SubsidiList />} />
           <Route path="/jual-cepat" element={<JualCepatList />} />
-          <Route path="/kpr-syariah" element={<KPRSyariahPage />} />
+          <Route path="/take-over-kpr" element={<TakeOverKPRPage />} />
           <Route path="/nabung" element={<NabungPage />} />
           <Route path="/id/:id" element={<Listing />} />
           <Route path="/penjual/:uid" element={<SellerProfile />} />
