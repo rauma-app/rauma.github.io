@@ -1,11 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import ImageSlider from './ImageSlider';
-import { calculateKPR, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
+import { formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
 
 export default function ListingCard({ listing }) {
-  const { monthly } = calculateKPR(listing.price);
-
   return (
     <Link
       to={`/id/${listing.id}`}
@@ -17,7 +15,9 @@ export default function ListingCard({ listing }) {
           <span className="font-display text-base font-semibold text-navy sm:text-xl">
             {formatRupiahShort(listing.price)}
           </span>
-          <span className="text-xs text-ink/50 sm:text-sm">· {formatMonthlyShort(monthly)}</span>
+          {listing.cicilanPerBulan ? (
+            <span className="text-xs text-ink/50 sm:text-sm">· {formatMonthlyShort(listing.cicilanPerBulan)}</span>
+          ) : null}
         </div>
         <div className="mt-1.5 flex items-center gap-1 text-xs text-ink/60 sm:mt-2 sm:text-sm">
           <span aria-hidden>📍</span>
