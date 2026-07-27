@@ -4,7 +4,7 @@ import { collection, deleteDoc, doc, getDocs, orderBy, query, where } from 'fire
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import ImageSlider from '../components/ImageSlider';
-import { calculateKPR, formatMonthlyShort, formatRupiahShort } from '../lib/kpr';
+import { formatMonthlyShort, formatRupiahShort } from '../lib/kpr';
 
 export default function MyListings() {
   const { user } = useAuth();
@@ -61,7 +61,6 @@ export default function MyListings() {
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         {listings.map((listing) => {
-          const { monthly } = calculateKPR(listing.price);
           return (
             <div key={listing.id} className="overflow-hidden rounded-2xl border border-line bg-paper">
               <Link to={`/id/${listing.id}`}>
@@ -73,7 +72,9 @@ export default function MyListings() {
                     <span className="font-display text-base font-semibold text-navy sm:text-xl">
                       {formatRupiahShort(listing.price)}
                     </span>
-                    <span className="text-xs text-ink/50 sm:text-sm">· {formatMonthlyShort(monthly)}</span>
+                    {listing.cicilanPerBulan ? (
+                      <span className="text-xs text-ink/50 sm:text-sm">· {formatMonthlyShort(listing.cicilanPerBulan)}</span>
+                    ) : null}
                   </div>
                   <div className="mt-1.5 flex items-center gap-1 text-xs text-ink/60 sm:text-sm">
                     <span aria-hidden>📍</span>
@@ -106,4 +107,4 @@ export default function MyListings() {
       </div>
     </div>
   );
-              }
+}
