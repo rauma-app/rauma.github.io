@@ -198,12 +198,15 @@ export default function Listing() {
       )}
 
       <section className="mt-8 flex items-center justify-between rounded-2xl border border-line bg-white p-4">
-        <div className="flex items-center gap-3">
+        <Link
+          to={listing.ownerUid ? `/penjual/${listing.ownerUid}` : '#'}
+          className={`flex items-center gap-3 ${listing.ownerUid ? 'hover:opacity-80' : 'pointer-events-none'}`}
+        >
           {listing.ownerPhoto && (
             <img src={listing.ownerPhoto} alt={listing.ownerName} referrerPolicy="no-referrer" className="h-11 w-11 rounded-full object-cover" />
           )}
-          <span className="font-semibold text-ink">{listing.ownerName}</span>
-        </div>
+          <span className="font-semibold text-ink underline-offset-2 hover:underline">{listing.ownerName}</span>
+        </Link>
         {waLink && (
           <a
             href={waLink}
@@ -234,5 +237,4 @@ export default function Listing() {
       )}
     </div>
   );
-                }
-                
+      }
