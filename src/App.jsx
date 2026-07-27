@@ -13,6 +13,7 @@ import Posting from './pages/Posting';
 import Listing from './pages/Listing';
 import MyListings from './pages/MyListings';
 import AdminPending from './pages/AdminPending';
+import SellerProfile from './pages/SellerProfile';
 
 export default function App() {
   return (
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/kpr-syariah" element={<KPRSyariahPage />} />
           <Route path="/nabung" element={<NabungPage />} />
           <Route path="/id/:id" element={<Listing />} />
+          <Route path="/penjual/:uid" element={<SellerProfile />} />
           <Route
             path="/posting"
             element={
