@@ -7,7 +7,7 @@ import Seo from '../components/Seo';
 import { distanceKm } from '../lib/nominatim';
 
 const NEARBY_RADIUS_KM = 30;
-const EXCLUDED_TYPES = ['subsidi', 'jual_cepat']; // kategori khusus, gak ikut daftar umum ini
+const EXCLUDED_TYPES = ['subsidi', 'jual_cepat', 'take_over_kpr']; // kategori khusus, gak ikut daftar umum ini
 
 export default function PriceSortedList() {
   const { pathname } = useLocation();
