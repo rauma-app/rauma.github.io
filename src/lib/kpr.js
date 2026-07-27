@@ -1,63 +1,7 @@
-// Kalkulator estimasi KPR sederhana.
-//
-// Rumus anuitas standar (dipakai hampir semua bank untuk cicilan tetap):
-//   M = P * i * (1 + i)^n / ((1 + i)^n - 1)
-//   M = cicilan bulanan
-//   P = pokok pinjaman (harga rumah - uang muka/DP)
-//   i = suku bunga per bulan (suku bunga tahunan / 12)
-//   n = tenor dalam bulan
-//
-// Asumsi default:
-//   - DP default: 20% dari harga rumah
-//   - Suku bunga: mengikuti KPR BCA Syariah, 7.69% per tahun, fixed
-//   - Tenor default: 15 tahun (rentang wajar 5-20 tahun)
-
-export const KPR_DEFAULTS = {
-  dpPercent: 20,
-  tenorYears: 15,
-  annualRatePercent: 7.69,
-};
-
-export const KPR_BANK_LABEL = 'BCA Syariah';
-
-export const KPR_LIMITS = {
-  dpPercent: { min: 10, max: 50, step: 5 },
-  tenorYears: { min: 5, max: 15, step: 1 },
-};
-
-/**
- * Hitung estimasi KPR dari harga rumah.
- * @param {number} price - harga rumah (Rp)
- * @param {object} opts - { dpPercent, tenorYears, annualRatePercent }
- */
-export function calculateKPR(price, opts = {}) {
-  const dpPercent = opts.dpPercent ?? KPR_DEFAULTS.dpPercent;
-  const tenorYears = opts.tenorYears ?? KPR_DEFAULTS.tenorYears;
-  const annualRatePercent = opts.annualRatePercent ?? KPR_DEFAULTS.annualRatePercent;
-
-  const dpAmount = Math.round((price * dpPercent) / 100);
-  const principal = Math.max(price - dpAmount, 0);
-  const i = annualRatePercent / 100 / 12;
-  const n = tenorYears * 12;
-
-  let monthly;
-  if (i === 0) {
-    monthly = principal / n;
-  } else {
-    const factor = Math.pow(1 + i, n);
-    monthly = principal * i * (factor / (factor - 1));
-  }
-
-  return {
-    dpAmount,
-    principal,
-    monthly: Math.round(monthly),
-    totalPaid: Math.round(monthly * n + dpAmount),
-    dpPercent,
-    tenorYears,
-    annualRatePercent,
-  };
-}
+// Util format angka/rupiah yang dipakai di seluruh aplikasi.
+// Catatan: kalkulator estimasi KPR otomatis sudah dihapus (per Juli 2026)
+// karena skema cicilan tiap bank/developer beda-beda. Sekarang cicilan
+// diisi manual oleh penjual lewat field "Cicilan Mulai dari" di form Posting.
 
 export function formatRupiah(value) {
   if (value == null || Number.isNaN(value)) return '-';
