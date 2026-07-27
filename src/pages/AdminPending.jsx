@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { collection, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
+import { collection, deleteDoc, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../lib/admin';
@@ -10,7 +10,7 @@ import { formatRupiah } from '../lib/kpr';
 export default function AdminPending() {
   const { user, loading: authLoading } = useAuth();
   const [pending, setPending] = useState([]);
-  const [orphaned, setOrphaned] = useState([]);
+  const [allListings, setAllListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
 
@@ -27,15 +27,9 @@ export default function AdminPending() {
       const snap = await getDocs(q);
       setPending(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
 
-      // Firestore tidak bisa query "field tidak ada" secara langsung, jadi
-      // kita ambil semua listing approved lalu saring di sisi client untuk
-      // cari yang belum punya ownerUid (biasanya listing lama yang dulu
-      // ditambahkan manual lewat Firestore Console, bukan lewat form
-      // Posting -- makanya nggak nyantol ke akun siapapun).
-      const allQ = query(collection(db, 'listings'), where('status', '==', 'approved'));
-      const allSnap = await getDocs(allQ);
-      const all = allSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setOrphaned(all.filter((l) => !l.ownerUid));
+      // Admin bisa baca SEMUA listing apapun statusnya (lihat firestore.rules).
+      const allSnap = await getDocs(collection(db, 'listings'));
+      setAllListings(allSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
     } catch (err) {
       console.error(err);
     } finally {
@@ -43,14 +37,18 @@ export default function AdminPending() {
     }
   }
 
-  async function claimListing(id) {
+  async function deleteListing(id) {
+    const confirmed = window.confirm('Yakin mau hapus iklan ini? Tindakan ini tidak bisa dibatalkan.');
+    if (!confirmed) return;
+
     setBusyId(id);
     try {
-      await updateDoc(doc(db, 'listings', id), { ownerUid: user.uid });
-      setOrphaned((prev) => prev.filter((l) => l.id !== id));
+      await deleteDoc(doc(db, 'listings', id));
+      setAllListings((prev) => prev.filter((l) => l.id !== id));
+      setPending((prev) => prev.filter((l) => l.id !== id));
     } catch (err) {
       console.error(err);
-      alert('Gagal mengklaim iklan. Coba lagi ya.');
+      alert('Gagal menghapus iklan. Coba lagi ya.');
     } finally {
       setBusyId(null);
     }
@@ -128,34 +126,42 @@ export default function AdminPending() {
       </div>
 
       <h2 className="mt-12 font-display text-xl font-semibold text-navy">
-        Iklan Tanpa Pemilik ({orphaned.length})
+        Semua Iklan ({allListings.length})
       </h2>
       <p className="mt-1 text-sm text-ink/50">
-        Listing lama yang belum tercatat kepemilikannya, jadi tidak muncul di halaman "Iklan Saya" siapapun. Klaim biar bisa kamu kelola dari sana.
+        Semua iklan di website, apapun statusnya. Admin bisa hapus langsung dari sini.
       </p>
 
-      {!loading && orphaned.length === 0 && (
+      {!loading && allListings.length === 0 && (
         <div className="mt-4 rounded-2xl border border-dashed border-line bg-white p-6 text-center">
-          <p className="text-ink/60">Tidak ada iklan tanpa pemilik. 🎉</p>
+          <p className="text-ink/60">Belum ada iklan sama sekali.</p>
         </div>
       )}
 
-      <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {orphaned.map((listing) => (
-          <div key={listing.id} className="overflow-hidden rounded-2xl border border-line bg-white">
-            <ImageSlider images={listing.images} alt={listing.kecamatan} ratio="7 / 5" rounded="rounded-none" />
-            <div className="p-3">
-              <p className="font-display text-base font-semibold text-navy">{formatRupiah(listing.price)}</p>
-              <p className="mt-1 text-xs text-ink/60">
+      <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
+        {allListings.map((listing) => (
+          <div key={listing.id} className="overflow-hidden rounded-xl border border-line bg-white">
+            <div className="aspect-square w-full overflow-hidden bg-cream">
+              <img
+                src={listing.images?.[0]}
+                alt={listing.kecamatan}
+                className="h-full w-full object-cover"
+                loading="lazy"
+              />
+            </div>
+            <div className="p-2">
+              <p className="text-xs font-semibold text-navy">{formatRupiah(listing.price)}</p>
+              <p className="mt-0.5 line-clamp-1 text-[11px] text-ink/50">
                 {listing.kecamatan ? `${listing.kecamatan} - ` : ''}
                 {listing.kabupaten}
               </p>
+              <p className="mt-0.5 text-[10px] uppercase tracking-wide text-ink/40">{listing.status}</p>
               <button
-                onClick={() => claimListing(listing.id)}
+                onClick={() => deleteListing(listing.id)}
                 disabled={busyId === listing.id}
-                className="mt-3 w-full rounded-full bg-forest py-1.5 text-xs font-semibold text-white hover:bg-forest-dark disabled:opacity-50"
+                className="mt-2 w-full rounded-full border border-red-200 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
               >
-                {busyId === listing.id ? 'Mengklaim...' : 'Klaim sebagai punya saya'}
+                {busyId === listing.id ? '...' : 'Hapus'}
               </button>
             </div>
           </div>
@@ -163,4 +169,4 @@ export default function AdminPending() {
       </div>
     </div>
   );
-}
+                  }
