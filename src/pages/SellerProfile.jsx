@@ -5,6 +5,7 @@ import { db } from '../firebase';
 import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
 import VerifiedBadge from '../components/VerifiedBadge';
+import ProfilePhotoViewer from '../components/ProfilePhotoViewer';
 import { ADMIN_UIDS } from '../lib/admin';
 import { PREMIUM_UIDS } from '../lib/premium';
 
@@ -54,10 +55,10 @@ export default function SellerProfile() {
 
       <div className="flex items-center gap-3">
         {owner?.ownerPhoto && (
-          <img
+          <ProfilePhotoViewer
             src={owner.ownerPhoto}
             alt={owner.ownerName}
-            referrerPolicy="no-referrer"
+            clickable={isOwnerVerified}
             className="h-14 w-14 rounded-full object-cover"
           />
         )}
