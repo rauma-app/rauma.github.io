@@ -4,6 +4,8 @@ import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firesto
 import { db } from '../firebase';
 import ImageSlider from '../components/ImageSlider';
 import ListingCard from '../components/ListingCard';
+import VerifiedBadge from '../components/VerifiedBadge';
+import { ADMIN_UIDS } from '../lib/admin';
 import Seo from '../components/Seo';
 import { formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
 
