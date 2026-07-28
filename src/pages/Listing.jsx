@@ -12,12 +12,12 @@ import { formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr'
 const SPEC_ROWS = [
   { key: 'luasTanah', label: 'Luas Tanah', icon: '📐', suffix: ' m²' },
   { key: 'luasBangunan', label: 'Luas Bangunan', icon: '🏠', suffix: ' m²' },
-  { key: 'unitTersedia', label: 'Unit Tersedia', icon: '🏘️', suffix: ' unit' },
   { key: 'bedrooms', label: 'Kamar Tidur', icon: '🛏️', suffix: '' },
   { key: 'bathrooms', label: 'Kamar Mandi', icon: '🚿', suffix: '' },
   { key: 'electricity', label: 'Daya Listrik', icon: '⚡', suffix: '' },
   { key: 'air', label: 'Air', icon: '💧', suffix: '' },
   { key: 'sertifikat', label: 'Sertifikat', icon: '📋', suffix: '' },
+  { key: 'unitTersedia', label: 'Unit Tersedia', icon: '🏘️', suffix: ' unit' },
 ];
 
 export default function Listing() {
