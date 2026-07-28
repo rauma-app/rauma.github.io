@@ -52,12 +52,14 @@ export default function PriceSortedList() {
 
   let displayed = [...listings];
 
-  if (isCheapest && userLoc) {
+  if (userLoc) {
     const nearby = displayed.filter((l) => {
       const d = distanceKm(userLoc.lat, userLoc.lon, l.lat, l.lon);
       return d != null && d <= NEARBY_RADIUS_KM;
     });
-    displayed = (nearby.length >= 4 ? nearby : displayed).sort((a, b) => a.price - b.price);
+    displayed = (nearby.length >= 4 ? nearby : displayed).sort((a, b) =>
+      isCheapest ? a.price - b.price : b.price - a.price
+    );
   } else {
     displayed.sort((a, b) => (isCheapest ? a.price - b.price : b.price - a.price));
   }
@@ -69,7 +71,7 @@ export default function PriceSortedList() {
         description={
           isCheapest
             ? 'Daftar rumah termurah dari seluruh listing Rauma, bisa diurutkan berdasarkan jarak terdekat dari lokasi kamu.'
-            : 'Daftar rumah dengan harga tertinggi dari seluruh listing Rauma untuk kamu yang cari hunian premium.'
+            : 'Daftar rumah dengan harga tertinggi dari seluruh listing Rauma, bisa diurutkan berdasarkan jarak terdekat dari lokasi kamu.'
         }
         path={isCheapest ? '/termurah' : '/termahal'}
       />
@@ -77,23 +79,23 @@ export default function PriceSortedList() {
         {isCheapest ? 'Rumah Termurah' : 'Rumah Termahal'}
       </h1>
 
-      {isCheapest && (
-        <div className="mt-4">
-          {!userLoc ? (
-            <button
-              onClick={handleActivateLocation}
-              disabled={locating}
-              className="rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-white hover:bg-forest-dark disabled:opacity-60"
-            >
-              {locating ? 'Mencari lokasi...' : '📍 Aktifkan Lokasi (urutkan termurah terdekat)'}
-            </button>
-          ) : (
-            <p className="text-sm text-forest">
-              Menampilkan rumah termurah dalam radius {NEARBY_RADIUS_KM} km dari lokasi kamu.
-            </p>
-          )}
-        </div>
-      )}
+      <div className="mt-4">
+        {!userLoc ? (
+          <button
+            onClick={handleActivateLocation}
+            disabled={locating}
+            className="rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-white hover:bg-forest-dark disabled:opacity-60"
+          >
+            {locating
+              ? 'Mencari lokasi...'
+              : `📍 Aktifkan Lokasi (urutkan ${isCheapest ? 'termurah' : 'termahal'} terdekat)`}
+          </button>
+        ) : (
+          <p className="text-sm text-forest">
+            Menampilkan rumah {isCheapest ? 'termurah' : 'termahal'} dalam radius {NEARBY_RADIUS_KM} km dari lokasi kamu.
+          </p>
+        )}
+      </div>
 
       {loading && <p className="mt-6 text-sm text-ink/50">Memuat...</p>}
 
