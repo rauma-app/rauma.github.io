@@ -3,7 +3,7 @@
 //   Firebase Console -> Authentication -> tab "Users" -> cari akun Google kamu
 //   -> kolom "User UID" itu yang di-copy ke sini.
 export const ADMIN_UIDS = [
-  'al7pklcovEhT9Dfusg6diEmrzfO2',
+  'Wo0FNtm65fRmzrt35IQ3cgxm3fp1',
 ];
 
 export function isAdmin(user) {
