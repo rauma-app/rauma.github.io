@@ -33,6 +33,15 @@ export default function SellerProfile() {
   }, [uid]);
 
   const owner = listings[0];
+  const isAdminProfile = ADMIN_UIDS.includes(uid);
+
+  if (!loading && !isAdminProfile) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
+        <p className="text-ink/60">Halaman profil ini tidak tersedia.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
