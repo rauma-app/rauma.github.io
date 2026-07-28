@@ -7,6 +7,7 @@ import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
 import VerifiedBadge from '../components/VerifiedBadge';
 import { ADMIN_UIDS } from '../lib/admin';
+import { PREMIUM_UIDS } from '../lib/premium';
 import { formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
 
 const SPEC_ROWS = [
@@ -115,4 +116,143 @@ export default function Listing() {
     '@type': 'Product',
     name: seoTitle,
     description: seoDescription,
-    image: listing.images && listing.images.length
+    image: listing.images && listing.images.length ? listing.images : undefined,
+    offers: {
+      '@type': 'Offer',
+      priceCurrency: 'IDR',
+      price: listing.price,
+      availability: 'https://schema.org/InStock',
+    },
+    ...(listing.lat && listing.lon
+      ? {
+          additionalProperty: {
+            '@type': 'PropertyValue',
+            name: 'Lokasi',
+            value: lokasiText,
+          },
+        }
+      : {}),
+  };
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-6">
+      <Seo
+        title={seoTitle}
+        description={seoDescription}
+        path={`/id/${listing.id}`}
+        image={listing.images && listing.images[0]}
+        jsonLd={seoJsonLd}
+      />
+      <ImageSlider images={listing.images} alt={listing.kecamatan} ratio="3 / 2" enableLightbox />
+
+      <div className="mt-6">
+        <div className="flex flex-wrap items-baseline gap-x-2">
+          <p className="font-display text-3xl font-bold text-navy">{formatRupiahShort(listing.price)}</p>
+          {listing.cicilanPerBulan ? (
+            <p className="text-sm text-ink/50">
+              Cicilan mulai {formatMonthlyShort(listing.cicilanPerBulan)}
+            </p>
+          ) : null}
+        </div>
+        <div className="mt-1 flex items-center gap-1.5 text-ink/60">
+          <span aria-hidden>📍</span>
+          <span>{listing.kecamatan ? `${listing.kecamatan} - ` : ''}{listing.kabupaten}</span>
+        </div>
+      </div>
+
+      <section className="mt-8">
+        <h2 className="section-rule font-display text-xl font-semibold text-navy">Spesifikasi</h2>
+        <dl className="divide-y divide-line rounded-2xl border border-line bg-white">
+          {SPEC_ROWS.filter((row) => listing[row.key]).map((row) => (
+            <div key={row.key} className="flex items-center justify-between px-4 py-3">
+              <dt className="flex items-center gap-2 text-sm text-ink/60">
+                <span aria-hidden>{row.icon}</span> {row.label}
+              </dt>
+              <dd className="text-sm font-medium text-ink">
+                {listing[row.key]}{row.suffix}
+              </dd>
+            </div>
+          ))}
+          {listing.videoUrl && (
+            <div className="flex items-center justify-between px-4 py-3">
+              <dt className="flex items-center gap-2 text-sm text-ink/60">
+                <span aria-hidden>🎥</span> Video
+              </dt>
+              <dd className="text-sm font-medium">
+                <a
+                  href={listing.videoUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-forest underline"
+                >
+                  Lihat Video
+                </a>
+              </dd>
+            </div>
+          )}
+        </dl>
+      </section>
+
+      {listing.description && (
+        <section className="mt-8">
+          <h2 className="section-rule font-display text-xl font-semibold text-navy">Deskripsi</h2>
+          <div className="rounded-2xl border border-line bg-white p-4">
+            <p className="whitespace-pre-line text-sm leading-relaxed text-ink/80">
+              {listing.description}
+            </p>
+          </div>
+        </section>
+      )}
+
+      <section className="mt-8 flex items-center justify-between rounded-2xl border border-line bg-white p-4">
+        {(() => {
+          const isOwnerAdmin = ADMIN_UIDS.includes(listing.ownerUid);
+          const isOwnerPremium = PREMIUM_UIDS.includes(listing.ownerUid);
+          const isOwnerVerified = isOwnerAdmin || isOwnerPremium;
+          const nameBlock = (
+            <>
+              {listing.ownerPhoto && (
+                <img src={listing.ownerPhoto} alt={listing.ownerName} referrerPolicy="no-referrer" className="h-11 w-11 rounded-full object-cover" />
+              )}
+              <span className="flex items-center gap-1 font-semibold text-ink">
+                {listing.ownerName}
+                {isOwnerVerified && <VerifiedBadge color={isOwnerAdmin ? 'gold' : 'blue'} />}
+              </span>
+            </>
+          );
+
+          return isOwnerVerified ? (
+            <Link to={`/penjual/${listing.ownerUid}`} className="flex items-center gap-3 hover:opacity-80">
+              {nameBlock}
+            </Link>
+          ) : (
+            <div className="flex items-center gap-3">{nameBlock}</div>
+          );
+        })()}
+        {waLink && (
+          <a
+            href={waLink}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 rounded-full bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-dark"
+          >
+            <span aria-hidden>💬</span> Chat Sekarang
+          </a>
+        )}
+      </section>
+
+      {related.length > 0 && (
+        <section className="mt-8">
+          <h2 className="section-rule font-display text-xl font-semibold text-navy">
+            Rumah Lain di {listing.kecamatan || listing.kabupaten}
+          </h2>
+          <div className="grid grid-cols-2 gap-4">
+            {related.map((l) => (
+              <ListingCard key={l.id} listing={l} />
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
