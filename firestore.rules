@@ -4,7 +4,7 @@ service cloud.firestore {
 
     function isAdmin() {
       return request.auth != null && request.auth.uid in [
-        'al7pklcovEhT9Dfusg6diEmrzfO2'
+        'Wo0FNtm65fRmzrt35IQ3cgxm3fp1'
       ];
     }
 
