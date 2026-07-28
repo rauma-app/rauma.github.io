@@ -268,7 +268,7 @@ export default function Posting() {
       <form onSubmit={handleSubmit} className="mt-6 space-y-5">
         {/* Toggle Pribadi/Perumahan/Take Over KPR (+ Subsidi & Jual Cepat khusus admin) */}
         <div className="flex flex-wrap gap-2">
-          {['pribadi', 'perumahan', 'take_over_kpr', ...(isAdmin(user) ? ['subsidi', 'jual_cepat'] : [])].map((t) => (
+          {['pribadi', 'take_over_kpr', ...(isAdmin(user) ? ['perumahan', 'subsidi', 'jual_cepat'] : [])].map((t) => (
             <button
               type="button"
               key={t}
@@ -499,4 +499,4 @@ function Field({ label, children }) {
         }
 
 
-
+                
