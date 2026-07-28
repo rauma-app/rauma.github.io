@@ -6,6 +6,7 @@ import ImageSlider from '../components/ImageSlider';
 import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
 import VerifiedBadge from '../components/VerifiedBadge';
+import ProfilePhotoViewer from '../components/ProfilePhotoViewer';
 import { ADMIN_UIDS } from '../lib/admin';
 import { PREMIUM_UIDS } from '../lib/premium';
 import { formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
@@ -212,7 +213,12 @@ export default function Listing() {
           const nameBlock = (
             <>
               {listing.ownerPhoto && (
-                <img src={listing.ownerPhoto} alt={listing.ownerName} referrerPolicy="no-referrer" className="h-11 w-11 rounded-full object-cover" />
+                <ProfilePhotoViewer
+                  src={listing.ownerPhoto}
+                  alt={listing.ownerName}
+                  clickable={isOwnerVerified}
+                  className="h-11 w-11 rounded-full object-cover"
+                />
               )}
               <span className="flex items-center gap-1 font-semibold text-ink">
                 {listing.ownerName}
