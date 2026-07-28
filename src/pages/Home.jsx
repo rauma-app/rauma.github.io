@@ -6,6 +6,7 @@ import ListingCard from '../components/ListingCard';
 import LocationPermissionPopup from '../components/LocationPermissionPopup';
 import Seo from '../components/Seo';
 import { distanceKm } from '../lib/nominatim';
+import { getIpLocation } from '../lib/ipLocation';
 import iconTermurah from '../assets/icons/termurah.svg';
 import iconTermahal from '../assets/icons/termahal.svg';
 import iconSubsidi from '../assets/icons/rumah_subsidi.svg';
@@ -45,7 +46,29 @@ export default function Home() {
   const [hasMorePribadi, setHasMorePribadi] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [userLoc, setUserLoc] = useState(null);
+  const [locationSource, setLocationSource] = useState(null); // 'ip' | 'gps' | null
   const [loading, setLoading] = useState(true);
+
+  // Begitu halaman dibuka, coba tebak lokasi kasar dari IP -- gak perlu
+  // izin apapun. Kalau user nanti kasih izin GPS lewat popup, itu bakal
+  // menimpa ini jadi lebih presisi (lihat handleLocationGranted).
+  useEffect(() => {
+    let cancelled = false;
+    getIpLocation().then((loc) => {
+      if (!cancelled && loc) {
+        setUserLoc(loc);
+        setLocationSource('ip');
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function handleLocationGranted(loc) {
+    setUserLoc(loc);
+    setLocationSource('gps');
+  }
 
   const loadInitial = useCallback(async () => {
     setLoading(true);
@@ -181,7 +204,9 @@ export default function Home() {
 
       {userLoc && (
         <p className="mt-6 text-sm text-forest">
-          Mengurutkan berdasar jarak terdekat dari lokasi kamu.
+          {locationSource === 'gps'
+            ? 'Mengurutkan berdasar jarak terdekat dari lokasi kamu.'
+            : 'Mengurutkan berdasar perkiraan lokasi kamu. Aktifkan lokasi buat hasil lebih akurat.'}
         </p>
       )}
 
@@ -237,8 +262,9 @@ export default function Home() {
         )}
       </section>
 
-      <LocationPermissionPopup onLocationGranted={setUserLoc} />
+      <LocationPermissionPopup onLocationGranted={handleLocationGranted} />
       </div>
     </div>
   );
-}
+                }
+  
