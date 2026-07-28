@@ -211,7 +211,10 @@ export default function Listing() {
           {listing.ownerPhoto && (
             <img src={listing.ownerPhoto} alt={listing.ownerName} referrerPolicy="no-referrer" className="h-11 w-11 rounded-full object-cover" />
           )}
-          <span className="font-semibold text-ink underline-offset-2 hover:underline">{listing.ownerName}</span>
+          <span className="flex items-center gap-1 font-semibold text-ink underline-offset-2 hover:underline">
+  {listing.ownerName}
+  {ADMIN_UIDS.includes(listing.ownerUid) && <VerifiedBadge />}
+</span>
         </Link>
         {waLink && (
           <a
