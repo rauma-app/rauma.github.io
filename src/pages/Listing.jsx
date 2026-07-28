@@ -3,14 +3,14 @@ import { useParams, Link } from 'react-router-dom';
 import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import ImageSlider from '../components/ImageSlider';
-import KPRSlider from '../components/KPRSlider';
 import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
-import { calculateKPR, formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
+import { formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
 
 const SPEC_ROWS = [
   { key: 'luasTanah', label: 'Luas Tanah', icon: '📐', suffix: ' m²' },
   { key: 'luasBangunan', label: 'Luas Bangunan', icon: '🏠', suffix: ' m²' },
+  { key: 'unitTersedia', label: 'Unit Tersedia', icon: '🏘️', suffix: ' unit' },
   { key: 'bedrooms', label: 'Kamar Tidur', icon: '🛏️', suffix: '' },
   { key: 'bathrooms', label: 'Kamar Mandi', icon: '🚿', suffix: '' },
   { key: 'electricity', label: 'Daya Listrik', icon: '⚡', suffix: '' },
@@ -105,7 +105,9 @@ export default function Listing() {
     listing.luasTanah ? `, LT ${listing.luasTanah}m²` : ''
   }${listing.luasBangunan ? `, LB ${listing.luasBangunan}m²` : ''}${
     listing.bedrooms ? `, ${listing.bedrooms} kamar tidur` : ''
-  }. Cicilan KPR mulai ${formatMonthlyShort(calculateKPR(listing.price).monthly)}. Lihat detail & hubungi penjual di Rauma.`;
+  }${
+    listing.cicilanPerBulan ? `. Cicilan mulai ${formatMonthlyShort(listing.cicilanPerBulan)}` : ''
+  }. Lihat detail & hubungi penjual di Rauma.`;
   const seoJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -143,9 +145,11 @@ export default function Listing() {
       <div className="mt-6">
         <div className="flex flex-wrap items-baseline gap-x-2">
           <p className="font-display text-3xl font-bold text-navy">{formatRupiahShort(listing.price)}</p>
-          <p className="text-sm text-ink/50">
-            Mulai {formatMonthlyShort(calculateKPR(listing.price).monthly)}
-          </p>
+          {listing.cicilanPerBulan ? (
+            <p className="text-sm text-ink/50">
+              Cicilan mulai {formatMonthlyShort(listing.cicilanPerBulan)}
+            </p>
+          ) : null}
         </div>
         <div className="mt-1 flex items-center gap-1.5 text-ink/60">
           <span aria-hidden>📍</span>
@@ -219,10 +223,6 @@ export default function Listing() {
         )}
       </section>
 
-      <section className="mt-8">
-        <KPRSlider price={listing.price} />
-      </section>
-
       {related.length > 0 && (
         <section className="mt-8">
           <h2 className="section-rule font-display text-xl font-semibold text-navy">
@@ -237,4 +237,4 @@ export default function Listing() {
       )}
     </div>
   );
-      }
+}
