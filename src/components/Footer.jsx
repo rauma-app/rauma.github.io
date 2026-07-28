@@ -6,9 +6,9 @@ import rauLogo2 from '../assets/logo/rauma-logo2.svg';
 // GANTI nilai-nilai placeholder di bawah ini dengan data asli kamu.
 const SOCIAL_LINKS = [
   { label: 'Instagram', Icon: FaInstagram, href: 'https://www.instagram.com/rauma.id' },
-  { label: 'Facebook', Icon: FaFacebook, href: '#' },
+  { label: 'Facebook', Icon: FaFacebook, href: 'https://www.facebook.com/share/1b8Gr8hTNA/' },
   { label: 'TikTok', Icon: FaTiktok, href: 'https://tiktok.com/@rauma.id' },
-  { label: 'YouTube', Icon: FaYoutube, href: '#' },
+  { label: 'YouTube', Icon: FaYoutube, href: 'https://youtube.com/@rauma_id?si=A7-G-JmQ-UQWhn_B' },
 ];
 
 const CONTACT = {
