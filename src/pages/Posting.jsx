@@ -1,11 +1,15 @@
-        import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { addDoc, collection, doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, doc, getDoc, getDocs, query, serverTimestamp, updateDoc, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import { uploadManyToR2 } from '../lib/r2';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../lib/admin';
+import { isPremium, FREE_LISTING_LIMIT, PREMIUM_LISTING_LIMIT } from '../lib/premium';
 import LocationAutocomplete from '../components/LocationAutocomplete';
+
+const PREMIUM_WHATSAPP = '6285156222635';
+const PREMIUM_PRICE_LABEL = 'Rp250.000 (Lifetime)';
 
 const SERTIFIKAT_OPTIONS = ['SHM', 'SHGB', 'HGB', 'AJB', 'Girik', 'PPJB', 'Lainnya'];
 const AIR_OPTIONS = ['PDAM', 'Sumur Bor', 'Sumur Gali', 'Lainnya'];
@@ -61,6 +65,35 @@ export default function Posting() {
   const [submitting, setSubmitting] = useState(false);
   const [loadingExisting, setLoadingExisting] = useState(isEditMode);
   const [error, setError] = useState('');
+  const [listingCount, setListingCount] = useState(null); // null = belum dicek
+
+  const userIsAdmin = isAdmin(user);
+  const userIsPremium = isPremium(user);
+  const listingLimit = userIsAdmin ? Infinity : userIsPremium ? PREMIUM_LISTING_LIMIT : FREE_LISTING_LIMIT;
+  const limitReached = !isEditMode && listingCount !== null && listingCount >= listingLimit;
+
+  // Cek berapa iklan yang sudah dipunya user, buat nentuin masih boleh
+  // nambah iklan baru atau udah mentok limit (2 buat user biasa, 50
+  // buat premium, admin gak dibatasi).
+  useEffect(() => {
+    if (isEditMode || !user || userIsAdmin) return;
+    let cancelled = false;
+
+    async function loadCount() {
+      try {
+        const q = query(collection(db, 'listings'), where('ownerUid', '==', user.uid));
+        const snap = await getDocs(q);
+        if (!cancelled) setListingCount(snap.size);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    loadCount();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditMode, user, userIsAdmin]);
 
   // Mode edit: ambil data listing lama, isi form otomatis.
   useEffect(() => {
@@ -226,13 +259,13 @@ export default function Posting() {
         // Admin yang edit -> tetap 'approved', gak perlu antri lagi.
         await updateDoc(doc(db, 'listings', id), {
           ...payload,
-          status: isAdmin(user) ? 'approved' : 'pending',
+          status: userIsAdmin ? 'approved' : 'pending',
         });
         navigate(`/id/${id}`);
       } else {
         const docRef = await addDoc(collection(db, 'listings'), {
           ...payload,
-          status: isAdmin(user) ? 'approved' : 'pending',
+          status: userIsAdmin ? 'approved' : 'pending',
           ownerUid: user.uid,
           // Firestore menolak field bernilai `undefined`. Sebagian akun
           // Google bisa saja tidak punya displayName/photoURL, jadi fallback
@@ -259,6 +292,43 @@ export default function Posting() {
     return <div className="mx-auto max-w-xl px-4 py-16 text-center text-ink/50">Memuat data iklan...</div>;
   }
 
+  if (limitReached) {
+    const waLink = `https://wa.me/${PREMIUM_WHATSAPP}?text=${encodeURIComponent(
+      'Halo, saya mau upgrade akun Rauma saya ke Premium.'
+    )}`;
+    return (
+      <div className="mx-auto max-w-xl px-4 py-8">
+        <h1 className="font-display text-2xl font-semibold text-navy">Pasang Iklan</h1>
+        <div className="mt-6 rounded-2xl border border-amber-300 bg-amber-50 p-6 text-center">
+          <p className="text-3xl">⭐</p>
+          <h2 className="mt-2 font-display text-xl font-bold text-navy">
+            Batas {FREE_LISTING_LIMIT} Iklan Tercapai
+          </h2>
+          <p className="mt-2 text-sm text-ink/70">
+            Akun kamu udah punya {listingCount} iklan. Upgrade ke <b>Rauma Premium</b> ({PREMIUM_PRICE_LABEL}) buat lanjut posting lebih banyak.
+          </p>
+
+          <ul className="mt-4 space-y-1.5 text-left text-sm text-ink/80">
+            <li>✅ Maksimal postingan iklan {PREMIUM_LISTING_LIMIT}</li>
+            <li>✅ Dapat ceklis biru</li>
+            <li>✅ Profil bisa dibuka publik</li>
+            <li>✅ Buka fitur Perumahan, Subsidi &amp; Jual Cepat</li>
+            <li>✅ Gratis kartu nama dari Rauma ID</li>
+          </ul>
+
+          <a
+            href={waLink}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-5 flex items-center justify-center gap-2 rounded-full bg-forest px-4 py-3 text-sm font-semibold text-white hover:bg-forest-dark"
+          >
+            <span aria-hidden>💬</span> Upgrade ke Premium via WhatsApp
+          </a>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-xl px-4 py-8">
       <h1 className="font-display text-2xl font-semibold text-navy">
@@ -266,9 +336,9 @@ export default function Posting() {
       </h1>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-        {/* Toggle Pribadi/Perumahan/Take Over KPR (+ Subsidi & Jual Cepat khusus admin) */}
+        {/* Toggle Pribadi/Take Over KPR (+ Perumahan/Subsidi/Jual Cepat khusus admin & premium) */}
         <div className="flex flex-wrap gap-2">
-          {['pribadi', 'perumahan', 'take_over_kpr', ...(isAdmin(user) ? ['subsidi', 'jual_cepat'] : [])].map((t) => (
+          {['pribadi', 'take_over_kpr', ...(userIsAdmin || userIsPremium ? ['perumahan', 'subsidi', 'jual_cepat'] : [])].map((t) => (
             <button
               type="button"
               key={t}
@@ -283,7 +353,7 @@ export default function Posting() {
             </button>
           ))}
         </div>
-        {!isAdmin(user) && (
+        {!userIsAdmin && (
           <p className="-mt-3 text-xs text-ink/40">
             Iklan kamu akan ditinjau dulu sebelum tayang publik (biasanya cepat).
           </p>
@@ -464,39 +534,4 @@ export default function Posting() {
         </Field>
 
         <Field label="WhatsApp">
-          <input
-            type="tel"
-            inputMode="numeric"
-            maxLength={13}
-            value={form.whatsapp}
-            onChange={handleWhatsappChange}
-            placeholder="Masukkan nomor WhatsApp (10-13 digit)"
-            className="input"
-          />
-        </Field>
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="w-full rounded-full bg-forest py-3.5 text-center font-semibold text-white hover:bg-forest-dark disabled:opacity-60"
-        >
-          {submitting ? 'Menyimpan...' : isEditMode ? 'SIMPAN PERUBAHAN' : 'POSTING'}
-        </button>
-      </form>
-    </div>
-  );
-}
-
-function Field({ label, children }) {
-  return (
-    <div>
-      <label className="mb-2 block text-sm font-semibold text-ink">{label}</label>
-      {children}
-    </div>
-  );
-        }
-
-
-
+          <i
