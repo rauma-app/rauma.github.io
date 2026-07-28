@@ -4,6 +4,8 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
+import VerifiedBadge from '../components/VerifiedBadge';
+import { ADMIN_UIDS } from '../lib/admin';
 
 export default function SellerProfile() {
   const { uid } = useParams();
@@ -50,8 +52,9 @@ export default function SellerProfile() {
           />
         )}
         <div>
-          <h1 className="font-display text-2xl font-semibold text-navy">
+          <h1 className="flex items-center gap-1.5 font-display text-2xl font-semibold text-navy">
             {owner ? owner.ownerName : 'Profil Pengiklan'}
+            {owner && ADMIN_UIDS.includes(owner.ownerUid) && <VerifiedBadge size={20} />}
           </h1>
           <p className="text-sm text-ink/50">{listings.length} iklan tayang</p>
         </div>
