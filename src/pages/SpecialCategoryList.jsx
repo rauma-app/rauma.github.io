@@ -107,14 +107,3 @@ export function SubsidiList() {
   );
 }
 
-export function JualCepatList() {
-  return (
-    <SpecialCategoryList
-      type="jual_cepat"
-      title="Jual Cepat"
-      intro="Rumah dari penjual yang butuh terjual cepat, dipromosikan lewat program Jual Cepat Rauma."
-      seoDescription="Rumah dijual cepat dengan harga terbaik dari penjual yang butuh transaksi segera. Temukan penawaran rumah jual cepat terbaru di Rauma."
-      path="/jual-cepat"
-    />
-  );
-}
