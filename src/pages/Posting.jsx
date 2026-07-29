@@ -9,7 +9,7 @@ import { isPremium, FREE_LISTING_LIMIT, PREMIUM_LISTING_LIMIT } from '../lib/pre
 import LocationAutocomplete from '../components/LocationAutocomplete';
 
 const PREMIUM_WHATSAPP = '6285156222635';
-const PREMIUM_PRICE_LABEL = 'Rp250.000 (Lifetime)';
+const PREMIUM_PRICE_LABEL = 'Rp299.000/tahun';
 
 const SERTIFIKAT_OPTIONS = ['SHM', 'SHGB', 'HGB', 'AJB', 'Girik', 'PPJB', 'Lainnya'];
 const AIR_OPTIONS = ['PDAM', 'Sumur Bor', 'Sumur Gali', 'Lainnya'];
