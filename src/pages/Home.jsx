@@ -49,9 +49,10 @@ export default function Home() {
   const [locationSource, setLocationSource] = useState(null); // 'ip' | 'gps' | null
   const [loading, setLoading] = useState(true);
 
-  // Begitu halaman dibuka, coba tebak lokasi kasar dari IP -- gak perlu
-  // izin apapun. Kalau user nanti kasih izin GPS lewat popup, itu bakal
-  // menimpa ini jadi lebih presisi (lihat handleLocationGranted).
+  // Begitu halaman dibuka, coba tebak lokasi kasar dari IP di belakang
+  // layar -- gak perlu izin apapun, gak dikasih tahu ke user (silent).
+  // Kalau user nanti kasih izin GPS lewat popup, itu menimpa jadi lebih
+  // presisi DAN baru dikasih tahu ke user (lihat handleLocationGranted).
   useEffect(() => {
     let cancelled = false;
     getIpLocation().then((loc) => {
@@ -202,14 +203,6 @@ export default function Home() {
         ))}
       </div>
 
-      {userLoc && (
-        <p className="mt-6 text-sm text-forest">
-          {locationSource === 'gps'
-            ? 'Mengurutkan berdasar jarak terdekat dari lokasi kamu.'
-            : 'Mengurutkan berdasar perkiraan lokasi kamu. Aktifkan lokasi buat hasil lebih akurat.'}
-        </p>
-      )}
-
       {/* Baris 1: Perumahan - horizontal scroll, tidak melebarkan halaman */}
       <section className="mt-8">
         <h2 className="font-display text-xl font-semibold text-navy">Perumahan</h2>
@@ -266,5 +259,4 @@ export default function Home() {
       </div>
     </div>
   );
-                }
-  
+}
