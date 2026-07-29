@@ -10,17 +10,17 @@ import { getIpLocation } from '../lib/ipLocation';
 import iconTermurah from '../assets/icons/termurah.svg';
 import iconTermahal from '../assets/icons/termahal.svg';
 import iconSubsidi from '../assets/icons/rumah_subsidi.svg';
-import iconJualCepat from '../assets/icons/jual_cepat.svg';
+import iconCariProperti from '../assets/icons/jual_cepat.svg';
 import iconTakeOverKPR from '../assets/icons/kpr_syariah.svg';
-import iconNabung from '../assets/icons/nabung.svg';
+import iconKalkulatorKPR from '../assets/icons/nabung.svg';
 
 const CATEGORY_SHORTCUTS = [
   { icon: iconTermurah, label: 'Termurah', to: '/termurah' },
   { icon: iconTermahal, label: 'Termahal', to: '/termahal' },
   { icon: iconSubsidi, label: 'Rumah Subsidi', to: '/subsidi' },
-  { icon: iconJualCepat, label: 'Jual Cepat', to: '/jual-cepat' },
+  { icon: iconCariProperti, label: 'Carikan Properti', to: '/carikan-properti' },
   { icon: iconTakeOverKPR, label: 'Take Over KPR', to: '/take-over-kpr' },
-  { icon: iconNabung, label: 'Nabung', to: '/nabung' },
+  { icon: iconKalkulatorKPR, label: 'Kalkulator KPR', to: '/kalkulator-kpr' },
 ];
 
 const PRIBADI_PAGE_SIZE = 8;
