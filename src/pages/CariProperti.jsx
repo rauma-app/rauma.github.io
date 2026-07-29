@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import Seo from '../components/Seo';
 
+// FormSubmit.co: tidak perlu daftar/API key. Cukup pastikan alamat email di
+// bawah aktif — submission PERTAMA akan mengirim email konfirmasi ke
+// rauma.contact@gmail.com, klik link "Activate Form" di email tersebut
+// sekali saja, setelah itu semua submission berikutnya otomatis terkirim.
 const CONTACT_EMAIL = 'rauma.contact@gmail.com';
 const MAX_LENGTH = 500;
 
@@ -8,6 +12,7 @@ export default function CariProperti() {
   const [message, setMessage] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
 
   function handleWhatsappChange(e) {
@@ -15,7 +20,7 @@ export default function CariProperti() {
     setWhatsapp(digits);
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     const trimmed = message.trim();
     const nextErrors = {};
@@ -32,17 +37,30 @@ export default function CariProperti() {
       return;
     }
     setErrors({});
+    setSubmitting(true);
 
-    const subject = 'Permintaan Carikan Properti - Rauma';
-    const body =
-      `Kriteria properti yang dicari:\n${trimmed}\n\n` +
-      `Nomor WhatsApp untuk dihubungi: ${whatsapp}`;
-    const mailtoLink = `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(
-      subject
-    )}&body=${encodeURIComponent(body)}`;
+    try {
+      const res = await fetch(`https://formsubmit.co/ajax/${CONTACT_EMAIL}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          _subject: 'Permintaan Carikan Properti - Rauma',
+          Kriteria_Properti: trimmed,
+          Nomor_WhatsApp: whatsapp,
+        }),
+      });
+      const data = await res.json();
 
-    window.location.href = mailtoLink;
-    setSubmitted(true);
+      if (res.ok && data.success) {
+        setSubmitted(true);
+      } else {
+        setErrors({ form: 'Gagal mengirim, coba lagi sebentar lagi ya.' });
+      }
+    } catch (err) {
+      setErrors({ form: 'Gagal terhubung ke server, coba lagi sebentar lagi ya.' });
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   function handleReset() {
@@ -113,22 +131,27 @@ export default function CariProperti() {
             </p>
           </div>
 
+          {errors.form && <p className="mt-3 text-center text-xs text-red-500">{errors.form}</p>}
+
           <button
             type="submit"
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-forest px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-forest-dark"
+            disabled={submitting}
+            className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-forest px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-forest-dark disabled:opacity-60"
           >
-            <span aria-hidden>📩</span> Carikan Rumah untuk Saya
+            {submitting ? (
+              'Mengirim...'
+            ) : (
+              <>
+                <span aria-hidden>📩</span> Carikan Rumah untuk Saya
+              </>
+            )}
           </button>
-          <p className="mt-3 text-center text-xs text-ink/40">
-            Dengan mengirim, aplikasi email kamu akan terbuka untuk mengirim permintaan ke tim
-            Rauma.
-          </p>
         </form>
       ) : (
         <div className="mt-8 rounded-2xl border border-forest/30 bg-forest/5 p-8 text-center">
           <p className="text-3xl">✅</p>
           <h2 className="mt-3 font-display text-xl font-bold text-navy">
-            Oke, akan kami carikan!
+            Oke, akan segera kami carikan!
           </h2>
           <p className="mt-2 text-sm text-ink/70">
             Tim Rauma sudah menerima kriteria kamu dan akan menghubungi lewat WhatsApp begitu
