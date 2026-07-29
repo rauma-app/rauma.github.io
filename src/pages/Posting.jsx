@@ -317,7 +317,7 @@ export default function Posting() {
             <li>✅ Gratis kartu nama dari Rauma ID</li>
             <li>✅ Posting Video rumah di akun TT/IG/FB/YT Rauma.id </li>
           </ul>
-          <p> Bukan untuk foya foya <i>Uang akan digunakan untuk upgrade Kapasitas server dan <br>
+          <p><i> Bukan untuk foya foya, Uang akan digunakan untuk upgrade Kapasitas server dan
               Marketing agar makin banyak user berkunjung</i></p>
           
 
