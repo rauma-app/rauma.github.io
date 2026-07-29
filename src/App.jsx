@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
+import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
 import PerumahanList from './pages/PerumahanList';
@@ -14,10 +15,12 @@ import Listing from './pages/Listing';
 import MyListings from './pages/MyListings';
 import AdminPending from './pages/AdminPending';
 import SellerProfile from './pages/SellerProfile';
+import TentangKami from './pages/TentangKami';
 
 export default function App() {
   return (
     <div className="flex min-h-screen flex-col bg-cream">
+      <ScrollToTop />
       <Header />
       <main className="flex-1">
         <Routes>
@@ -29,6 +32,7 @@ export default function App() {
           <Route path="/jual-cepat" element={<JualCepatList />} />
           <Route path="/take-over-kpr" element={<TakeOverKPRPage />} />
           <Route path="/nabung" element={<NabungPage />} />
+          <Route path="/tentang-kami" element={<TentangKami />} />
           <Route path="/id/:id" element={<Listing />} />
           <Route path="/penjual/:uid" element={<SellerProfile />} />
           <Route
