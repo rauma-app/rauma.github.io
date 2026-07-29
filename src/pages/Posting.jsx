@@ -317,9 +317,6 @@ export default function Posting() {
             <li>✅ Gratis kartu nama dari Rauma ID</li>
             <li>✅ Posting Video rumah di akun TT/IG/FB/YT Rauma.id </li>
           </ul>
-          <p><i> Bukan untuk foya foya, Uang akan digunakan untuk upgrade Kapasitas server dan
-              Marketing agar makin banyak user berkunjung</i></p>
-          
 
           <a
             href={waLink}
@@ -329,6 +326,12 @@ export default function Posting() {
           >
             <span aria-hidden>💬</span> Upgrade ke Premium via WhatsApp
           </a>
+
+          <p className="mt-4 text-sm text-ink/80">
+   Setiap Rupiah dari biaya ini kami pakai untuk upgrade server dan marketing supaya iklanmu dilihat lebih banyak orang. ♥️
+</p>
+
+          
         </div>
       </div>
     );
