@@ -430,26 +430,26 @@ export default function Posting() {
           />
         </Field>
 
-       <div className="grid grid-cols-2 gap-4">
-  <Field label="Luas Bangunan (m²)">
-    <input
-      type="number"
-      value={form.luasBangunan}
-      onChange={(e) => update('luasBangunan', e.target.value)}
-      placeholder="Masukkan luas bangunan"
-      className="input"
-    />
-  </Field>
-  <Field label="Luas Tanah (m²)">
-    <input
-      type="number"
-      value={form.luasTanah}
-      onChange={(e) => update('luasTanah', e.target.value)}
-      placeholder="Masukkan luas tanah"
-      className="input"
-    />
-  </Field>
-</div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Luas Bangunan (m²)">
+            <input
+              type="number"
+              value={form.luasBangunan}
+              onChange={(e) => update('luasBangunan', e.target.value)}
+              placeholder="Masukkan luas bangunan"
+              className="input"
+            />
+          </Field>
+          <Field label="Luas Tanah (m²)">
+            <input
+              type="number"
+              value={form.luasTanah}
+              onChange={(e) => update('luasTanah', e.target.value)}
+              placeholder="Masukkan luas tanah"
+              className="input"
+            />
+          </Field>
+        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="Kamar Tidur">
