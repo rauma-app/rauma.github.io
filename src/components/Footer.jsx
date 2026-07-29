@@ -6,9 +6,9 @@ import rauLogo2 from '../assets/logo/rauma-logo2.svg';
 // GANTI nilai-nilai placeholder di bawah ini dengan data asli kamu.
 const SOCIAL_LINKS = [
   { label: 'Instagram', Icon: FaInstagram, href: 'https://www.instagram.com/rauma.id' },
-  { label: 'Facebook', Icon: FaFacebook, href: 'https://www.facebook.com/share/1b8Gr8hTNA/' },
+  { label: 'Facebook', Icon: FaFacebook, href: 'https://www.facebook.com/share/1LCqxTSf8M/' },
   { label: 'TikTok', Icon: FaTiktok, href: 'https://tiktok.com/@rauma.id' },
-  { label: 'YouTube', Icon: FaYoutube, href: 'https://youtube.com/@rauma_id?si=A7-G-JmQ-UQWhn_B' },
+  { label: 'YouTube', Icon: FaYoutube, href: 'https://youtube.com/@rauma_id?si=OZ_FgC_Wgjhgypsq' },
 ];
 
 const CONTACT = {
@@ -18,8 +18,8 @@ const CONTACT = {
 };
 
 const QUICK_LINKS = [
-  { label: 'Tentang Kami', href: '#' },
-  { label: 'Cara Kerja', href: '#' },
+  { label: 'Tentang Kami', to: '/tentang-kami' },
+  { label: 'Kerja Sama', href: `https://wa.me/6285156222635?text=${encodeURIComponent('Halo, saya ingin kerja sama dengan Rauma.id')}` },
   { label: 'Perumahan', to: '/perumahan' },
   { label: 'Pasang Iklan', to: '/posting' },
 ];
@@ -69,7 +69,7 @@ export default function Footer() {
                   {l.to ? (
                     <Link to={l.to} className="hover:text-white">{l.label}</Link>
                   ) : (
-                    <a href={l.href} className="hover:text-white">{l.label}</a>
+                    <a href={l.href} target="_blank" rel="noreferrer" className="hover:text-white">{l.label}</a>
                   )}
                 </li>
               ))}
