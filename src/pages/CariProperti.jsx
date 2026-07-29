@@ -79,9 +79,7 @@ export default function CariProperti() {
       />
 
       <div className="text-center">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-forest/10 px-3 py-1 text-xs font-semibold text-forest">
-          🔍 Layanan Gratis
-        </span>
+        
         <h1 className="mt-4 font-display text-3xl font-bold leading-tight text-navy sm:text-4xl">
           Bingung Cari Rumah?
           <br className="hidden sm:block" /> Biar Kami yang Carikan.
