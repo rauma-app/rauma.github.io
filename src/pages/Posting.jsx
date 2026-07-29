@@ -305,16 +305,21 @@ export default function Posting() {
             Batas {FREE_LISTING_LIMIT} Iklan Tercapai
           </h2>
           <p className="mt-2 text-sm text-ink/70">
-            Akun kamu udah punya {listingCount} iklan. Upgrade ke <b>Rauma Premium</b> ({PREMIUM_PRICE_LABEL}) buat lanjut posting lebih banyak.
+            Akun kamu udah punya {listingCount} iklan. Bantu kami dengan Upgrade ke <b>Rauma Premium</b> ({PREMIUM_PRICE_LABEL}) buat lanjut posting lebih banyak.
+          
           </p>
 
           <ul className="mt-4 space-y-1.5 text-left text-sm text-ink/80">
-            <li>✅ Maksimal postingan iklan {PREMIUM_LISTING_LIMIT}</li>
+            <li>✅ Posting iklan maksimal {PREMIUM_LISTING_LIMIT}</li>
             <li>✅ Dapat ceklis biru</li>
             <li>✅ Profil bisa dibuka publik</li>
             <li>✅ Buka fitur Perumahan, Subsidi &amp; Jual Cepat</li>
             <li>✅ Gratis kartu nama dari Rauma ID</li>
+            <li>✅ Posting Video rumah di akun TT/IG/FB/YT Rauma.id </li>
           </ul>
+          <p> Bukan untuk foya foya <i>Uang akan digunakan untuk upgrade Kapasitas server dan <br>
+              Marketing agar makin banyak user berkunjung</i></p>
+          
 
           <a
             href={waLink}
