@@ -313,9 +313,10 @@ export default function Posting() {
             <li>✅ Posting iklan maksimal {PREMIUM_LISTING_LIMIT}</li>
             <li>✅ Dapat ceklis biru</li>
             <li>✅ Profil bisa dibuka publik</li>
+            <li>✅ Klaim Wilayah listing (tidak ada 2 agent di lokasi sama)</li>
             <li>✅ Buka fitur Perumahan, Subsidi &amp; Jual Cepat</li>
-            <li>✅ Gratis kartu nama dari Rauma ID</li>
-            <li>✅ Posting Video rumah di akun TT/IG/FB/YT Rauma.id </li>
+            <li>✅ Gratis kartu nama resmi dari Rauma ID</li>
+            <li>✅ Gratis posting 1x promo Video rumah di akun TT/IG/FB/YT Rauma.id </li>
           </ul>
 
           <a
