@@ -1,264 +1,66 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { collection, doc, getDoc, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../firebase';
-import ImageSlider from '../components/ImageSlider';
-import ListingCard from '../components/ListingCard';
-import Seo from '../components/Seo';
-import VerifiedBadge from '../components/VerifiedBadge';
-import ProfilePhotoViewer from '../components/ProfilePhotoViewer';
-import { ADMIN_UIDS } from '../lib/admin';
-import { PREMIUM_UIDS } from '../lib/premium';
-import { formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
+import { d1Api } from '../lib/d1Api';
 
-const SPEC_ROWS = [
-  { key: 'luasTanah', label: 'Luas Tanah', icon: '📐', suffix: ' m²' },
-  { key: 'luasBangunan', label: 'Luas Bangunan', icon: '🏠', suffix: ' m²' },
-  { key: 'bedrooms', label: 'Kamar Tidur', icon: '🛏️', suffix: '' },
-  { key: 'bathrooms', label: 'Kamar Mandi', icon: '🚿', suffix: '' },
-  { key: 'electricity', label: 'Daya Listrik', icon: '⚡', suffix: '' },
-  { key: 'air', label: 'Air', icon: '💧', suffix: '' },
-  { key: 'sertifikat', label: 'Sertifikat', icon: '📋', suffix: '' },
-  { key: 'unitTersedia', label: 'Unit Tersedia', icon: '🏘️', suffix: ' unit' },
-];
-
-export default function Listing() {
-  const { id } = useParams();
-  const [listing, setListing] = useState(null);
+export default function Listing({ categoryFilter = '' }) {
+  const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
-  const [related, setRelated] = useState([]);
 
   useEffect(() => {
-    async function load() {
+    async function loadData() {
       setLoading(true);
-      try {
-        const snap = await getDoc(doc(db, 'listings', id));
-        if (snap.exists()) {
-          setListing({ id: snap.id, ...snap.data() });
-        } else {
-          setNotFound(true);
-        }
-      } catch (err) {
-        console.error(err);
-        setNotFound(true);
-      } finally {
-        setLoading(false);
-      }
+      const data = await d1Api.getListings(categoryFilter);
+      setListings(data);
+      setLoading(false);
     }
-    load();
-  }, [id]);
-
-  // Cari iklan lain di kabupaten/kecamatan yang sama, kecuali iklan ini sendiri.
-  useEffect(() => {
-    if (!listing?.kabupaten) return;
-    let cancelled = false;
-
-    async function loadRelated() {
-      try {
-        const q = query(
-          collection(db, 'listings'),
-          where('kabupaten', '==', listing.kabupaten),
-          where('status', '==', 'approved')
-        );
-        const snap = await getDocs(q);
-        if (cancelled) return;
-
-        const others = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((l) => l.id !== listing.id);
-
-        // Prioritaskan yang kecamatannya sama persis, sisanya di belakang.
-        const sameKecamatan = others.filter((l) => l.kecamatan === listing.kecamatan);
-        const rest = others.filter((l) => l.kecamatan !== listing.kecamatan);
-        setRelated([...sameKecamatan, ...rest].slice(0, 4));
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
-    loadRelated();
-    return () => {
-      cancelled = true;
-    };
-  }, [listing]);
+    loadData();
+  }, [categoryFilter]);
 
   if (loading) {
-    return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-ink/50">Memuat...</div>;
+    return <div className="text-center py-10">Memuat properti...</div>;
   }
 
-  if (notFound || !listing) {
+  if (listings.length === 0) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <p className="text-ink/60">Iklan tidak ditemukan.</p>
-        <Link to="/" className="mt-4 inline-block text-forest underline">Kembali ke beranda</Link>
+      <div className="text-center py-10 text-gray-500">
+        Belum ada properti diposting.
       </div>
     );
   }
 
-  const waNumber = (listing.whatsapp || '').replace(/[^0-9]/g, '');
-  const waLink = waNumber
-    ? `https://wa.me/${waNumber.startsWith('0') ? '62' + waNumber.slice(1) : waNumber}?text=${encodeURIComponent(
-        `Halo, saya tertarik dengan rumah di ${listing.kecamatan ? listing.kecamatan + ' - ' : ''}${listing.kabupaten} (${formatRupiah(listing.price)}).`
-      )}`
-    : null;
-
-  const lokasiText = listing.kecamatan ? `${listing.kecamatan}, ${listing.kabupaten}` : listing.kabupaten;
-  const seoTitle = `Rumah Dijual di ${lokasiText} - ${formatRupiahShort(listing.price)}`;
-  const seoDescription = `Rumah dijual di ${lokasiText} harga ${formatRupiah(listing.price)}${
-    listing.luasTanah ? `, LT ${listing.luasTanah}m²` : ''
-  }${listing.luasBangunan ? `, LB ${listing.luasBangunan}m²` : ''}${
-    listing.bedrooms ? `, ${listing.bedrooms} kamar tidur` : ''
-  }${
-    listing.cicilanPerBulan ? `. Cicilan mulai ${formatMonthlyShort(listing.cicilanPerBulan)}` : ''
-  }. Lihat detail & hubungi penjual di Rauma.`;
-  const seoJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: seoTitle,
-    description: seoDescription,
-    image: listing.images && listing.images.length ? listing.images : undefined,
-    offers: {
-      '@type': 'Offer',
-      priceCurrency: 'IDR',
-      price: listing.price,
-      availability: 'https://schema.org/InStock',
-    },
-    ...(listing.lat && listing.lon
-      ? {
-          additionalProperty: {
-            '@type': 'PropertyValue',
-            name: 'Lokasi',
-            value: lokasiText,
-          },
-        }
-      : {}),
-  };
-
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
-      <Seo
-        title={seoTitle}
-        description={seoDescription}
-        path={`/id/${listing.id}`}
-        image={listing.images && listing.images[0]}
-        jsonLd={seoJsonLd}
-      />
-      <ImageSlider images={listing.images} alt={listing.kecamatan} ratio="3 / 2" enableLightbox />
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-4">
+      {listings.map((item) => {
+        // Handle images baik berbentuk string JSON atau Array
+        let images = [];
+        try {
+          images = typeof item.images === 'string' ? JSON.parse(item.images) : item.images;
+        } catch (e) {
+          images = [];
+        }
 
-      <div className="mt-6">
-        <div className="flex flex-wrap items-baseline gap-x-2">
-          <p className="font-display text-3xl font-bold text-navy">{formatRupiahShort(listing.price)}</p>
-          {listing.cicilanPerBulan ? (
-            <p className="text-sm text-ink/50">
-              Cicilan mulai {formatMonthlyShort(listing.cicilanPerBulan)}
-            </p>
-          ) : null}
-        </div>
-        <div className="mt-1 flex items-center gap-1.5 text-ink/60">
-          <span aria-hidden>📍</span>
-          <span>{listing.kecamatan ? `${listing.kecamatan} - ` : ''}{listing.kabupaten}</span>
-        </div>
-      </div>
+        const firstImage = images && images.length > 0 ? images[0] : '/placeholder.jpg';
 
-      <section className="mt-8">
-        <h2 className="section-rule font-display text-xl font-semibold text-navy">Spesifikasi</h2>
-        <dl className="divide-y divide-line rounded-2xl border border-line bg-white">
-          {SPEC_ROWS.filter((row) => listing[row.key]).map((row) => (
-            <div key={row.key} className="flex items-center justify-between px-4 py-3">
-              <dt className="flex items-center gap-2 text-sm text-ink/60">
-                <span aria-hidden>{row.icon}</span> {row.label}
-              </dt>
-              <dd className="text-sm font-medium text-ink">
-                {listing[row.key]}{row.suffix}
-              </dd>
-            </div>
-          ))}
-          {listing.videoUrl && (
-            <div className="flex items-center justify-between px-4 py-3">
-              <dt className="flex items-center gap-2 text-sm text-ink/60">
-                <span aria-hidden>🎥</span> Video
-              </dt>
-              <dd className="text-sm font-medium">
-                <a
-                  href={listing.videoUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-forest underline"
-                >
-                  Lihat Video
-                </a>
-              </dd>
-            </div>
-          )}
-        </dl>
-      </section>
-
-      {listing.description && (
-        <section className="mt-8">
-          <h2 className="section-rule font-display text-xl font-semibold text-navy">Deskripsi</h2>
-          <div className="rounded-2xl border border-line bg-white p-4">
-            <p className="whitespace-pre-line text-sm leading-relaxed text-ink/80">
-              {listing.description}
-            </p>
-          </div>
-        </section>
-      )}
-
-      <section className="mt-8 flex items-center justify-between rounded-2xl border border-line bg-white p-4">
-        {(() => {
-          const isOwnerAdmin = ADMIN_UIDS.includes(listing.ownerUid);
-          const isOwnerPremium = PREMIUM_UIDS.includes(listing.ownerUid);
-          const isOwnerVerified = isOwnerAdmin || isOwnerPremium;
-          const nameBlock = (
-            <>
-              {listing.ownerPhoto && (
-                <ProfilePhotoViewer
-                  src={listing.ownerPhoto}
-                  alt={listing.ownerName}
-                  clickable={isOwnerVerified}
-                  className="h-11 w-11 rounded-full object-cover"
-                />
-              )}
-              <span className="flex items-center gap-1 font-semibold text-ink">
-                {listing.ownerName}
-                {isOwnerVerified && <VerifiedBadge color={isOwnerAdmin ? 'gold' : 'blue'} />}
+        return (
+          <div key={item.id} className="border rounded-lg overflow-hidden shadow-sm bg-white">
+            <img 
+              src={firstImage} 
+              alt={item.title} 
+              className="w-full h-48 object-cover" 
+              onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=Foto+Tidak+Tersedia'; }}
+            />
+            <div className="p-4">
+              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                {item.category || 'Rumah'}
               </span>
-            </>
-          );
-
-          return isOwnerVerified ? (
-            <Link to={`/penjual/${listing.ownerUid}`} className="flex items-center gap-3 hover:opacity-80">
-              {nameBlock}
-            </Link>
-          ) : (
-            <div className="flex items-center gap-3">{nameBlock}</div>
-          );
-        })()}
-        {waLink && (
-          <a
-            href={waLink}
-            target="_blank"
-            rel="noreferrer"
-            className="flex items-center gap-2 rounded-full bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-dark"
-          >
-            <span aria-hidden>💬</span> Chat Sekarang
-          </a>
-        )}
-      </section>
-
-      {related.length > 0 && (
-        <section className="mt-8">
-          <h2 className="section-rule font-display text-xl font-semibold text-navy">
-            Rumah Lain di {listing.kecamatan || listing.kabupaten}
-          </h2>
-          <div className="grid grid-cols-2 gap-4">
-            {related.map((l) => (
-              <ListingCard key={l.id} listing={l} />
-            ))}
+              <h3 className="font-bold text-lg mt-2">{item.title}</h3>
+              <p className="text-gray-600 text-sm">{item.location}</p>
+              <p className="text-green-600 font-bold text-md mt-2">
+                Rp {Number(item.price).toLocaleString('id-ID')}
+              </p>
+            </div>
           </div>
-        </section>
-      )}
+        );
+      })}
     </div>
   );
 }
