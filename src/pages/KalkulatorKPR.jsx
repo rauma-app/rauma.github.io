@@ -16,6 +16,12 @@ const TENOR_MAX = 30;
 
 const IDEAL_RATIO = 0.3; // cicilan idealnya maks 30% dari penghasilan
 
+// Mencegah browser (terutama di HP) auto-scroll ke elemen slider saat
+// mendapat fokus setelah selesai digeser.
+function blurOnRelease(e) {
+  e.target.blur();
+}
+
 function calculateFlatKPR(price, dpPercent, tenorYears, ratePercent) {
   const dpAmount = (price * dpPercent) / 100;
   const principal = price - dpAmount;
@@ -30,7 +36,7 @@ export default function KalkulatorKPR() {
   const [price, setPrice] = useState(300_000_000);
   const [dpPercent, setDpPercent] = useState(10);
   const [tenorYears, setTenorYears] = useState(15);
-  const [income, setIncome] = useState('');
+  const [income, setIncome] = useState(''); // disimpan sebagai digit mentah, tampil dengan titik
 
   const result = useMemo(
     () => calculateFlatKPR(price, dpPercent, tenorYears, FLAT_INTEREST_RATE),
@@ -41,6 +47,13 @@ export default function KalkulatorKPR() {
   const ratio = incomeNumber > 0 ? result.monthlyInstallment / incomeNumber : null;
   const isSafe = ratio != null ? ratio <= IDEAL_RATIO : null;
 
+  function handleIncomeChange(e) {
+    const digits = e.target.value.replace(/\D/g, '');
+    setIncome(digits);
+  }
+
+  const incomeDisplay = income ? Number(income).toLocaleString('id-ID') : '';
+
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <Seo
@@ -50,10 +63,6 @@ export default function KalkulatorKPR() {
       />
 
       <h1 className="font-display text-2xl font-semibold text-navy">Kalkulator KPR</h1>
-      <p className="mt-2 text-sm text-ink/60">
-        Geser harga rumah, uang muka (DP), dan jangka waktu cicilan untuk melihat estimasi
-        cicilan bulananmu.
-      </p>
 
       <div className="mt-6 rounded-2xl border border-line bg-white p-5">
         <p className="section-rule text-xs font-semibold uppercase tracking-wide text-navy">
@@ -74,12 +83,10 @@ export default function KalkulatorKPR() {
               step={PRICE_STEP}
               value={price}
               onChange={(e) => setPrice(Number(e.target.value))}
+              onMouseUp={blurOnRelease}
+              onTouchEnd={blurOnRelease}
               className="mt-2 w-full accent-forest"
             />
-            <div className="mt-1 flex justify-between text-xs text-ink/40">
-              <span>Rp 70 Jt</span>
-              <span>Rp 1,5 M</span>
-            </div>
           </div>
 
           <div>
@@ -95,12 +102,10 @@ export default function KalkulatorKPR() {
               step={1}
               value={dpPercent}
               onChange={(e) => setDpPercent(Number(e.target.value))}
+              onMouseUp={blurOnRelease}
+              onTouchEnd={blurOnRelease}
               className="mt-2 w-full accent-forest"
             />
-            <div className="mt-1 flex justify-between text-xs text-ink/40">
-              <span>0%</span>
-              <span>50%</span>
-            </div>
           </div>
 
           <div>
@@ -116,12 +121,10 @@ export default function KalkulatorKPR() {
               step={1}
               value={tenorYears}
               onChange={(e) => setTenorYears(Number(e.target.value))}
+              onMouseUp={blurOnRelease}
+              onTouchEnd={blurOnRelease}
               className="mt-2 w-full accent-forest"
             />
-            <div className="mt-1 flex justify-between text-xs text-ink/40">
-              <span>1 tahun</span>
-              <span>30 tahun</span>
-            </div>
           </div>
         </div>
 
@@ -160,11 +163,11 @@ export default function KalkulatorKPR() {
           </label>
           <input
             id="income-input"
-            type="number"
+            type="text"
             inputMode="numeric"
-            value={income}
-            onChange={(e) => setIncome(e.target.value)}
-            placeholder="Contoh: 8000000"
+            value={incomeDisplay}
+            onChange={handleIncomeChange}
+            placeholder="Contoh: 8.000.000"
             className="mt-1 w-full rounded-xl border border-line bg-cream px-4 py-2.5 text-sm text-ink placeholder:text-ink/40 focus:border-forest focus:outline-none focus:ring-1 focus:ring-forest"
           />
         </div>
