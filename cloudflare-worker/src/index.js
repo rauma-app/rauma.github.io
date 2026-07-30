@@ -4,25 +4,73 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
-    // Header CORS
+    // Header CORS Lengkap (Mengizinkan Frontend memanggil Worker ini)
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
     };
 
+    // Preflight Request untuk CORS
     if (method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
     }
 
-    // =============================================================
-    // JIKA URL DIAWALI DENGAN /api/ -> TANGANI SEBAGAI REST API D1
-    // =============================================================
-    if (path.startsWith("/api/")) {
+    try {
+      // =============================================================
+      // 1. ENDPOINT UPLOAD GAMBAR KE R2 BUCKET (/upload)
+      // =============================================================
+      if (path === "/upload" && method === "POST") {
+        const formData = await request.formData();
+        const file = formData.get("file");
 
-      // GET /api/listings
-      if (path === "/api/listings" && method === "GET") {
-        try {
+        if (!file) {
+          return new Response(JSON.stringify({ error: "File tidak ditemukan" }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // Buat nama file unik
+        const fileExt = file.name.split(".").pop() || "jpg";
+        const key = `properties/${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+
+        // Simpan file ke Cloudflare R2
+        await env.RAUMA_IMAGES.put(key, await file.arrayBuffer(), {
+          httpMetadata: { contentType: file.type || "image/jpeg" },
+        });
+
+        // Kembalikan URL Publik Gambar
+        const imageUrl = `${url.origin}/images/${key}`;
+        return new Response(JSON.stringify({ url: imageUrl, key }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Endpoint untuk Menampilkan Gambar R2 di Browser (/images/*)
+      if (path.startsWith("/images/") && method === "GET") {
+        const key = path.replace("/images/", "");
+        const object = await env.RAUMA_IMAGES.get(key);
+
+        if (!object) {
+          return new Response("Gambar tidak ditemukan", { status: 404 });
+        }
+
+        const headers = new Headers();
+        object.writeHttpMetadata(headers);
+        headers.set("etag", object.httpEtag);
+        headers.set("Access-Control-Allow-Origin", "*");
+
+        return new Response(object.body, { headers });
+      }
+
+      // =============================================================
+      // 2. ENDPOINT DATABASE D1 (/api/listings)
+      // =============================================================
+      if (path.startsWith("/api/")) {
+
+        // GET /api/listings
+        if (path === "/api/listings" && method === "GET") {
           const category = url.searchParams.get("category");
           let query = "SELECT * FROM listings ORDER BY created_at DESC";
           let params = [];
@@ -33,45 +81,13 @@ export default {
           }
 
           const { results } = await env.DB.prepare(query).bind(...params).all();
-
           return new Response(JSON.stringify(results || []), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
-        } catch (err) {
-          return new Response(JSON.stringify({ error: err.message }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
         }
-      }
 
-      // GET /api/listings/:id
-      if (path.startsWith("/api/listings/") && method === "GET") {
-        try {
-          const id = path.split("/")[3];
-          const listing = await env.DB.prepare("SELECT * FROM listings WHERE id = ?").bind(id).first();
-
-          if (!listing) {
-            return new Response(JSON.stringify({ error: "Tidak ditemukan" }), {
-              status: 404,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-          }
-
-          return new Response(JSON.stringify(listing), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        } catch (err) {
-          return new Response(JSON.stringify({ error: err.message }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-      }
-
-      // POST /api/listings
-      if (path === "/api/listings" && method === "POST") {
-        try {
+        // POST /api/listings (Simpan Properti)
+        if (path === "/api/listings" && method === "POST") {
           const body = await request.json();
           const { id, title, price, location, category, description, seller_uid, seller_phone, images } = body;
           const idToSave = id || `item_${Date.now()}`;
@@ -88,24 +104,19 @@ export default {
             status: 201,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
-        } catch (err) {
-          return new Response(JSON.stringify({ error: err.message }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
         }
       }
 
-      // Route API tidak dikenal
-      return new Response(JSON.stringify({ error: "API Endpoint Not Found" }), {
+      return new Response(JSON.stringify({ error: "Endpoint tidak ditemukan" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
-    }
 
-    // =============================================================
-    // BUKAN API -> BIARKAN CLOUDFLARE MENAMPILKAN FRONTEND REACT
-    // =============================================================
-    return env.ASSETS ? env.ASSETS.fetch(request) : fetch(request);
+    } catch (err) {
+      return new Response(JSON.stringify({ error: err.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
   },
 };
