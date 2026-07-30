@@ -4,22 +4,22 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
-    // Header CORS agar React Frontend kamu bisa akses API ini tanpa terblokir
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
     };
 
-    // Tangani Preflight OPTIONS request dari browser
     if (method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
     }
 
     try {
-      // -------------------------------------------------------------
-      // 1. GET /api/listings -> Ambil semua listing properti
-      // -------------------------------------------------------------
+      // =============================================================
+      // 1. ENDPOINT API D1 DATABASE
+      // =============================================================
+
+      // GET /api/listings -> Ambil semua listing
       if (path === "/api/listings" && method === "GET") {
         const category = url.searchParams.get("category");
         let query = "SELECT * FROM listings ORDER BY created_at DESC";
@@ -32,14 +32,12 @@ export default {
 
         const { results } = await env.DB.prepare(query).bind(...params).all();
 
-        return new Response(JSON.stringify(results), {
+        return new Response(JSON.stringify(results || []), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // -------------------------------------------------------------
-      // 2. GET /api/listings/:id -> Ambil detail 1 properti
-      // -------------------------------------------------------------
+      // GET /api/listings/:id -> Ambil detail 1 properti
       if (path.startsWith("/api/listings/") && method === "GET") {
         const id = path.split("/")[3];
         const listing = await env.DB.prepare("SELECT * FROM listings WHERE id = ?")
@@ -58,9 +56,7 @@ export default {
         });
       }
 
-      // -------------------------------------------------------------
-      // 3. POST /api/listings -> Tambah properti baru
-      // -------------------------------------------------------------
+      // POST /api/listings -> Tambah properti baru ke D1
       if (path === "/api/listings" && method === "POST") {
         const body = await request.json();
         const {
@@ -101,9 +97,7 @@ export default {
         );
       }
 
-      // -------------------------------------------------------------
-      // 4. DELETE /api/listings/:id -> Hapus properti
-      // -------------------------------------------------------------
+      // DELETE /api/listings/:id -> Hapus properti
       if (path.startsWith("/api/listings/") && method === "DELETE") {
         const id = path.split("/")[3];
 
@@ -115,9 +109,28 @@ export default {
         );
       }
 
-      // Route fallback jika URL API salah
-      return new Response(JSON.stringify({ error: "Endpoint tidak ditemukan" }), {
-        status: 404,
+      // =============================================================
+      // 2. FALLBACK/SERVE R2 IMAGES OR FRONTEND
+      // =============================================================
+      
+      // Jika request memanggil file/gambar dari R2 Bucket (jika ada binding env.MY_BUCKET)
+      if (env.MY_BUCKET && path.startsWith("/images/")) {
+        const key = path.replace("/images/", "");
+        const object = await env.MY_BUCKET.get(key);
+
+        if (!object) {
+          return new Response("Gambar tidak ditemukan", { status: 404 });
+        }
+
+        const headers = new Headers();
+        object.writeHttpMetadata(headers);
+        headers.set("etag", object.httpEtag);
+        headers.set("Access-Control-Allow-Origin", "*");
+
+        return new Response(object.body, { headers });
+      }
+
+      return new Response(JSON.stringify({ message: "Rauma API Server Ready" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
 
@@ -129,3 +142,4 @@ export default {
     }
   },
 };
+        
