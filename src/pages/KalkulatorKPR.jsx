@@ -10,9 +10,10 @@ const PRICE_STEP = 10_000_000;
 
 const DP_MIN = 0;
 const DP_MAX = 50;
+const DP_STEP = 5;
 
 const TENOR_MIN = 1;
-const TENOR_MAX = 30;
+const TENOR_MAX = 20;
 
 const IDEAL_RATIO = 0.3; // cicilan idealnya maks 30% dari penghasilan
 
@@ -20,6 +21,19 @@ const IDEAL_RATIO = 0.3; // cicilan idealnya maks 30% dari penghasilan
 // mendapat fokus setelah selesai digeser.
 function blurOnRelease(e) {
   e.target.blur();
+}
+
+// Kalau ada input lain (misalnya kolom penghasilan) yang masih fokus/keyboard
+// masih terbuka, lepas dulu fokusnya sebelum mulai menggeser slider — supaya
+// fokus tidak "lompat balik" ke kolom tadi saat slider digeser.
+function releaseOtherFocus() {
+  if (
+    document.activeElement &&
+    document.activeElement.tagName !== 'BODY' &&
+    typeof document.activeElement.blur === 'function'
+  ) {
+    document.activeElement.blur();
+  }
 }
 
 function calculateFlatKPR(price, dpPercent, tenorYears, ratePercent) {
@@ -83,6 +97,8 @@ export default function KalkulatorKPR() {
               step={PRICE_STEP}
               value={price}
               onChange={(e) => setPrice(Number(e.target.value))}
+              onMouseDown={releaseOtherFocus}
+              onTouchStart={releaseOtherFocus}
               onMouseUp={blurOnRelease}
               onTouchEnd={blurOnRelease}
               className="mt-2 w-full accent-forest"
@@ -99,9 +115,11 @@ export default function KalkulatorKPR() {
               type="range"
               min={DP_MIN}
               max={DP_MAX}
-              step={1}
+              step={DP_STEP}
               value={dpPercent}
               onChange={(e) => setDpPercent(Number(e.target.value))}
+              onMouseDown={releaseOtherFocus}
+              onTouchStart={releaseOtherFocus}
               onMouseUp={blurOnRelease}
               onTouchEnd={blurOnRelease}
               className="mt-2 w-full accent-forest"
@@ -121,6 +139,8 @@ export default function KalkulatorKPR() {
               step={1}
               value={tenorYears}
               onChange={(e) => setTenorYears(Number(e.target.value))}
+              onMouseDown={releaseOtherFocus}
+              onTouchStart={releaseOtherFocus}
               onMouseUp={blurOnRelease}
               onTouchEnd={blurOnRelease}
               className="mt-2 w-full accent-forest"
