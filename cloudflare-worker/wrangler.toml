@@ -17,3 +17,4 @@ FIREBASE_PROJECT_ID = "rauma-e0aff"
 [[d1_databases]]
 binding = "DB"
 database_name = "rauma-db"
+database_id = "add0f90b-b35b-46b2-8551-f7c52573c5c5"
