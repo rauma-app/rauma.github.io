@@ -71,11 +71,35 @@ export default function Home() {
     setLocationSource('gps');
   }
 
-  // Load data dari Cloudflare D1
+    // Load data dari Cloudflare D1
   const loadInitial = useCallback(async () => {
     setLoading(true);
     try {
-      const allListings = await d1Api.getListings();
+      const rawListings = await d1Api.getListings();
+
+      // Normalisasi data dari D1 agar sesuai dengan kebutuhan ListingCard
+      const allListings = (rawListings || []).map((item) => {
+        let parsedImages = [];
+        try {
+          // Parse string JSON images dari D1 menjadi Array
+          if (typeof item.images === 'string') {
+            parsedImages = JSON.parse(item.images);
+          } else if (Array.isArray(item.images)) {
+            parsedImages = item.images;
+          }
+        } catch (e) {
+          parsedImages = [];
+        }
+
+        return {
+          ...item,
+          // Pastikan properti gambar aman dipakai ListingCard
+          images: parsedImages,
+          imageUrls: parsedImages, 
+          coverImage: parsedImages[0] || item.coverImage || '/placeholder.jpg',
+          price: Number(item.price) || 0,
+        };
+      });
 
       // Filter perumahan vs rumah pribadi
       const perumahanData = allListings.filter(item => item.type === 'perumahan');
@@ -92,6 +116,7 @@ export default function Home() {
       setLoading(false);
     }
   }, []);
+  
 
   useEffect(() => {
     loadInitial();
