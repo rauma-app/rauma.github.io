@@ -4,21 +4,20 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
-    // Header CORS Lengkap (Mengizinkan Frontend memanggil Worker ini)
+    // Header CORS Lengkap
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
     };
 
-    // Preflight Request untuk CORS
     if (method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
     }
 
     try {
       // =============================================================
-      // 1. ENDPOINT UPLOAD GAMBAR KE R2 BUCKET (/upload)
+      // 1. ENDPOINT UPLOAD & TAMPIL GAMBAR R2
       // =============================================================
       if (path === "/upload" && method === "POST") {
         const formData = await request.formData();
@@ -31,23 +30,19 @@ export default {
           });
         }
 
-        // Buat nama file unik
         const fileExt = file.name.split(".").pop() || "jpg";
         const key = `properties/${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
 
-        // Simpan file ke Cloudflare R2
         await env.RAUMA_IMAGES.put(key, await file.arrayBuffer(), {
           httpMetadata: { contentType: file.type || "image/jpeg" },
         });
 
-        // Kembalikan URL Publik Gambar
         const imageUrl = `${url.origin}/images/${key}`;
         return new Response(JSON.stringify({ url: imageUrl, key }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      // Endpoint untuk Menampilkan Gambar R2 di Browser (/images/*)
       if (path.startsWith("/images/") && method === "GET") {
         const key = path.replace("/images/", "");
         const object = await env.RAUMA_IMAGES.get(key);
@@ -67,9 +62,37 @@ export default {
       // =============================================================
       // 2. ENDPOINT DATABASE D1 (/api/listings)
       // =============================================================
-      if (path.startsWith("/api/")) {
+      if (path.startsWith("/api/listings")) {
 
-        // GET /api/listings
+        // GET /api/listings/:id (DETAIL 1 PROPERTI)
+        const pathParts = path.split("/").filter(Boolean); // ['api', 'listings', 'item_xxx']
+        if (pathParts.length === 3 && method === "GET") {
+          const id = pathParts[2];
+          const result = await env.DB.prepare("SELECT * FROM listings WHERE id = ?").bind(id).first();
+
+          if (!result) {
+            return new Response(JSON.stringify({ error: "Properti tidak ditemukan" }), {
+              status: 404,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+
+          return new Response(JSON.stringify(result), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // DELETE /api/listings/:id (HAPUS PROPERTI)
+        if (pathParts.length === 3 && method === "DELETE") {
+          const id = pathParts[2];
+          await env.DB.prepare("DELETE FROM listings WHERE id = ?").bind(id).run();
+
+          return new Response(JSON.stringify({ success: true }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        // GET /api/listings (AMBIL SEMUA PROPERTI)
         if (path === "/api/listings" && method === "GET") {
           const category = url.searchParams.get("category");
           let query = "SELECT * FROM listings ORDER BY created_at DESC";
@@ -86,7 +109,7 @@ export default {
           });
         }
 
-        // POST /api/listings (Simpan Properti)
+        // POST /api/listings (POSTING PROPERTI BARU)
         if (path === "/api/listings" && method === "POST") {
           const body = await request.json();
           const { id, title, price, location, category, description, seller_uid, seller_phone, images } = body;
