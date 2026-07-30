@@ -1,3 +1,4 @@
+
 name = "rauma-uploader"
 main = "src/index.js"
 compatibility_date = "2026-07-01"
@@ -11,3 +12,8 @@ bucket_name = "rauma-images"
 [vars]
 # Project ID Firebase kamu (sama seperti di src/firebase.js -> projectId)
 FIREBASE_PROJECT_ID = "rauma-e0aff"
+
+# --- TAMBAHKAN INI DI BARIS PALING BAWAH ---
+[[d1_databases]]
+binding = "DB"
+database_name = "rauma-db"
