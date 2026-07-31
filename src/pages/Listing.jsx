@@ -34,24 +34,27 @@ export default function Listing() {
       try {
         const data = await d1Api.getListingById(id);
         if (data) {
-          // Normalisasi gambar (Parse JSON dari D1 jika tersimpan sebagai string)
-          let images = [];
+          // Parse gambar dengan aman
+          let parsedImages = [];
           try {
-            images = typeof data.images === 'string' ? JSON.parse(data.images) : data.images;
+            parsedImages = typeof data.images === 'string' ? JSON.parse(data.images) : data.images;
           } catch (e) {
-            images = [];
+            parsedImages = [];
+          }
+
+          if (!Array.isArray(parsedImages) || parsedImages.length === 0) {
+            parsedImages = ['/placeholder-house.jpg'];
           }
 
           setListing({
             ...data,
-            images: Array.isArray(images) && images.length > 0 ? images : ['/placeholder-house.jpg'],
+            images: parsedImages,
             price: Number(data.price) || 0,
-            // Fallback mapper jika beberapa properti memakai penamaan field D1 yang berbeda
             ownerUid: data.ownerUid || data.seller_uid || '',
             ownerName: data.ownerName || data.seller_name || 'Penjual',
             ownerPhoto: data.ownerPhoto || data.seller_photo || '',
             whatsapp: data.whatsapp || data.seller_phone || '',
-            kabupaten: data.kabupaten || data.location || '',
+            kabupaten: data.kabupaten || data.location || 'Lokasi',
           });
         } else {
           setNotFound(true);
@@ -66,7 +69,6 @@ export default function Listing() {
     load();
   }, [id]);
 
-  // Cari iklan lain di kabupaten/kecamatan yang sama dari D1
   useEffect(() => {
     if (!listing?.kabupaten) return;
     let cancelled = false;
@@ -76,11 +78,12 @@ export default function Listing() {
         const allListings = await d1Api.getListings();
         if (cancelled) return;
 
-        const others = (allListings || [])
-          .filter((l) => l.id !== listing.id && (l.kabupaten === listing.kabupaten || l.location === listing.kabupaten));
+        const others = (allListings || []).filter(
+          (l) => l.id !== listing.id && (l.kabupaten === listing.kabupaten || l.location === listing.kabupaten)
+        );
 
-        const sameKecamatan = others.filter((l) => l.kecamatan === listing.kecamatan);
-        const rest = others.filter((l) => l.kecamatan !== listing.kecamatan);
+        const sameKecamatan = others.filter((l) => l.kecamatan && l.kecamatan === listing.kecamatan);
+        const rest = others.filter((l) => !l.kecamatan || l.kecamatan !== listing.kecamatan);
         setRelated([...sameKecamatan, ...rest].slice(0, 4));
       } catch (err) {
         console.error('Gagal mengambil iklan terkait:', err);
@@ -101,89 +104,76 @@ export default function Listing() {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
         <p className="text-ink/60">Iklan tidak ditemukan.</p>
-        <Link to="/" className="mt-4 inline-block text-forest underline font-semibold">
+        <Link to="/" className="mt-4 inline-block font-semibold text-forest underline">
           Kembali ke beranda
         </Link>
       </div>
     );
   }
 
+  // Format Angka & Teks dengan Proteksi Fallback
+  const formattedPriceShort = formatRupiahShort ? formatRupiahShort(listing.price) : `Rp ${listing.price.toLocaleString('id-ID')}`;
+  const formattedPriceFull = formatRupiah ? formatRupiah(listing.price) : `Rp ${listing.price.toLocaleString('id-ID')}`;
+
   const waNumber = (listing.whatsapp || '').replace(/[^0-9]/g, '');
   const waLink = waNumber
     ? `https://wa.me/${waNumber.startsWith('0') ? '62' + waNumber.slice(1) : waNumber}?text=${encodeURIComponent(
-        `Halo, saya tertarik dengan rumah di ${listing.kecamatan ? listing.kecamatan + ' - ' : ''}${listing.kabupaten} (${formatRupiah(listing.price)}).`
+        `Halo, saya tertarik dengan rumah di ${listing.kecamatan ? listing.kecamatan + ' - ' : ''}${listing.kabupaten} (${formattedPriceFull}).`
       )}`
     : null;
 
   const lokasiText = listing.kecamatan ? `${listing.kecamatan}, ${listing.kabupaten}` : listing.kabupaten;
-  const seoTitle = `Rumah Dijual di ${lokasiText} - ${formatRupiahShort(listing.price)}`;
-  const seoDescription = `Rumah dijual di ${lokasiText} harga ${formatRupiah(listing.price)}${
-    listing.luasTanah ? `, LT ${listing.luasTanah}m²` : ''
-  }${listing.luasBangunan ? `, LB ${listing.luasBangunan}m²` : ''}${
-    listing.bedrooms ? `, ${listing.bedrooms} kamar tidur` : ''
-  }${
-    listing.cicilanPerBulan ? `. Cicilan mulai ${formatMonthlyShort(listing.cicilanPerBulan)}` : ''
-  }. Lihat detail & hubungi penjual di Rauma.`;
+  const seoTitle = `Rumah Dijual di ${lokasiText} - ${formattedPriceShort}`;
+  const seoDescription = `Rumah dijual di ${lokasiText} harga ${formattedPriceFull}. Lihat detail & hubungi penjual di Rauma.`;
 
-  const seoJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Product',
-    name: seoTitle,
-    description: seoDescription,
-    image: listing.images && listing.images.length ? listing.images : undefined,
-    offers: {
-      '@type': 'Offer',
-      priceCurrency: 'IDR',
-      price: listing.price,
-      availability: 'https://schema.org/InStock',
-    },
-    ...(listing.lat && listing.lon
-      ? {
-          additionalProperty: {
-            '@type': 'PropertyValue',
-            name: 'Lokasi',
-            value: lokasiText,
-          },
-        }
-      : {}),
-  };
+  const adminList = Array.isArray(ADMIN_UIDS) ? ADMIN_UIDS : [];
+  const premiumList = Array.isArray(PREMIUM_UIDS) ? PREMIUM_UIDS : [];
+  const isOwnerAdmin = adminList.includes(listing.ownerUid);
+  const isOwnerPremium = premiumList.includes(listing.ownerUid);
+  const isOwnerVerified = isOwnerAdmin || isOwnerPremium;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
-      <Seo
-        title={seoTitle}
-        description={seoDescription}
-        path={`/id/${listing.id}`}
-        image={listing.images && listing.images[0]}
-        jsonLd={seoJsonLd}
-      />
+      {Seo && (
+        <Seo
+          title={seoTitle}
+          description={seoDescription}
+          path={`/id/${listing.id}`}
+          image={listing.images?.[0]}
+        />
+      )}
 
-      {/* Image Slider Asli Rauma + Swiper & Lightbox Zoom */}
-      <ImageSlider images={listing.images} alt={listing.kecamatan || listing.title} ratio="3 / 2" enableLightbox />
+      {/* Slider Gambar */}
+      {ImageSlider ? (
+        <ImageSlider images={listing.images} alt={listing.title || lokasiText} ratio="3 / 2" enableLightbox />
+      ) : (
+        <img src={listing.images?.[0]} alt={listing.title} className="w-full h-64 object-cover rounded-2xl" />
+      )}
 
+      {/* Informasi Utama */}
       <div className="mt-6">
         <div className="flex flex-wrap items-baseline gap-x-2">
-          <p className="font-display text-3xl font-bold text-navy">{formatRupiahShort(listing.price)}</p>
-          {listing.cicilanPerBulan ? (
+          <p className="font-display text-3xl font-bold text-navy">{formattedPriceShort}</p>
+          {listing.cicilanPerBulan && formatMonthlyShort && (
             <p className="text-sm text-ink/50">
               Cicilan mulai {formatMonthlyShort(listing.cicilanPerBulan)}
             </p>
-          ) : null}
+          )}
         </div>
         <div className="mt-1 flex items-center gap-1.5 text-ink/60">
-          <span aria-hidden>📍</span>
+          <span>📍</span>
           <span>{listing.kecamatan ? `${listing.kecamatan} - ` : ''}{listing.kabupaten}</span>
         </div>
       </div>
 
-      {/* Spesifikasi Properti */}
+      {/* Tabel Spesifikasi */}
       <section className="mt-8">
-        <h2 className="section-rule font-display text-xl font-semibold text-navy">Spesifikasi</h2>
+        <h2 className="font-display text-xl font-semibold text-navy mb-3">Spesifikasi</h2>
         <dl className="divide-y divide-line rounded-2xl border border-line bg-white">
           {SPEC_ROWS.filter((row) => listing[row.key]).map((row) => (
             <div key={row.key} className="flex items-center justify-between px-4 py-3">
               <dt className="flex items-center gap-2 text-sm text-ink/60">
-                <span aria-hidden>{row.icon}</span> {row.label}
+                <span>{row.icon}</span> {row.label}
               </dt>
               <dd className="text-sm font-medium text-ink">
                 {listing[row.key]}{row.suffix}
@@ -193,15 +183,10 @@ export default function Listing() {
           {listing.videoUrl && (
             <div className="flex items-center justify-between px-4 py-3">
               <dt className="flex items-center gap-2 text-sm text-ink/60">
-                <span aria-hidden>🎥</span> Video
+                <span>🎥</span> Video
               </dt>
               <dd className="text-sm font-medium">
-                <a
-                  href={listing.videoUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-forest underline font-semibold"
-                >
+                <a href={listing.videoUrl} target="_blank" rel="noreferrer" className="text-forest underline font-semibold">
                   Lihat Video
                 </a>
               </dd>
@@ -213,7 +198,7 @@ export default function Listing() {
       {/* Deskripsi */}
       {listing.description && (
         <section className="mt-8">
-          <h2 className="section-rule font-display text-xl font-semibold text-navy">Deskripsi</h2>
+          <h2 className="font-display text-xl font-semibold text-navy mb-3">Deskripsi</h2>
           <div className="rounded-2xl border border-line bg-white p-4">
             <p className="whitespace-pre-line text-sm leading-relaxed text-ink/80">
               {listing.description}
@@ -222,37 +207,22 @@ export default function Listing() {
         </section>
       )}
 
-      {/* Profil Penjual & Tombol WhatsApp */}
+      {/* Kontak Penjual */}
       <section className="mt-8 flex items-center justify-between rounded-2xl border border-line bg-white p-4">
-        {(() => {
-          const isOwnerAdmin = ADMIN_UIDS.includes(listing.ownerUid);
-          const isOwnerPremium = PREMIUM_UIDS.includes(listing.ownerUid);
-          const isOwnerVerified = isOwnerAdmin || isOwnerPremium;
-          const nameBlock = (
-            <>
-              {listing.ownerPhoto && (
-                <ProfilePhotoViewer
-                  src={listing.ownerPhoto}
-                  alt={listing.ownerName}
-                  clickable={isOwnerVerified}
-                  className="h-11 w-11 rounded-full object-cover"
-                />
-              )}
-              <span className="flex items-center gap-1 font-semibold text-ink">
-                {listing.ownerName}
-                {isOwnerVerified && <VerifiedBadge color={isOwnerAdmin ? 'gold' : 'blue'} />}
-              </span>
-            </>
-          );
+        <div className="flex items-center gap-3">
+          {listing.ownerPhoto && ProfilePhotoViewer && (
+            <ProfilePhotoViewer
+              src={listing.ownerPhoto}
+              alt={listing.ownerName}
+              className="h-11 w-11 rounded-full object-cover"
+            />
+          )}
+          <span className="flex items-center gap-1 font-semibold text-ink">
+            {listing.ownerName}
+            {isOwnerVerified && VerifiedBadge && <VerifiedBadge color={isOwnerAdmin ? 'gold' : 'blue'} />}
+          </span>
+        </div>
 
-          return isOwnerVerified ? (
-            <Link to={`/penjual/${listing.ownerUid}`} className="flex items-center gap-3 hover:opacity-80">
-              {nameBlock}
-            </Link>
-          ) : (
-            <div className="flex items-center gap-3">{nameBlock}</div>
-          );
-        })()}
         {waLink && (
           <a
             href={waLink}
@@ -260,15 +230,15 @@ export default function Listing() {
             rel="noreferrer"
             className="flex items-center gap-2 rounded-full bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-dark transition-colors"
           >
-            <span aria-hidden>💬</span> Chat Sekarang
+            <span>💬</span> Chat Sekarang
           </a>
         )}
       </section>
 
-      {/* Rekomendasi Properti Terkait */}
-      {related.length > 0 && (
+      {/* Rekomendasi Terkait */}
+      {related.length > 0 && ListingCard && (
         <section className="mt-8">
-          <h2 className="section-rule font-display text-xl font-semibold text-navy">
+          <h2 className="font-display text-xl font-semibold text-navy mb-3">
             Rumah Lain di {listing.kecamatan || listing.kabupaten}
           </h2>
           <div className="grid grid-cols-2 gap-4">
@@ -280,5 +250,4 @@ export default function Listing() {
       )}
     </div>
   );
-        }
-          
+}
