@@ -1,8 +1,5 @@
 const WORKER_URL = 'https://rauma-uploader.abduloh-salam7.workers.dev';
 
-/**
- * Mengunggah 1 file gambar ke Cloudflare R2 via Worker
- */
 export async function uploadToR2(file) {
   try {
     const formData = new FormData();
@@ -18,7 +15,6 @@ export async function uploadToR2(file) {
     }
 
     const data = await response.json();
-    // Mengembalikan URL publik gambar dari Worker/R2
     return data.url || `${WORKER_URL}/images/${data.key}`;
   } catch (error) {
     console.error('Error uploadToR2:', error);
@@ -26,9 +22,7 @@ export async function uploadToR2(file) {
   }
 }
 
-/**
- * Objek penolong agar kompatibel dengan Posting.jsx
- */
+// Objek r2Uploader untuk dipanggil oleh Posting.jsx
 export const r2Uploader = {
   uploadFile: uploadToR2,
   uploadMany: (files) => Promise.all(files.map((file) => uploadToR2(file))),
