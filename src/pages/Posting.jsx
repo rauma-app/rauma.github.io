@@ -1,129 +1,578 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { d1Api } from '../lib/d1Api';
-import { uploadToR2 } from '../lib/r2';
+import { r2Uploader } from '../lib/r2Uploader';
+import { useAuth } from '../context/AuthContext';
+import { isAdmin } from '../lib/admin';
+import { isPremium, FREE_LISTING_LIMIT, PREMIUM_LISTING_LIMIT } from '../lib/premium';
+import LocationAutocomplete from '../components/LocationAutocomplete';
 
-export default function Posting({ currentUser, onSuccess }) {
-  const [title, setTitle] = useState('');
-  const [price, setPrice] = useState('');
-  const [location, setLocation] = useState('');
-  const [category, setCategory] = useState('Rumah');
-  const [description, setDescription] = useState('');
-  const [phone, setPhone] = useState('');
-  const [imageFiles, setImageFiles] = useState([]);
-  const [uploading, setUploading] = useState(false);
+const PREMIUM_WHATSAPP = '6285156222635';
+const PREMIUM_PRICE_LABEL = 'Rp299.000/tahun';
 
-  const handleSubmit = async (e) => {
+const SERTIFIKAT_OPTIONS = ['SHM', 'SHGB', 'HGB', 'AJB', 'Girik', 'PPJB', 'Lainnya'];
+const AIR_OPTIONS = ['PDAM', 'Sumur Bor', 'Sumur Gali', 'Lainnya'];
+
+const TYPE_LABELS = {
+  pribadi: 'Pribadi',
+  perumahan: 'Perumahan',
+  take_over_kpr: 'Take Over KPR',
+  subsidi: 'Subsidi',
+};
+
+const CICILAN_TYPES = ['perumahan', 'subsidi', 'take_over_kpr'];
+
+const emptyForm = {
+  type: 'pribadi',
+  priceRaw: '',
+  cicilanRaw: '',
+  location: null,
+  luasTanah: '',
+  luasBangunan: '',
+  unitTersedia: '',
+  bedrooms: '',
+  bathrooms: '',
+  electricity: '',
+  air: '',
+  sertifikat: '',
+  videoUrl: '',
+  description: '',
+  whatsapp: '',
+};
+
+const MAX_PHOTOS = 5;
+
+function formatThousands(digits) {
+  if (!digits) return '';
+  return new Intl.NumberFormat('id-ID').format(Number(digits));
+}
+
+export default function Posting() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { id } = useParams();
+  const isEditMode = Boolean(id);
+
+  const [form, setForm] = useState(emptyForm);
+  const [priceDisplay, setPriceDisplay] = useState('');
+  const [cicilanDisplay, setCicilanDisplay] = useState('');
+  const [files, setFiles] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
+  const [previews, setPreviews] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [loadingExisting, setLoadingExisting] = useState(isEditMode);
+  const [error, setError] = useState('');
+  const [listingCount, setListingCount] = useState(null);
+
+  const userIsAdmin = isAdmin(user);
+  const userIsPremium = isPremium(user);
+  const listingLimit = userIsAdmin ? Infinity : userIsPremium ? PREMIUM_LISTING_LIMIT : FREE_LISTING_LIMIT;
+  const limitReached = !isEditMode && listingCount !== null && listingCount >= listingLimit;
+
+  // Cek limit listing milik user dari Cloudflare D1
+  useEffect(() => {
+    if (isEditMode || !user || userIsAdmin) return;
+    let cancelled = false;
+
+    async function loadCount() {
+      try {
+        const allListings = await d1Api.getListings();
+        if (!cancelled && Array.isArray(allListings)) {
+          const userListings = allListings.filter(
+            (l) => l.ownerUid === user.uid || l.seller_uid === user.uid
+          );
+          setListingCount(userListings.length);
+        }
+      } catch (err) {
+        console.error('Gagal memuat statistik listing user:', err);
+      }
+    }
+
+    loadCount();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditMode, user, userIsAdmin]);
+
+  // Mode Edit: Ambil detail data dari D1
+  useEffect(() => {
+    if (!isEditMode || !user) return;
+    let cancelled = false;
+
+    async function loadExisting() {
+      setLoadingExisting(true);
+      try {
+        const data = await d1Api.getListingById(id);
+        if (!data) {
+          setError('Iklan tidak ditemukan.');
+          return;
+        }
+
+        const ownerUid = data.ownerUid || data.seller_uid;
+        if (ownerUid && ownerUid !== user.uid) {
+          setError('Kamu tidak punya akses untuk mengedit iklan ini.');
+          return;
+        }
+
+        if (cancelled) return;
+
+        let imgs = [];
+        try {
+          imgs = typeof data.images === 'string' ? JSON.parse(data.images) : data.images;
+        } catch (e) {
+          imgs = [];
+        }
+
+        setForm({
+          type: data.type || 'pribadi',
+          priceRaw: String(data.price || ''),
+          cicilanRaw: data.cicilanPerBulan ? String(data.cicilanPerBulan) : '',
+          location: {
+            label: data.kecamatan ? `${data.kecamatan} - ${data.kabupaten}` : (data.kabupaten || data.location || ''),
+            kabupaten: data.kabupaten || data.location || '',
+            kecamatan: data.kecamatan || '',
+            lat: data.lat,
+            lon: data.lon,
+          },
+          luasTanah: data.luasTanah ?? '',
+          luasBangunan: data.luasBangunan ?? '',
+          unitTersedia: data.unitTersedia ?? '',
+          bedrooms: data.bedrooms ?? '',
+          bathrooms: data.bathrooms ?? '',
+          electricity: data.electricity || '',
+          air: data.air || '',
+          sertifikat: data.sertifikat || '',
+          videoUrl: data.videoUrl || '',
+          description: data.description || '',
+          whatsapp: data.whatsapp || data.seller_phone || '',
+        });
+
+        setPriceDisplay(formatThousands(String(data.price || '')));
+        setCicilanDisplay(data.cicilanPerBulan ? formatThousands(String(data.cicilanPerBulan)) : '');
+        setExistingImages(Array.isArray(imgs) ? imgs : []);
+        setPreviews(Array.isArray(imgs) ? imgs : []);
+      } catch (err) {
+        console.error('Gagal memuat data iklan:', err);
+        setError('Gagal memuat data iklan.');
+      } finally {
+        if (!cancelled) setLoadingExisting(false);
+      }
+    }
+
+    loadExisting();
+    return () => {
+      cancelled = true;
+    };
+  }, [isEditMode, id, user]);
+
+  function update(field, value) {
+    setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  function handlePriceChange(e) {
+    const digits = e.target.value.replace(/\D/g, '');
+    update('priceRaw', digits);
+    setPriceDisplay(formatThousands(digits));
+  }
+
+  function handleCicilanChange(e) {
+    const digits = e.target.value.replace(/\D/g, '');
+    update('cicilanRaw', digits);
+    setCicilanDisplay(formatThousands(digits));
+  }
+
+  function handleWhatsappChange(e) {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 13);
+    update('whatsapp', digits);
+  }
+
+  function totalPhotoCount() {
+    return existingImages.length + files.length;
+  }
+
+  function handleFiles(e) {
+    const incoming = Array.from(e.target.files || []);
+    const room = MAX_PHOTOS - totalPhotoCount();
+    const accepted = incoming.slice(0, Math.max(room, 0));
+    setFiles((prev) => {
+      const combined = [...prev, ...accepted];
+      setPreviews([...existingImages, ...combined.map((f) => URL.createObjectURL(f))]);
+      return combined;
+    });
+    e.target.value = '';
+  }
+
+  function removePhoto(index) {
+    if (index < existingImages.length) {
+      const updatedExisting = existingImages.filter((_, i) => i !== index);
+      setExistingImages(updatedExisting);
+      setPreviews([...updatedExisting, ...files.map((f) => URL.createObjectURL(f))]);
+    } else {
+      const fileIndex = index - existingImages.length;
+      const updatedFiles = files.filter((_, i) => i !== fileIndex);
+      setFiles(updatedFiles);
+      setPreviews([...existingImages, ...updatedFiles.map((f) => URL.createObjectURL(f))]);
+    }
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
-    setUploading(true);
+    setError('');
 
+    if (!form.priceRaw || !form.location || totalPhotoCount() === 0) {
+      setError('Harga, lokasi, dan minimal 1 foto wajib diisi.');
+      return;
+    }
+
+    if (form.whatsapp.length < 10 || form.whatsapp.length > 13) {
+      setError('Nomor WhatsApp harus 10-13 digit.');
+      return;
+    }
+
+    if (form.videoUrl && !/^https?:\/\//i.test(form.videoUrl.trim())) {
+      setError('URL video harus diawali http:// atau https://');
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      // 1. Upload semua gambar ke R2 Worker
-      const imageUrls = [];
-      for (const file of imageFiles) {
-        const url = await uploadToR2(file);
-        imageUrls.push(url);
+      // 1. Upload Foto Baru ke R2
+      let newImageUrls = [];
+      if (files.length > 0) {
+        if (typeof r2Uploader?.uploadMany === 'function') {
+          newImageUrls = await r2Uploader.uploadMany(files);
+        } else if (typeof r2Uploader?.uploadFile === 'function') {
+          newImageUrls = await Promise.all(files.map((f) => r2Uploader.uploadFile(f)));
+        }
       }
 
-      // 2. Simpan Metadata Properti ke Cloudflare D1
+      const imageUrls = [...existingImages, ...newImageUrls];
+
+      // 2. Susun Payload untuk Cloudflare D1
       const payload = {
-        title,
-        price: Number(price),
-        location,
-        category,
-        description,
-        seller_uid: currentUser?.uid || 'guest',
-        seller_phone: phone,
+        id: isEditMode ? id : `item_${Date.now()}`,
+        title: `${TYPE_LABELS[form.type] || 'Rumah'} di ${form.location.kecamatan || form.location.kabupaten}`,
+        type: form.type,
+        price: Number(form.priceRaw),
+        cicilanPerBulan: CICILAN_TYPES.includes(form.type) && form.cicilanRaw ? Number(form.cicilanRaw) : null,
+        location: form.location.kabupaten,
+        kabupaten: form.location.kabupaten,
+        kecamatan: form.location.kecamatan,
+        lat: form.location.lat || null,
+        lon: form.location.lon || null,
+        luasTanah: form.luasTanah ? Number(form.luasTanah) : null,
+        luasBangunan: form.luasBangunan ? Number(form.luasBangunan) : null,
+        unitTersedia: form.type === 'perumahan' && form.unitTersedia ? Number(form.unitTersedia) : null,
+        bedrooms: form.bedrooms ? Number(form.bedrooms) : null,
+        bathrooms: form.bathrooms ? Number(form.bathrooms) : null,
+        electricity: form.electricity || null,
+        air: form.air || null,
+        sertifikat: form.sertifikat || null,
+        videoUrl: form.videoUrl ? form.videoUrl.trim() : null,
+        description: form.description || '',
+        seller_phone: form.whatsapp || '',
+        whatsapp: form.whatsapp || '',
+        seller_uid: user?.uid || '',
+        ownerUid: user?.uid || '',
+        ownerName: user?.displayName || 'Penjual',
+        ownerPhoto: user?.photoURL || '',
         images: imageUrls,
+        status: userIsAdmin ? 'approved' : 'pending',
       };
 
-      await d1Api.createListing(payload);
-      alert('Berhasil posting properti baru!');
-      
-      if (onSuccess) onSuccess();
+      // 3. Simpan ke Cloudflare D1
+      const result = await d1Api.createListing(payload);
+      const targetId = payload.id || result?.id;
+
+      navigate(`/id/${targetId}`);
     } catch (err) {
-      console.error(err);
-      alert('Gagal posting properti: ' + err.message);
+      console.error('Gagal menyimpan iklan:', err);
+      setError(`Gagal menyimpan iklan (${err.message || 'Error'}). Coba lagi ya.`);
     } finally {
-      setUploading(false);
+      setSubmitting(false);
     }
-  };
+  }
+
+  if (loadingExisting) {
+    return <div className="mx-auto max-w-xl px-4 py-16 text-center text-ink/50">Memuat data iklan...</div>;
+  }
+
+  if (limitReached) {
+    const waLink = `https://wa.me/${PREMIUM_WHATSAPP}?text=${encodeURIComponent(
+      'Halo, saya mau upgrade akun Rauma saya ke Premium.'
+    )}`;
+    return (
+      <div className="mx-auto max-w-xl px-4 py-8">
+        <h1 className="font-display text-2xl font-semibold text-navy">Pasang Iklan</h1>
+        <div className="mt-6 rounded-2xl border border-amber-300 bg-amber-50 p-6 text-center">
+          <p className="text-3xl">⭐</p>
+          <h2 className="mt-2 font-display text-xl font-bold text-navy">
+            Batas {FREE_LISTING_LIMIT} Iklan Tercapai
+          </h2>
+          <p className="mt-2 text-sm text-ink/70">
+            Akun kamu udah punya {listingCount} iklan. Bantu kami dengan Upgrade ke <b>Rauma Premium</b> ({PREMIUM_PRICE_LABEL}) buat lanjut posting lebih banyak.
+          </p>
+
+          <ul className="mt-4 space-y-1.5 text-left text-sm text-ink/80">
+            <li>✅ Posting iklan maksimal {PREMIUM_LISTING_LIMIT}</li>
+            <li>✅ Dapat ceklis biru</li>
+            <li>✅ Profil bisa dibuka publik</li>
+            <li>✅ Klaim Wilayah listing (tidak ada 2 agent di lokasi sama)</li>
+            <li>✅ Buka fitur Perumahan &amp; Subsidi</li>
+            <li>✅ Gratis kartu nama resmi dari Rauma ID</li>
+            <li>✅ Gratis posting 1x promo Video rumah di akun TT/IG/FB/YT Rauma.id</li>
+          </ul>
+
+          <a
+            href={waLink}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-5 flex items-center justify-center gap-2 rounded-full bg-forest px-4 py-3 text-sm font-semibold text-white hover:bg-forest-dark"
+          >
+            <span aria-hidden>💬</span> Upgrade ke Premium via WhatsApp
+          </a>
+
+          <p className="mt-4 text-sm text-ink/80">
+            Setiap Rupiah dari biaya ini kami pakai untuk upgrade server dan marketing supaya iklanmu dilihat lebih banyak orang. ♥️
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <form onSubmit={handleSubmit} className="max-w-lg mx-auto p-4 bg-white rounded shadow space-y-4">
-      <h2 className="text-xl font-bold">Tambah Properti Baru</h2>
-      
-      <input 
-        type="text" 
-        placeholder="Judul Properti" 
-        value={title} 
-        onChange={(e) => setTitle(e.target.value)} 
-        required 
-        className="w-full border p-2 rounded"
-      />
+    <div className="mx-auto max-w-xl px-4 py-8">
+      <h1 className="font-display text-2xl font-semibold text-navy">
+        {isEditMode ? 'Edit Iklan' : 'Pasang Iklan'}
+      </h1>
 
-      <input 
-        type="number" 
-        placeholder="Harga (Rp)" 
-        value={price} 
-        onChange={(e) => setPrice(e.target.value)} 
-        required 
-        className="w-full border p-2 rounded"
-      />
+      <form onSubmit={handleSubmit} className="mt-6 space-y-5">
+        <div className="flex flex-wrap gap-2">
+          {['pribadi', 'take_over_kpr', ...(userIsAdmin || userIsPremium ? ['perumahan', 'subsidi'] : [])].map((t) => (
+            <button
+              type="button"
+              key={t}
+              onClick={() => update('type', t)}
+              className={`rounded-full border px-5 py-2 text-sm font-semibold transition-colors ${
+                form.type === t
+                  ? 'border-navy bg-navy text-white'
+                  : 'border-line bg-white text-ink/60'
+              }`}
+            >
+              {TYPE_LABELS[t] || t}
+            </button>
+          ))}
+        </div>
+        {!userIsAdmin && (
+          <p className="-mt-3 text-xs text-ink/40">
+            Iklan kamu akan ditinjau dulu sebelum tayang publik (biasanya cepat).
+          </p>
+        )}
 
-      <input 
-        type="text" 
-        placeholder="Lokasi (Kota/Kabupaten)" 
-        value={location} 
-        onChange={(e) => setLocation(e.target.value)} 
-        required 
-        className="w-full border p-2 rounded"
-      />
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-ink">
+            Foto Rumah <span className="font-normal text-ink/40">(maks. {MAX_PHOTOS}, pilih beberapa sekaligus)</span>
+          </label>
+          {totalPhotoCount() < MAX_PHOTOS && (
+            <label className="flex h-28 w-28 cursor-pointer items-center justify-center rounded-xl bg-ink/70 text-3xl text-white hover:bg-ink/80">
+              +
+              <input type="file" accept="image/*" multiple onChange={handleFiles} className="hidden" />
+            </label>
+          )}
+          {previews.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {previews.map((src, i) => (
+                <div key={i} className="relative h-20 w-20">
+                  <img src={src} alt={`preview ${i + 1}`} className="h-20 w-20 rounded-lg object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(i)}
+                    aria-label="Hapus foto"
+                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink text-xs text-white"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
-      <select 
-        value={category} 
-        onChange={(e) => setCategory(e.target.value)}
-        className="w-full border p-2 rounded"
-      >
-        <option value="Rumah">Rumah</option>
-        <option value="Ruko">Ruko</option>
-        <option value="Tanah">Tanah</option>
-        <option value="Apartemen">Apartemen</option>
-      </select>
+        <div className={CICILAN_TYPES.includes(form.type) ? 'grid grid-cols-2 gap-4' : ''}>
+          <Field label="Harga">
+            <div className="flex items-center gap-2 rounded-xl border border-line bg-white px-4 focus-within:border-forest">
+              <span className="text-ink/50">Rp</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                placeholder="100.000.000"
+                value={priceDisplay}
+                onChange={handlePriceChange}
+                className="w-full bg-transparent py-3 text-ink placeholder:text-ink/40 outline-none"
+              />
+            </div>
+          </Field>
 
-      <textarea 
-        placeholder="Deskripsi Lengkap" 
-        value={description} 
-        onChange={(e) => setDescription(e.target.value)} 
-        className="w-full border p-2 rounded"
-      />
+          {CICILAN_TYPES.includes(form.type) && (
+            <Field label="Cicilan Mulai dari">
+              <div className="flex items-center gap-2 rounded-xl border border-line bg-white px-4 focus-within:border-forest">
+                <span className="text-ink/50">Rp</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="2.500.000"
+                  value={cicilanDisplay}
+                  onChange={handleCicilanChange}
+                  className="w-full bg-transparent py-3 text-ink placeholder:text-ink/40 outline-none"
+                />
+              </div>
+              <p className="mt-1.5 text-xs text-ink/40">Opsional. Cicilan per bulan, tampil berdampingan dengan harga jual.</p>
+            </Field>
+          )}
+        </div>
 
-      <input 
-        type="text" 
-        placeholder="Nomor WhatsApp/HP" 
-        value={phone} 
-        onChange={(e) => setPhone(e.target.value)} 
-        required 
-        className="w-full border p-2 rounded"
-      />
+        <Field label="Lokasi">
+          <LocationAutocomplete
+            value={form.location}
+            onSelect={(loc) => update('location', loc)}
+            placeholder="Cari Kecamatan..."
+          />
+        </Field>
 
-      <div>
-        <label className="block text-sm font-medium mb-1">Foto Properti</label>
-        <input 
-          type="file" 
-          multiple 
-          accept="image/*" 
-          onChange={(e) => setImageFiles(Array.from(e.target.files))} 
-          className="w-full border p-1 rounded"
-        />
-      </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Luas Bangunan (m²)">
+            <input
+              type="number"
+              value={form.luasBangunan}
+              onChange={(e) => update('luasBangunan', e.target.value)}
+              placeholder="Masukkan luas bangunan"
+              className="input"
+            />
+          </Field>
+          <Field label="Luas Tanah (m²)">
+            <input
+              type="number"
+              value={form.luasTanah}
+              onChange={(e) => update('luasTanah', e.target.value)}
+              placeholder="Masukkan luas tanah"
+              className="input"
+            />
+          </Field>
+        </div>
 
-      <button 
-        type="submit" 
-        disabled={uploading}
-        className="w-full bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700 disabled:bg-gray-400"
-      >
-        {uploading ? 'Mengunggah & Menyimpan...' : 'Post Properti'}
-      </button>
-    </form>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Kamar Tidur">
+            <input
+              type="number"
+              value={form.bedrooms}
+              onChange={(e) => update('bedrooms', e.target.value)}
+              placeholder="Masukkan jumlah"
+              className="input"
+            />
+          </Field>
+          <Field label="Kamar Mandi">
+            <input
+              type="number"
+              value={form.bathrooms}
+              onChange={(e) => update('bathrooms', e.target.value)}
+              placeholder="Masukkan jumlah"
+              className="input"
+            />
+          </Field>
+        </div>
+
+        <Field label="Daya Listrik">
+          <input
+            type="text"
+            value={form.electricity}
+            onChange={(e) => update('electricity', e.target.value)}
+            placeholder="Masukkan daya listrik (contoh: 2200 VA)"
+            className="input"
+          />
+        </Field>
+
+        <Field label="Air">
+          <select value={form.air} onChange={(e) => update('air', e.target.value)} className="input">
+            <option value="">Pilih Jenis Air</option>
+            {AIR_OPTIONS.map((o) => (
+              <option key={o} value={o}>{o}</option>
+            ))}
+          </select>
+        </Field>
+
+        <Field label="Sertifikat">
+          <select value={form.sertifikat} onChange={(e) => update('sertifikat', e.target.value)} className="input">
+            <option value="">Pilih Sertifikat</option>
+            {SERTIFIKAT_OPTIONS.map((o) => (
+              <option key={o} value={o}>{o}</option>
+            ))}
+          </select>
+        </Field>
+
+        {form.type === 'perumahan' && (
+          <Field label="Unit Tersedia">
+            <input
+              type="number"
+              value={form.unitTersedia}
+              onChange={(e) => update('unitTersedia', e.target.value)}
+              placeholder="Masukkan jumlah unit tersedia"
+              className="input"
+            />
+          </Field>
+        )}
+
+        <Field label="URL Video">
+          <input
+            type="url"
+            value={form.videoUrl}
+            onChange={(e) => update('videoUrl', e.target.value)}
+            placeholder="Masukkan link video jika ada (YouTube/TikTok/Instagram)"
+            className="input"
+          />
+          <p className="mt-1.5 text-xs text-ink/40">Opsional. Tempel link video tur rumah kalau ada.</p>
+        </Field>
+
+        <Field label="Deskripsi">
+          <textarea
+            rows={4}
+            value={form.description}
+            onChange={(e) => update('description', e.target.value)}
+            placeholder="Masukkan keunggulan rumahmu..."
+            className="input"
+          />
+        </Field>
+
+        <Field label="WhatsApp">
+          <input
+            type="tel"
+            inputMode="numeric"
+            maxLength={13}
+            value={form.whatsapp}
+            onChange={handleWhatsappChange}
+            placeholder="Masukkan nomor WhatsApp (10-13 digit)"
+            className="input"
+          />
+            </Field>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full rounded-full bg-forest py-3.5 text-center font-semibold text-white hover:bg-forest-dark disabled:opacity-60"
+        >
+          {submitting ? 'Menyimpan...' : isEditMode ? 'SIMPAN PERUBAHAN' : 'POSTING'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <div>
+      <label className="mb-2 block text-sm font-semibold text-ink">{label}</label>
+      {children}
+    </div>
   );
 }
