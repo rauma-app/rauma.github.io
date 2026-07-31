@@ -429,8 +429,7 @@ export default function Posting() {
                 placeholder="100.000.000"
                 value={priceDisplay}
                 onChange={handlePriceChange}
-                className="w-full bg-transparent py-3 text-ink placeholder:text-ink/40 outline-none"
-              />
+                className="w-full rounded-xl bg-transparent py-3 text-ink placeholder:text-ink/40 outline-none"/>
             </div>
           </Field>
 
