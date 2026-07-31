@@ -7,13 +7,19 @@ export default {
     // Header CORS Lengkap
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
     };
 
     if (method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
     }
+
+    const json = (data, status = 200) =>
+      new Response(JSON.stringify(data), {
+        status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
 
     try {
       // =============================================================
@@ -24,10 +30,7 @@ export default {
         const file = formData.get("file");
 
         if (!file) {
-          return new Response(JSON.stringify({ error: "File tidak ditemukan" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return json({ error: "File tidak ditemukan" }, 400);
         }
 
         const fileExt = file.name.split(".").pop() || "jpg";
@@ -38,9 +41,7 @@ export default {
         });
 
         const imageUrl = `${url.origin}/images/${key}`;
-        return new Response(JSON.stringify({ url: imageUrl, key }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return json({ url: imageUrl, key });
       }
 
       if (path.startsWith("/images/") && method === "GET") {
@@ -63,83 +64,160 @@ export default {
       // 2. ENDPOINT DATABASE D1 (/api/listings)
       // =============================================================
       if (path.startsWith("/api/listings")) {
+        const pathParts = path.split("/").filter(Boolean); // ['api', 'listings', 'item_xxx']
 
         // GET /api/listings/:id (DETAIL 1 PROPERTI)
-        const pathParts = path.split("/").filter(Boolean); // ['api', 'listings', 'item_xxx']
         if (pathParts.length === 3 && method === "GET") {
           const id = pathParts[2];
           const result = await env.DB.prepare("SELECT * FROM listings WHERE id = ?").bind(id).first();
 
           if (!result) {
-            return new Response(JSON.stringify({ error: "Properti tidak ditemukan" }), {
-              status: 404,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+            return json({ error: "Properti tidak ditemukan" }, 404);
+          }
+          return json(result);
+        }
+
+        // PATCH /api/listings/:id (UPDATE STATUS: approve / reject, dsb)
+        if (pathParts.length === 3 && method === "PATCH") {
+          const id = pathParts[2];
+          const body = await request.json();
+
+          if (!body.status) {
+            return json({ error: "Field 'status' wajib diisi" }, 400);
           }
 
-          return new Response(JSON.stringify(result), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          await env.DB.prepare("UPDATE listings SET status = ? WHERE id = ?")
+            .bind(body.status, id)
+            .run();
+
+          return json({ success: true });
         }
 
         // DELETE /api/listings/:id (HAPUS PROPERTI)
         if (pathParts.length === 3 && method === "DELETE") {
           const id = pathParts[2];
           await env.DB.prepare("DELETE FROM listings WHERE id = ?").bind(id).run();
-
-          return new Response(JSON.stringify({ success: true }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return json({ success: true });
         }
 
-        // GET /api/listings (AMBIL SEMUA PROPERTI)
+        // GET /api/listings (AMBIL SEMUA / FILTER PROPERTI)
+        // Query params yang didukung:
+        //   ?type=perumahan        -> filter kolom type
+        //   ?category=Rumah        -> filter kolom category
+        //   ?owner=<uid>           -> filter ownerUid (dipakai "Iklan Saya" & profil penjual)
+        //   ?status=pending        -> filter status tertentu
+        //   ?status=all            -> tanpa filter status sama sekali (khusus admin)
+        //   (tanpa ?status)        -> default hanya status = 'approved' (aman utk publik)
         if (path === "/api/listings" && method === "GET") {
+          const type = url.searchParams.get("type");
           const category = url.searchParams.get("category");
-          let query = "SELECT * FROM listings ORDER BY created_at DESC";
-          let params = [];
+          const owner = url.searchParams.get("owner");
+          const status = url.searchParams.get("status");
 
+          const conditions = [];
+          const params = [];
+
+          if (type) {
+            conditions.push("type = ?");
+            params.push(type);
+          }
           if (category) {
-            query = "SELECT * FROM listings WHERE category = ? ORDER BY created_at DESC";
+            conditions.push("category = ?");
             params.push(category);
           }
+          if (owner) {
+            conditions.push("ownerUid = ?");
+            params.push(owner);
+          }
+
+          if (status === "all") {
+            // tidak ada filter status, admin ingin lihat semuanya
+          } else if (status) {
+            conditions.push("status = ?");
+            params.push(status);
+          } else {
+            conditions.push("status = 'approved'");
+          }
+
+          let query = "SELECT * FROM listings";
+          if (conditions.length > 0) {
+            query += ` WHERE ${conditions.join(" AND ")}`;
+          }
+          query += " ORDER BY created_at DESC";
 
           const { results } = await env.DB.prepare(query).bind(...params).all();
-          return new Response(JSON.stringify(results || []), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return json(results || []);
         }
 
-        // POST /api/listings (POSTING PROPERTI BARU)
+        // POST /api/listings (POSTING PROPERTI BARU / EDIT PROPERTI LAMA)
         if (path === "/api/listings" && method === "POST") {
           const body = await request.json();
-          const { id, title, price, location, category, description, seller_uid, seller_phone, images } = body;
-          const idToSave = id || `item_${Date.now()}`;
-          const imagesJson = typeof images === "string" ? images : JSON.stringify(images || []);
+          const idToSave = body.id || `item_${Date.now()}`;
+          const imagesJson = typeof body.images === "string" ? body.images : JSON.stringify(body.images || []);
+
+          const toNumberOrNull = (v) => (v === undefined || v === null || v === "" ? null : Number(v));
 
           await env.DB.prepare(
-            `INSERT INTO listings (id, title, price, location, category, description, seller_uid, seller_phone, images) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            `INSERT INTO listings (
+              id, title, type, category, price, cicilanPerBulan,
+              location, kabupaten, kecamatan, lat, lon,
+              luasTanah, luasBangunan, unitTersedia, bedrooms, bathrooms,
+              electricity, air, sertifikat, videoUrl, description,
+              phone, seller_phone, whatsapp, seller_uid, ownerUid, ownerName, ownerPhoto,
+              images, status
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(id) DO UPDATE SET
+              title=excluded.title, type=excluded.type, category=excluded.category, price=excluded.price,
+              cicilanPerBulan=excluded.cicilanPerBulan, location=excluded.location, kabupaten=excluded.kabupaten,
+              kecamatan=excluded.kecamatan, lat=excluded.lat, lon=excluded.lon, luasTanah=excluded.luasTanah,
+              luasBangunan=excluded.luasBangunan, unitTersedia=excluded.unitTersedia, bedrooms=excluded.bedrooms,
+              bathrooms=excluded.bathrooms, electricity=excluded.electricity, air=excluded.air,
+              sertifikat=excluded.sertifikat, videoUrl=excluded.videoUrl, description=excluded.description,
+              phone=excluded.phone, seller_phone=excluded.seller_phone, whatsapp=excluded.whatsapp,
+              seller_uid=excluded.seller_uid, ownerUid=excluded.ownerUid, ownerName=excluded.ownerName,
+              ownerPhoto=excluded.ownerPhoto, images=excluded.images, status=excluded.status`
           )
-          .bind(idToSave, title, Number(price), location, category, description || "", seller_uid, seller_phone || "", imagesJson)
-          .run();
+            .bind(
+              idToSave,
+              body.title || "",
+              body.type || null,
+              body.category || null,
+              toNumberOrNull(body.price) || 0,
+              toNumberOrNull(body.cicilanPerBulan),
+              body.location || null,
+              body.kabupaten || null,
+              body.kecamatan || null,
+              toNumberOrNull(body.lat),
+              toNumberOrNull(body.lon),
+              toNumberOrNull(body.luasTanah),
+              toNumberOrNull(body.luasBangunan),
+              toNumberOrNull(body.unitTersedia),
+              toNumberOrNull(body.bedrooms),
+              toNumberOrNull(body.bathrooms),
+              body.electricity || null,
+              body.air || null,
+              body.sertifikat || null,
+              body.videoUrl || null,
+              body.description || "",
+              body.phone || null,
+              body.seller_phone || body.phone || "",
+              body.whatsapp || body.phone || null,
+              body.seller_uid || "",
+              body.ownerUid || body.seller_uid || "",
+              body.ownerName || null,
+              body.ownerPhoto || null,
+              imagesJson,
+              body.status || "pending"
+            )
+            .run();
 
-          return new Response(JSON.stringify({ success: true, id: idToSave }), {
-            status: 201,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
+          return json({ success: true, id: idToSave }, 201);
         }
       }
 
-      return new Response(JSON.stringify({ error: "Endpoint tidak ditemukan" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-
+      return json({ error: "Endpoint tidak ditemukan" }, 404);
     } catch (err) {
-      return new Response(JSON.stringify({ error: err.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json({ error: err.message }, 500);
     }
   },
 };
