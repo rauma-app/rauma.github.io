@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, orderBy, query, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { d1Api } from '../lib/d1Api';
 import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
 
@@ -12,14 +11,9 @@ export default function PerumahanList() {
     async function load() {
       setLoading(true);
       try {
-        const q = query(
-          collection(db, 'listings'),
-          where('type', '==', 'perumahan'),
-          where('status', '==', 'approved'),
-          orderBy('createdAt', 'desc')
-        );
-        const snap = await getDocs(q);
-        setListings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        // Tanpa ?status -> otomatis hanya yang 'approved'
+        const data = await d1Api.getListings({ type: 'perumahan' });
+        setListings(data);
       } catch (err) {
         console.error(err);
       } finally {

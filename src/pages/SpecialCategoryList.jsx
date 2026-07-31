@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { d1Api } from '../lib/d1Api';
 import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
 import { distanceKm } from '../lib/nominatim';
@@ -17,13 +16,9 @@ export function SpecialCategoryList({ type, title, intro, seoDescription, path }
     async function load() {
       setLoading(true);
       try {
-        const q = query(
-          collection(db, 'listings'),
-          where('type', '==', type),
-          where('status', '==', 'approved')
-        );
-        const snap = await getDocs(q);
-        setListings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        // Tanpa ?status -> otomatis hanya yang 'approved'
+        const data = await d1Api.getListings({ type });
+        setListings(data);
       } catch (err) {
         console.error(err);
       } finally {
@@ -106,4 +101,3 @@ export function SubsidiList() {
     />
   );
 }
-

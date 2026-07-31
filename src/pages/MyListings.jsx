@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, deleteDoc, doc, getDocs, orderBy, query, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { d1Api } from '../lib/d1Api';
 import { useAuth } from '../context/AuthContext';
 import ImageSlider from '../components/ImageSlider';
 import { formatMonthlyShort, formatRupiahShort } from '../lib/kpr';
+
+const STATUS_LABELS = {
+  pending: { text: 'Menunggu Persetujuan', className: 'bg-amber-100 text-amber-700' },
+  approved: { text: 'Tayang', className: 'bg-forest/10 text-forest' },
+  rejected: { text: 'Ditolak', className: 'bg-red-100 text-red-600' },
+};
 
 export default function MyListings() {
   const { user } = useAuth();
@@ -21,9 +26,9 @@ export default function MyListings() {
     if (!user) return;
     setLoading(true);
     try {
-      const q = query(collection(db, 'listings'), where('ownerUid', '==', user.uid), orderBy('createdAt', 'desc'));
-      const snap = await getDocs(q);
-      setListings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      // status: 'all' -> tampilkan punya sendiri apapun statusnya (pending/approved/rejected)
+      const data = await d1Api.getListings({ owner: user.uid, status: 'all' });
+      setListings(data);
     } catch (err) {
       console.error(err);
     } finally {
@@ -37,7 +42,7 @@ export default function MyListings() {
 
     setDeletingId(id);
     try {
-      await deleteDoc(doc(db, 'listings', id));
+      await d1Api.deleteListing(id);
       setListings((prev) => prev.filter((l) => l.id !== id));
     } catch (err) {
       console.error(err);
@@ -61,10 +66,16 @@ export default function MyListings() {
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         {listings.map((listing) => {
+          const statusInfo = STATUS_LABELS[listing.status] || STATUS_LABELS.pending;
           return (
             <div key={listing.id} className="overflow-hidden rounded-2xl border border-line bg-paper">
-              <Link to={`/id/${listing.id}`}>
+              <Link to={`/id/${listing.id}`} className="relative block">
                 <ImageSlider images={listing.images} alt={listing.kecamatan} rounded="rounded-none" />
+                <span
+                  className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusInfo.className}`}
+                >
+                  {statusInfo.text}
+                </span>
               </Link>
               <div className="p-3 sm:p-4">
                 <Link to={`/id/${listing.id}`} className="block">

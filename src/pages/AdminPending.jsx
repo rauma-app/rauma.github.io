@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { collection, deleteDoc, doc, getDocs, query, updateDoc, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { d1Api } from '../lib/d1Api';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../lib/admin';
 import ImageSlider from '../components/ImageSlider';
@@ -23,13 +22,12 @@ export default function AdminPending() {
   async function load() {
     setLoading(true);
     try {
-      const q = query(collection(db, 'listings'), where('status', '==', 'pending'));
-      const snap = await getDocs(q);
-      setPending(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-
-      // Admin bisa baca SEMUA listing apapun statusnya (lihat firestore.rules).
-      const allSnap = await getDocs(collection(db, 'listings'));
-      setAllListings(allSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      const [pendingData, allData] = await Promise.all([
+        d1Api.getListings({ status: 'pending' }),
+        d1Api.getListings({ status: 'all' }), // admin bisa lihat semua iklan apapun statusnya
+      ]);
+      setPending(pendingData);
+      setAllListings(allData);
     } catch (err) {
       console.error(err);
     } finally {
@@ -43,7 +41,7 @@ export default function AdminPending() {
 
     setBusyId(id);
     try {
-      await deleteDoc(doc(db, 'listings', id));
+      await d1Api.deleteListing(id);
       setAllListings((prev) => prev.filter((l) => l.id !== id));
       setPending((prev) => prev.filter((l) => l.id !== id));
     } catch (err) {
@@ -57,8 +55,9 @@ export default function AdminPending() {
   async function setStatus(id, status) {
     setBusyId(id);
     try {
-      await updateDoc(doc(db, 'listings', id), { status });
+      await d1Api.updateListingStatus(id, status);
       setPending((prev) => prev.filter((l) => l.id !== id));
+      setAllListings((prev) => prev.map((l) => (l.id === id ? { ...l, status } : l)));
     } catch (err) {
       console.error(err);
       alert('Gagal memperbarui status. Coba lagi ya.');
@@ -169,4 +168,4 @@ export default function AdminPending() {
       </div>
     </div>
   );
-                  }
+}

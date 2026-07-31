@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { d1Api } from '../lib/d1Api';
 import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
 import VerifiedBadge from '../components/VerifiedBadge';
@@ -18,13 +17,9 @@ export default function SellerProfile() {
     async function load() {
       setLoading(true);
       try {
-        const q = query(
-          collection(db, 'listings'),
-          where('ownerUid', '==', uid),
-          where('status', '==', 'approved')
-        );
-        const snap = await getDocs(q);
-        setListings(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        // Tanpa ?status -> otomatis hanya yang 'approved' (halaman publik)
+        const data = await d1Api.getListings({ owner: uid });
+        setListings(data);
       } catch (err) {
         console.error(err);
       } finally {

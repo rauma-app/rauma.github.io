@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../firebase';
+import { d1Api } from '../lib/d1Api';
 import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
 import { distanceKm } from '../lib/nominatim';
@@ -22,11 +21,9 @@ export default function PriceSortedList() {
     async function load() {
       setLoading(true);
       try {
-        const q = query(collection(db, 'listings'), where('status', '==', 'approved'));
-        const snap = await getDocs(q);
-        const all = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .filter((l) => !EXCLUDED_TYPES.includes(l.type));
+        // Tanpa ?status -> otomatis hanya yang 'approved'
+        const data = await d1Api.getListings();
+        const all = data.filter((l) => !EXCLUDED_TYPES.includes(l.type));
         setListings(all);
       } catch (err) {
         console.error(err);

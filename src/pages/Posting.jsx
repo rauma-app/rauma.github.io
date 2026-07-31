@@ -76,11 +76,10 @@ export default function Posting() {
 
     async function loadCount() {
       try {
-        const allListings = await d1Api.getListings();
-        if (!cancelled && Array.isArray(allListings)) {
-          const userListings = allListings.filter(
-            (l) => l.ownerUid === user.uid || l.seller_uid === user.uid
-          );
+        // owner + status:'all' -> hitung SEMUA iklan milik user ini,
+        // apapun statusnya (pending/approved/rejected), biar limit akurat.
+        const userListings = await d1Api.getListings({ owner: user.uid, status: 'all' });
+        if (!cancelled && Array.isArray(userListings)) {
           setListingCount(userListings.length);
         }
       } catch (err) {
