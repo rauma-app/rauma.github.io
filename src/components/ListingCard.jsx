@@ -4,6 +4,10 @@ import ImageSlider from './ImageSlider';
 import { formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
 
 export default function ListingCard({ listing }) {
+  // Fallback: listing lama (sebelum migrasi kolom kabupaten/kecamatan) cuma
+  // punya field `location`, jadi tetap tampilkan itu kalau kabupaten kosong.
+  const kabupatenText = listing.kabupaten || listing.location || '';
+
   return (
     <Link
       to={`/id/${listing.id}`}
@@ -23,7 +27,7 @@ export default function ListingCard({ listing }) {
           <span aria-hidden>📍</span>
           <span className="line-clamp-1">
             {listing.kecamatan ? `${listing.kecamatan} - ` : ''}
-            {listing.kabupaten}
+            {kabupatenText}
           </span>
         </div>
       </div>
