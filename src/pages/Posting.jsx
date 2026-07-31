@@ -215,7 +215,7 @@ export default function Posting() {
     }
   }
 
-  async function handleSubmit(e) {
+    async function handleSubmit(e) {
     e.preventDefault();
     setError('');
 
@@ -248,23 +248,32 @@ export default function Posting() {
 
       const imageUrls = [...existingImages, ...newImageUrls];
 
-            // 2. Susun Payload untuk Cloudflare D1
+      // Safe Extraction untuk Lokasi
       const locObj = typeof form.location === 'object' && form.location !== null ? form.location : {};
       const kabName = locObj.kabupaten || (typeof form.location === 'string' ? form.location : '') || '';
       const kecName = locObj.kecamatan || '';
 
+      // Penanganan Nama & Foto Google Penjual
+      const resolvedOwnerName = user?.displayName || (user?.email ? user.email.split('@')[0] : 'Penjual');
+      const resolvedOwnerPhoto = user?.photoURL || '';
+
+      // 2. Susun Payload Presisi Sesuai Listing.jsx
       const payload = {
         id: isEditMode ? id : `item_${Date.now()}`,
         title: `${TYPE_LABELS[form.type] || 'Rumah'} di ${kecName || kabName || 'Indonesia'}`,
         type: form.type,
-        category: TYPE_LABELS[form.type] || 'Rumah', // Wajib untuk Listing.jsx / Home.jsx
+        category: TYPE_LABELS[form.type] || 'Rumah',
         price: Number(form.priceRaw),
         cicilanPerBulan: CICILAN_TYPES.includes(form.type) && form.cicilanRaw ? Number(form.cicilanRaw) : null,
+        
+        // Lokasi
         location: kabName,
         kabupaten: kabName,
         kecamatan: kecName,
         lat: locObj.lat || null,
         lon: locObj.lon || null,
+
+        // Spesifikasi (Sesuai dengan SPEC_ROWS di Listing.jsx)
         luasTanah: form.luasTanah ? Number(form.luasTanah) : null,
         luasBangunan: form.luasBangunan ? Number(form.luasBangunan) : null,
         unitTersedia: form.type === 'perumahan' && form.unitTersedia ? Number(form.unitTersedia) : null,
@@ -273,33 +282,38 @@ export default function Posting() {
         electricity: form.electricity || null,
         air: form.air || null,
         sertifikat: form.sertifikat || null,
+        
+        // Detail Tambahan
         videoUrl: form.videoUrl ? form.videoUrl.trim() : null,
         description: form.description || '',
         phone: form.whatsapp || '',
         seller_phone: form.whatsapp || '',
         whatsapp: form.whatsapp || '',
+
+        // Data Penjual (Diambil dari Akun Google)
         seller_uid: user?.uid || '',
         ownerUid: user?.uid || '',
-        ownerName: user?.displayName || 'Penjual',
-        ownerPhoto: user?.photoURL || '',
+        ownerName: resolvedOwnerName,
+        ownerPhoto: resolvedOwnerPhoto,
+
+        // Media & Status
         images: imageUrls,
         status: userIsAdmin ? 'approved' : 'pending',
       };
-      
-      
 
       // 3. Simpan ke Cloudflare D1
-      const result = await d1Api.createListing(payload);
-      const targetId = payload.id || result?.id;
+      await d1Api.createListing(payload);
 
-      navigate(`/id/${targetId}`);
+      // Redirect ke detail iklan
+      navigate(`/id/${payload.id}`);
     } catch (err) {
       console.error('Gagal menyimpan iklan:', err);
       setError(`Gagal menyimpan iklan (${err.message || 'Error'}). Coba lagi ya.`);
     } finally {
       setSubmitting(false);
     }
-  }
+        }
+  
 
   if (loadingExisting) {
     return <div className="mx-auto max-w-xl px-4 py-16 text-center text-ink/50">Memuat data iklan...</div>;
