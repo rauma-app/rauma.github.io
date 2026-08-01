@@ -239,7 +239,7 @@ export default function Listing() {
       {related.length > 0 && ListingCard && (
         <section className="mt-8">
           <h2 className="font-display text-xl font-semibold text-navy mb-3">
-            Rumah Lain di {listing.kecamatan || listing.kabupaten}
+            Rumah Lain di {listing.kabupaten}
           </h2>
           <div className="grid grid-cols-2 gap-4">
             {related.map((l) => (
@@ -250,4 +250,4 @@ export default function Listing() {
       )}
     </div>
   );
-}
+          }
