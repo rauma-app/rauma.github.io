@@ -158,6 +158,10 @@ export default function Home() {
     setLoadingMore(false);
   }
 
+  // Urutkan terdekat dulu (dari kiri) berdasarkan lokasi IP/GPS user, makin
+  // ke kanan/makin di-slide makin jauh. Kalau ada listing dengan jarak yang
+  // sama (atau lokasi belum aktif), urutannya tetap jatuh ke yang terbaru
+  // diposting duluan (bawaan dari API), karena sort di JS itu stabil.
   const sortedPerumahan = sortByDistance(perumahan, userLoc);
   const sortedPribadi = sortByDistance(pribadi, userLoc);
 
