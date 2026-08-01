@@ -43,6 +43,9 @@ export default function Home() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [perumahan, setPerumahan] = useState([]);
+  const [allPerumahanData, setAllPerumahanData] = useState([]);
+  const [pagePerumahan, setPagePerumahan] = useState(1);
+  const [hasMorePerumahan, setHasMorePerumahan] = useState(true);
   const [pribadi, setPribadi] = useState([]);
   const [allPribadiData, setAllPribadiData] = useState([]);
   const [pagePribadi, setPagePribadi] = useState(1);
@@ -105,7 +108,10 @@ export default function Home() {
       const perumahanData = allListings.filter(item => item.type === 'perumahan');
       const pribadiData = allListings.filter(item => item.type === 'pribadi' || !item.type);
 
+      setAllPerumahanData(perumahanData);
       setPerumahan(perumahanData.slice(0, PERUMAHAN_ROW_LIMIT));
+      setHasMorePerumahan(perumahanData.length > PERUMAHAN_ROW_LIMIT);
+      setPagePerumahan(1);
       setAllPribadiData(pribadiData);
       setPribadi(pribadiData.slice(0, PRIBADI_PAGE_SIZE));
       setHasMorePribadi(pribadiData.length > PRIBADI_PAGE_SIZE);
@@ -121,6 +127,21 @@ export default function Home() {
   useEffect(() => {
     loadInitial();
   }, [loadInitial]);
+
+  // Muat 8 listing perumahan lagi ke baris yang sama (bukan pindah halaman)
+  function loadMorePerumahan() {
+    if (loadingMore || !hasMorePerumahan) return;
+    setLoadingMore(true);
+
+    const nextPage = pagePerumahan + 1;
+    const nextLimit = nextPage * PERUMAHAN_ROW_LIMIT;
+    const nextBatch = allPerumahanData.slice(0, nextLimit);
+
+    setPerumahan(nextBatch);
+    setPagePerumahan(nextPage);
+    setHasMorePerumahan(allPerumahanData.length > nextLimit);
+    setLoadingMore(false);
+  }
 
   // Fungsi muat lebih banyak data D1
   async function loadMorePribadi() {
@@ -221,14 +242,18 @@ export default function Home() {
                     <ListingCard listing={l} />
                   </div>
                 ))}
-                {sortedPerumahan.length >= PERUMAHAN_ROW_LIMIT && (
-                  <Link
-                    to="/perumahan"
-                    className="flex w-44 flex-shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line bg-white text-center sm:w-60"
+                {hasMorePerumahan && (
+                  <button
+                    type="button"
+                    onClick={loadMorePerumahan}
+                    disabled={loadingMore}
+                    className="flex w-44 flex-shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line bg-white text-center sm:w-60 disabled:opacity-60"
                   >
                     <span className="text-2xl" aria-hidden>➡️</span>
-                    <span className="text-sm font-semibold text-forest">Lihat lainnya</span>
-                  </Link>
+                    <span className="text-sm font-semibold text-forest">
+                      {loadingMore ? 'Memuat...' : 'Lihat lainnya'}
+                    </span>
+                  </button>
                 )}
               </div>
             </div>
