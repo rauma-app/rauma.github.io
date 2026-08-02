@@ -13,7 +13,12 @@ export default function ListingCard({ listing }) {
       to={`/id/${listing.id}`}
       className="group block overflow-hidden rounded-2xl border border-line bg-paper transition-shadow hover:shadow-lg"
     >
-      <ImageSlider images={listing.images} alt={listing.title || listing.kecamatan} rounded="rounded-none" />
+      <ImageSlider
+        images={listing.images}
+        alt={listing.title || listing.kecamatan}
+        ratio="3 / 4"
+        rounded="rounded-none"
+      />
       <div className="p-3 sm:p-4">
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
           <span className="font-display text-base font-semibold text-navy sm:text-xl">
