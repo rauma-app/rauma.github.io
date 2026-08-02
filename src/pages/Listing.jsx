@@ -5,7 +5,6 @@ import ImageSlider from '../components/ImageSlider';
 import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
 import VerifiedBadge from '../components/VerifiedBadge';
-import ProfilePhotoViewer from '../components/ProfilePhotoViewer';
 import { ADMIN_UIDS } from '../lib/admin';
 import { PREMIUM_UIDS } from '../lib/premium';
 import { formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
@@ -145,7 +144,7 @@ export default function Listing() {
 
       {/* Slider Gambar */}
       {ImageSlider ? (
-        <ImageSlider images={listing.images} alt={listing.title || lokasiText} ratio="3 / 2" enableLightbox />
+        <ImageSlider images={listing.images} alt={listing.title || lokasiText} ratio="4 / 5" enableLightbox />
       ) : (
         <img src={listing.images?.[0]} alt={listing.title} className="w-full h-64 object-cover rounded-2xl" />
       )}
@@ -209,19 +208,34 @@ export default function Listing() {
 
       {/* Kontak Penjual */}
       <section className="mt-8 flex items-center justify-between rounded-2xl border border-line bg-white p-4">
-        <div className="flex items-center gap-3">
-          {listing.ownerPhoto && ProfilePhotoViewer && (
-            <ProfilePhotoViewer
-              src={listing.ownerPhoto}
-              alt={listing.ownerName}
-              className="h-11 w-11 rounded-full object-cover"
-            />
-          )}
-          <span className="flex items-center gap-1 font-semibold text-ink">
-            {listing.ownerName}
-            {isOwnerVerified && VerifiedBadge && <VerifiedBadge color={isOwnerAdmin ? 'gold' : 'blue'} />}
-          </span>
-        </div>
+        {isOwnerVerified ? (
+          <Link to={`/penjual/${listing.ownerUid}`} className="flex items-center gap-3 hover:opacity-80">
+            {listing.ownerPhoto && (
+              <img
+                src={listing.ownerPhoto}
+                alt={listing.ownerName}
+                referrerPolicy="no-referrer"
+                className="h-11 w-11 rounded-full object-cover"
+              />
+            )}
+            <span className="flex items-center gap-1 font-semibold text-ink">
+              {listing.ownerName}
+              {VerifiedBadge && <VerifiedBadge color={isOwnerAdmin ? 'gold' : 'blue'} />}
+            </span>
+          </Link>
+        ) : (
+          <div className="flex items-center gap-3">
+            {listing.ownerPhoto && (
+              <img
+                src={listing.ownerPhoto}
+                alt={listing.ownerName}
+                referrerPolicy="no-referrer"
+                className="h-11 w-11 rounded-full object-cover"
+              />
+            )}
+            <span className="font-semibold text-ink">{listing.ownerName}</span>
+          </div>
+        )}
 
         {waLink && (
           <a
@@ -251,3 +265,4 @@ export default function Listing() {
     </div>
   );
 }
+
