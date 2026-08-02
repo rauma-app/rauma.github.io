@@ -2,14 +2,18 @@ import React, { useEffect, useState } from 'react';
 
 const DISMISS_KEY = 'rauma_location_prompt_dismissed';
 
-export default function LocationPermissionPopup({ onLocationGranted }) {
+export default function LocationPermissionPopup({ onLocationGranted, suppress }) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (sessionStorage.getItem(DISMISS_KEY)) return;
+    if (sessionStorage.getItem(DISMISS_KEY) || suppress) return;
     const timer = setTimeout(() => setVisible(true), 3000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [suppress]);
+
+  useEffect(() => {
+    if (suppress) setVisible(false);
+  }, [suppress]);
 
   function dismiss() {
     setVisible(false);
