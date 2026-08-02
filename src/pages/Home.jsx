@@ -27,6 +27,7 @@ const CATEGORY_SHORTCUTS = [
 
 const PRIBADI_PAGE_SIZE = 8;
 const PERUMAHAN_ROW_LIMIT = 8;
+const NEARBY_PAGE_SIZE = 20;
 
 function sortByDistance(items, userLoc) {
   if (!userLoc) return items;
@@ -54,6 +55,11 @@ export default function Home() {
   const [userLoc, setUserLoc] = useState(null);
   const [locationSource, setLocationSource] = useState(null); // 'ip' | 'gps' | null
   const [loading, setLoading] = useState(true);
+  const [nearbyListings, setNearbyListings] = useState([]);
+  const [loadingNearby, setLoadingNearby] = useState(false);
+  const [loadingMoreNearby, setLoadingMoreNearby] = useState(false);
+  const [pageNearby, setPageNearby] = useState(1);
+  const [hasMoreNearby, setHasMoreNearby] = useState(false);
 
   // Tebak lokasi kasar dari IP di belakang layar
   useEffect(() => {
@@ -72,6 +78,44 @@ export default function Home() {
   function handleLocationGranted(loc) {
     setUserLoc(loc);
     setLocationSource('gps');
+  }
+
+  // Begitu lokasi user diketahui (dari IP ataupun GPS), tarik langsung ke
+  // database cari 20 rumah TERDEKAT dari SELURUH listing (bukan cuma yang
+  // sudah ke-load di halaman ini) -- supaya akurat untuk siapapun dari
+  // Sabang sampai Merauke. Kalau lokasinya upgrade dari IP ke GPS, otomatis
+  // ke-fetch ulang biar makin presisi.
+  useEffect(() => {
+    if (!userLoc) return;
+    let cancelled = false;
+    setLoadingNearby(true);
+    setPageNearby(1);
+    d1Api.getNearbyListings({ lat: userLoc.lat, lon: userLoc.lon, limit: NEARBY_PAGE_SIZE }).then((data) => {
+      if (!cancelled) {
+        setNearbyListings(data);
+        setHasMoreNearby(data.length === NEARBY_PAGE_SIZE); // kalau hasilnya pas 20, kemungkinan masih ada lagi
+        setLoadingNearby(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userLoc]);
+
+  // Muat 20 rumah terdekat lagi (query ulang ke DB dengan limit lebih besar,
+  // biar urutan jarak tetap akurat & konsisten, gak cuma nambah di ujung)
+  async function loadMoreNearby() {
+    if (loadingMoreNearby || !hasMoreNearby || !userLoc) return;
+    setLoadingMoreNearby(true);
+
+    const nextPage = pageNearby + 1;
+    const nextLimit = nextPage * NEARBY_PAGE_SIZE;
+    const data = await d1Api.getNearbyListings({ lat: userLoc.lat, lon: userLoc.lon, limit: nextLimit });
+
+    setNearbyListings(data);
+    setPageNearby(nextPage);
+    setHasMoreNearby(data.length === nextLimit);
+    setLoadingMoreNearby(false);
   }
 
     // Load data dari Cloudflare D1
@@ -158,12 +202,12 @@ export default function Home() {
     setLoadingMore(false);
   }
 
-  // Urutkan terdekat dulu (dari kiri) berdasarkan lokasi IP/GPS user, makin
-  // ke kanan/makin di-slide makin jauh. Kalau ada listing dengan jarak yang
-  // sama (atau lokasi belum aktif), urutannya tetap jatuh ke yang terbaru
-  // diposting duluan (bawaan dari API), karena sort di JS itu stabil.
-  const sortedPerumahan = sortByDistance(perumahan, userLoc);
-  const sortedPribadi = sortByDistance(pribadi, userLoc);
+  // Feed Perumahan & Rumah Pribadi TIDAK diurutkan berdasarkan lokasi --
+  // murni terbaru diposting duluan (bawaan dari API), gak peduli lokasi
+  // manapun. Personalisasi berdasarkan lokasi ditangani section "Rumah
+  // Terdekat" tersendiri di atas (lihat nearbyListings).
+  const sortedPerumahan = perumahan;
+  const sortedPribadi = pribadi;
 
   function handleSearch(e) {
     e.preventDefault();
@@ -233,6 +277,58 @@ export default function Home() {
           ))}
         </div>
 
+        {/* Section Rumah Terdekat -- cuma muncul begitu lokasi user diketahui */}
+        {userLoc && (
+          <section className="mt-8">
+            <div className="flex items-center justify-between">
+              <h2 className="font-display text-xl font-semibold text-navy">Rumah Terdekat dari Kamu</h2>
+              <span className="rounded-full bg-forest/10 px-2.5 py-1 text-[11px] font-semibold text-forest">
+                {locationSource === 'gps' ? '📍 GPS' : '📶 Perkiraan dari IP'}
+              </span>
+            </div>
+
+            {loadingNearby && <p className="mt-4 text-sm text-ink/40">Mencari rumah terdekat...</p>}
+
+            {!loadingNearby && nearbyListings.length === 0 && (
+              <p className="mt-4 text-sm text-ink/40">Belum ada listing dengan lokasi di sekitar kamu.</p>
+            )}
+
+            {!loadingNearby && nearbyListings.length > 0 && (
+              <div className="-mx-4 mt-4 overflow-x-auto px-4 pb-2">
+                <div className="flex gap-4" style={{ width: 'max-content' }}>
+                  {nearbyListings.map((l) => (
+                    <div key={l.id} className="w-44 flex-shrink-0 sm:w-60">
+                      <ListingCard listing={l} />
+                      {l.distanceKm != null && (
+                        <p className="mt-1 text-xs text-ink/40">± {l.distanceKm} km dari lokasi kamu</p>
+                      )}
+                    </div>
+                  ))}
+                  {hasMoreNearby && (
+                    <button
+                      type="button"
+                      onClick={loadMoreNearby}
+                      disabled={loadingMoreNearby}
+                      className="flex w-44 flex-shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line bg-white text-center sm:w-60 disabled:opacity-60"
+                    >
+                      <span className="text-2xl" aria-hidden>➡️</span>
+                      <span className="text-sm font-semibold text-forest">
+                        {loadingMoreNearby ? 'Memuat...' : 'Lihat lainnya'}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {locationSource === 'ip' && (
+              <p className="mt-2 text-xs text-ink/40">
+                Ini masih perkiraan kasar dari IP. Izinkan lokasi GPS di popup yang muncul biar lebih akurat.
+              </p>
+            )}
+          </section>
+        )}
+
         {/* Baris 1: Perumahan */}
         <section className="mt-8">
           <h2 className="font-display text-xl font-semibold text-navy">Perumahan</h2>
@@ -293,4 +389,5 @@ export default function Home() {
       </div>
     </div>
   );
-}
+      }
+  
