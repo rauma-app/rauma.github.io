@@ -74,14 +74,17 @@ export default {
           const lat = parseFloat(url.searchParams.get("lat"));
           const lon = parseFloat(url.searchParams.get("lon"));
           const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 200);
+          const type = url.searchParams.get("type");
 
           if (Number.isNaN(lat) || Number.isNaN(lon)) {
             return json({ error: "Parameter lat & lon wajib diisi angka" }, 400);
           }
 
-          const { results } = await env.DB.prepare(
-            "SELECT * FROM listings WHERE status = 'approved' AND lat IS NOT NULL AND lon IS NOT NULL"
-          ).all();
+          const query = type
+            ? "SELECT * FROM listings WHERE status = 'approved' AND lat IS NOT NULL AND lon IS NOT NULL AND type = ?"
+            : "SELECT * FROM listings WHERE status = 'approved' AND lat IS NOT NULL AND lon IS NOT NULL";
+          const stmt = type ? env.DB.prepare(query).bind(type) : env.DB.prepare(query);
+          const { results } = await stmt.all();
 
           const toRad = (deg) => (deg * Math.PI) / 180;
           const haversineKm = (lat1, lon1, lat2, lon2) => {
