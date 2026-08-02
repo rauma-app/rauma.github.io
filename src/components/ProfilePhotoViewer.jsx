@@ -6,6 +6,21 @@ import React, { useEffect, useState } from 'react';
  * Untuk user biasa, cukup pasang <img> biasa (jangan pakai komponen ini)
  * -- fotonya tetap kelihatan buat semua orang, cuma gak bisa diklik.
  */
+/**
+ * Foto profil Google (login lewat Google) URL-nya biasanya diakhiri
+ * `=s96-c` (thumbnail kecil, 96px). Buat tampilan besar/zoom, kita minta
+ * resolusi yang lebih tinggi dengan mengganti angka ukurannya. Kalau
+ * fotonya bukan dari Google (gak match pola ini), URL dikembalikan apa
+ * adanya, gak error.
+ */
+function getHighResPhotoUrl(url, size = 500) {
+  if (!url) return url;
+  if (/=s\d+-c(-\S*)?$/.test(url)) {
+    return url.replace(/=s\d+-c(-\S*)?$/, `=s${size}-c`);
+  }
+  return url;
+}
+
 export default function ProfilePhotoViewer({ src, alt, clickable = false, className = '' }) {
   const [open, setOpen] = useState(false);
 
@@ -65,7 +80,7 @@ export default function ProfilePhotoViewer({ src, alt, clickable = false, classN
             </svg>
           </button>
           <img
-            src={src}
+            src={getHighResPhotoUrl(src)}
             alt={alt}
             referrerPolicy="no-referrer"
             className="max-h-[80vh] max-w-[85vw] rounded-2xl object-contain"
