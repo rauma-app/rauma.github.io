@@ -144,7 +144,7 @@ export default function Listing() {
 
       {/* Slider Gambar */}
       {ImageSlider ? (
-        <ImageSlider images={listing.images} alt={listing.title || lokasiText} ratio="4 / 5" enableLightbox />
+        <ImageSlider images={listing.images} alt={listing.title || lokasiText} ratio="3 / 2" enableLightbox />
       ) : (
         <img src={listing.images?.[0]} alt={listing.title} className="w-full h-64 object-cover rounded-2xl" />
       )}
@@ -264,5 +264,5 @@ export default function Listing() {
       )}
     </div>
   );
-}
-
+      }
+          
