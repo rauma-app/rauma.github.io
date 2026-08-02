@@ -6,8 +6,6 @@ import { d1Api } from '../lib/d1Api';
 import ListingCard from '../components/ListingCard';
 import LocationPermissionPopup from '../components/LocationPermissionPopup';
 import Seo from '../components/Seo';
-import { distanceKm } from '../lib/nominatim';
-import { getIpLocation } from '../lib/ipLocation';
 
 import iconTermurah from '../assets/icons/termurah.svg';
 import iconTermahal from '../assets/icons/termahal.svg';
@@ -27,18 +25,6 @@ const CATEGORY_SHORTCUTS = [
 
 const PRIBADI_PAGE_SIZE = 8;
 const PERUMAHAN_ROW_LIMIT = 8;
-const NEARBY_PAGE_SIZE = 20;
-
-function sortByDistance(items, userLoc) {
-  if (!userLoc) return items;
-  return [...items].sort((a, b) => {
-    const da = distanceKm(userLoc.lat, userLoc.lon, a.lat, a.lon);
-    const dbb = distanceKm(userLoc.lat, userLoc.lon, b.lat, b.lon);
-    if (da == null) return 1;
-    if (dbb == null) return -1;
-    return da - dbb;
-  });
-}
 
 export default function Home() {
   const navigate = useNavigate();
@@ -52,73 +38,34 @@ export default function Home() {
   const [pagePribadi, setPagePribadi] = useState(1);
   const [hasMorePribadi, setHasMorePribadi] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [userLoc, setUserLoc] = useState(null);
-  const [locationSource, setLocationSource] = useState(null); // 'ip' | 'gps' | null
+  const [userLoc, setUserLoc] = useState(null); // cuma keisi kalau user izinkan GPS
   const [loading, setLoading] = useState(true);
-  const [nearbyListings, setNearbyListings] = useState([]);
-  const [loadingNearby, setLoadingNearby] = useState(false);
-  const [loadingMoreNearby, setLoadingMoreNearby] = useState(false);
-  const [pageNearby, setPageNearby] = useState(1);
-  const [hasMoreNearby, setHasMoreNearby] = useState(false);
 
-  // Tebak lokasi kasar dari IP di belakang layar
-  useEffect(() => {
-    let cancelled = false;
-    getIpLocation().then((loc) => {
-      if (!cancelled && loc) {
-        setUserLoc(loc);
-        setLocationSource('ip');
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  function handleLocationGranted(loc) {
+  // Begitu user izinkan lokasi GPS, Perumahan & Rumah Pribadi otomatis
+  // ganti isi jadi yang PALING DEKAT dari lokasi itu (query langsung ke
+  // database, per kategori), gantiin isi yang tadinya "terbaru".
+  async function handleLocationGranted(loc) {
     setUserLoc(loc);
-    setLocationSource('gps');
+    setLoadingMore(true);
+    try {
+      const [nearestPerumahan, nearestPribadi] = await Promise.all([
+        d1Api.getNearbyListings({ lat: loc.lat, lon: loc.lon, limit: PERUMAHAN_ROW_LIMIT, type: 'perumahan' }),
+        d1Api.getNearbyListings({ lat: loc.lat, lon: loc.lon, limit: PRIBADI_PAGE_SIZE, type: 'pribadi' }),
+      ]);
+      setPerumahan(nearestPerumahan);
+      setHasMorePerumahan(nearestPerumahan.length === PERUMAHAN_ROW_LIMIT);
+      setPagePerumahan(1);
+      setPribadi(nearestPribadi);
+      setHasMorePribadi(nearestPribadi.length === PRIBADI_PAGE_SIZE);
+      setPagePribadi(1);
+    } catch (err) {
+      console.error('Gagal memuat listing terdekat:', err);
+    } finally {
+      setLoadingMore(false);
+    }
   }
 
-  // Begitu lokasi user diketahui (dari IP ataupun GPS), tarik langsung ke
-  // database cari 20 rumah TERDEKAT dari SELURUH listing (bukan cuma yang
-  // sudah ke-load di halaman ini) -- supaya akurat untuk siapapun dari
-  // Sabang sampai Merauke. Kalau lokasinya upgrade dari IP ke GPS, otomatis
-  // ke-fetch ulang biar makin presisi.
-  useEffect(() => {
-    if (!userLoc) return;
-    let cancelled = false;
-    setLoadingNearby(true);
-    setPageNearby(1);
-    d1Api.getNearbyListings({ lat: userLoc.lat, lon: userLoc.lon, limit: NEARBY_PAGE_SIZE }).then((data) => {
-      if (!cancelled) {
-        setNearbyListings(data);
-        setHasMoreNearby(data.length === NEARBY_PAGE_SIZE); // kalau hasilnya pas 20, kemungkinan masih ada lagi
-        setLoadingNearby(false);
-      }
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [userLoc]);
-
-  // Muat 20 rumah terdekat lagi (query ulang ke DB dengan limit lebih besar,
-  // biar urutan jarak tetap akurat & konsisten, gak cuma nambah di ujung)
-  async function loadMoreNearby() {
-    if (loadingMoreNearby || !hasMoreNearby || !userLoc) return;
-    setLoadingMoreNearby(true);
-
-    const nextPage = pageNearby + 1;
-    const nextLimit = nextPage * NEARBY_PAGE_SIZE;
-    const data = await d1Api.getNearbyListings({ lat: userLoc.lat, lon: userLoc.lon, limit: nextLimit });
-
-    setNearbyListings(data);
-    setPageNearby(nextPage);
-    setHasMoreNearby(data.length === nextLimit);
-    setLoadingMoreNearby(false);
-  }
-
-    // Load data dari Cloudflare D1
+  // Load data dari Cloudflare D1
   const loadInitial = useCallback(async () => {
     setLoading(true);
     try {
@@ -142,7 +89,7 @@ export default function Home() {
           ...item,
           // Pastikan properti gambar aman dipakai ListingCard
           images: parsedImages,
-          imageUrls: parsedImages, 
+          imageUrls: parsedImages,
           coverImage: parsedImages[0] || item.coverImage || '/placeholder.jpg',
           price: Number(item.price) || 0,
         };
@@ -166,48 +113,67 @@ export default function Home() {
       setLoading(false);
     }
   }, []);
-  
+
 
   useEffect(() => {
     loadInitial();
   }, [loadInitial]);
 
-  // Muat 8 listing perumahan lagi ke baris yang sama (bukan pindah halaman)
-  function loadMorePerumahan() {
+  // Muat 8 listing perumahan lagi. Kalau GPS aktif, query ulang ke DB nyari
+  // yang terdekat lagi (limit lebih besar); kalau belum, tinggal potong dari
+  // data terbaru yang sudah ke-load duluan.
+  async function loadMorePerumahan() {
     if (loadingMore || !hasMorePerumahan) return;
     setLoadingMore(true);
 
     const nextPage = pagePerumahan + 1;
     const nextLimit = nextPage * PERUMAHAN_ROW_LIMIT;
-    const nextBatch = allPerumahanData.slice(0, nextLimit);
 
-    setPerumahan(nextBatch);
+    if (userLoc) {
+      const data = await d1Api.getNearbyListings({
+        lat: userLoc.lat,
+        lon: userLoc.lon,
+        limit: nextLimit,
+        type: 'perumahan',
+      });
+      setPerumahan(data);
+      setHasMorePerumahan(data.length === nextLimit);
+    } else {
+      const nextBatch = allPerumahanData.slice(0, nextLimit);
+      setPerumahan(nextBatch);
+      setHasMorePerumahan(allPerumahanData.length > nextLimit);
+    }
+
     setPagePerumahan(nextPage);
-    setHasMorePerumahan(allPerumahanData.length > nextLimit);
     setLoadingMore(false);
   }
 
-  // Fungsi muat lebih banyak data D1
+  // Sama seperti di atas, tapi buat Rumah Pribadi
   async function loadMorePribadi() {
     if (loadingMore || !hasMorePribadi) return;
     setLoadingMore(true);
 
     const nextPage = pagePribadi + 1;
     const nextLimit = nextPage * PRIBADI_PAGE_SIZE;
-    const nextBatch = allPribadiData.slice(0, nextLimit);
 
-    setPribadi(nextBatch);
+    if (userLoc) {
+      const data = await d1Api.getNearbyListings({
+        lat: userLoc.lat,
+        lon: userLoc.lon,
+        limit: nextLimit,
+        type: 'pribadi',
+      });
+      setPribadi(data);
+      setHasMorePribadi(data.length === nextLimit);
+    } else {
+      const nextBatch = allPribadiData.slice(0, nextLimit);
+      setPribadi(nextBatch);
+      setHasMorePribadi(allPribadiData.length > nextLimit);
+    }
+
     setPagePribadi(nextPage);
-    setHasMorePribadi(allPribadiData.length > nextLimit);
     setLoadingMore(false);
   }
-
-  // Feed Perumahan & Rumah Pribadi TIDAK diurutkan berdasarkan lokasi --
-  // murni terbaru diposting duluan (bawaan dari API), gak peduli lokasi
-  // manapun. Personalisasi berdasarkan lokasi ditangani section "Rumah
-  // Terdekat" tersendiri di atas (lihat nearbyListings).
-  const sortedPerumahan = perumahan;
-  const sortedPribadi = pribadi;
 
   function handleSearch(e) {
     e.preventDefault();
@@ -277,69 +243,27 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Section Rumah Terdekat -- cuma muncul begitu lokasi user diketahui */}
-        {userLoc && (
-          <section className="mt-8">
-            <div className="flex items-center justify-between">
-              <h2 className="font-display text-xl font-semibold text-navy">Rumah Terdekat dari Kamu</h2>
-              <span className="rounded-full bg-forest/10 px-2.5 py-1 text-[11px] font-semibold text-forest">
-                {locationSource === 'gps' ? '📍 GPS' : '📶 Perkiraan dari IP'}
-              </span>
-            </div>
-
-            {loadingNearby && <p className="mt-4 text-sm text-ink/40">Mencari rumah terdekat...</p>}
-
-            {!loadingNearby && nearbyListings.length === 0 && (
-              <p className="mt-4 text-sm text-ink/40">Belum ada listing dengan lokasi di sekitar kamu.</p>
-            )}
-
-            {!loadingNearby && nearbyListings.length > 0 && (
-              <div className="-mx-4 mt-4 overflow-x-auto px-4 pb-2">
-                <div className="flex gap-4" style={{ width: 'max-content' }}>
-                  {nearbyListings.map((l) => (
-                    <div key={l.id} className="w-44 flex-shrink-0 sm:w-60">
-                      <ListingCard listing={l} />
-                      {l.distanceKm != null && (
-                        <p className="mt-1 text-xs text-ink/40">± {l.distanceKm} km dari lokasi kamu</p>
-                      )}
-                    </div>
-                  ))}
-                  {hasMoreNearby && (
-                    <button
-                      type="button"
-                      onClick={loadMoreNearby}
-                      disabled={loadingMoreNearby}
-                      className="flex w-44 flex-shrink-0 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-line bg-white text-center sm:w-60 disabled:opacity-60"
-                    >
-                      <span className="text-2xl" aria-hidden>➡️</span>
-                      <span className="text-sm font-semibold text-forest">
-                        {loadingMoreNearby ? 'Memuat...' : 'Lihat lainnya'}
-                      </span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {locationSource === 'ip' && (
-              <p className="mt-2 text-xs text-ink/40">
-                Ini masih perkiraan kasar dari IP. Izinkan lokasi GPS di popup yang muncul biar lebih akurat.
-              </p>
-            )}
-          </section>
-        )}
-
         {/* Baris 1: Perumahan */}
         <section className="mt-8">
-          <h2 className="font-display text-xl font-semibold text-navy">Perumahan</h2>
-          {sortedPerumahan.length === 0 && !loading ? (
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-xl font-semibold text-navy">Perumahan</h2>
+            {userLoc && (
+              <span className="rounded-full bg-forest/10 px-2.5 py-1 text-[11px] font-semibold text-forest">
+                📍 Terdekat dari Kamu
+              </span>
+            )}
+          </div>
+          {perumahan.length === 0 && !loading ? (
             <p className="mt-4 text-sm text-ink/40">Belum ada listing perumahan.</p>
           ) : (
             <div className="-mx-4 mt-4 overflow-x-auto px-4 pb-2">
               <div className="flex gap-4" style={{ width: 'max-content' }}>
-                {sortedPerumahan.map((l) => (
+                {perumahan.map((l) => (
                   <div key={l.id} className="w-44 flex-shrink-0 sm:w-60">
                     <ListingCard listing={l} />
+                    {l.distanceKm != null && (
+                      <p className="mt-1 text-xs text-ink/40">± {l.distanceKm} km dari lokasi kamu</p>
+                    )}
                   </div>
                 ))}
                 {hasMorePerumahan && (
@@ -362,13 +286,25 @@ export default function Home() {
 
         {/* Baris 2+: Rumah Pribadi */}
         <section className="mt-10">
-          <h2 className="font-display text-xl font-semibold text-navy">Rumah Pribadi</h2>
-          {sortedPribadi.length === 0 && !loading ? (
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-xl font-semibold text-navy">Rumah Pribadi</h2>
+            {userLoc && (
+              <span className="rounded-full bg-forest/10 px-2.5 py-1 text-[11px] font-semibold text-forest">
+                📍 Terdekat dari Kamu
+              </span>
+            )}
+          </div>
+          {pribadi.length === 0 && !loading ? (
             <p className="mt-4 text-sm text-ink/40">Belum ada listing rumah pribadi.</p>
           ) : (
             <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-              {sortedPribadi.map((l) => (
-                <ListingCard key={l.id} listing={l} />
+              {pribadi.map((l) => (
+                <div key={l.id}>
+                  <ListingCard listing={l} />
+                  {l.distanceKm != null && (
+                    <p className="mt-1 text-xs text-ink/40">± {l.distanceKm} km dari lokasi kamu</p>
+                  )}
+                </div>
               ))}
             </div>
           )}
@@ -389,5 +325,4 @@ export default function Home() {
       </div>
     </div>
   );
-      }
-  
+}
