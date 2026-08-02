@@ -43,6 +43,21 @@ export const d1Api = {
     }
   },
 
+  // Ambil N listing terdekat dari koordinat tertentu, dihitung server-side
+  // dari SELURUH data di database (bukan cuma yang sudah ke-load di frontend)
+  async getNearbyListings({ lat, lon, limit = 20 }) {
+    try {
+      const qs = new URLSearchParams({ lat, lon, limit });
+      const res = await fetch(`${API_BASE_URL}/listings/nearby?${qs.toString()}`);
+      if (!res.ok) throw new Error('Gagal mengambil listing terdekat');
+      const data = await res.json();
+      return Array.isArray(data) ? data.map(normalizeListing) : [];
+    } catch (err) {
+      console.error('Error d1Api.getNearbyListings:', err);
+      return [];
+    }
+  },
+
   // Ambil detail 1 properti
   async getListingById(id) {
     try {
