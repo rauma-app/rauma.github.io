@@ -66,6 +66,44 @@ export default {
       if (path.startsWith("/api/listings")) {
         const pathParts = path.split("/").filter(Boolean); // ['api', 'listings', 'item_xxx']
 
+        // GET /api/listings/nearby?lat=&lon=&limit= (N RUMAH TERDEKAT SE-INDONESIA)
+        // Hitung jarak asli (haversine) dari SEMUA listing yang punya
+        // koordinat di database, bukan cuma dari data yang sudah ke-load di
+        // frontend -- supaya hasilnya akurat dari Sabang sampai Merauke.
+        if (pathParts.length === 3 && pathParts[2] === "nearby" && method === "GET") {
+          const lat = parseFloat(url.searchParams.get("lat"));
+          const lon = parseFloat(url.searchParams.get("lon"));
+          const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 200);
+
+          if (Number.isNaN(lat) || Number.isNaN(lon)) {
+            return json({ error: "Parameter lat & lon wajib diisi angka" }, 400);
+          }
+
+          const { results } = await env.DB.prepare(
+            "SELECT * FROM listings WHERE status = 'approved' AND lat IS NOT NULL AND lon IS NOT NULL"
+          ).all();
+
+          const toRad = (deg) => (deg * Math.PI) / 180;
+          const haversineKm = (lat1, lon1, lat2, lon2) => {
+            const R = 6371;
+            const dLat = toRad(lat2 - lat1);
+            const dLon = toRad(lon2 - lon1);
+            const a =
+              Math.sin(dLat / 2) ** 2 +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+          };
+
+          const withDistance = (results || []).map((row) => ({
+            ...row,
+            distanceKm: Math.round(haversineKm(lat, lon, row.lat, row.lon) * 10) / 10,
+          }));
+
+          withDistance.sort((a, b) => a.distanceKm - b.distanceKm);
+
+          return json(withDistance.slice(0, limit));
+        }
+
         // GET /api/listings/:id (DETAIL 1 PROPERTI)
         if (pathParts.length === 3 && method === "GET") {
           const id = pathParts[2];
