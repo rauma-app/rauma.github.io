@@ -89,7 +89,7 @@ export default function AdminPending() {
       <div className="mt-6 space-y-6">
         {pending.map((listing) => (
           <div key={listing.id} className="overflow-hidden rounded-2xl border border-line bg-white">
-            <ImageSlider images={listing.images} alt={listing.kecamatan} ratio="16 / 9" rounded="rounded-none" />
+            <ImageSlider images={listing.images} alt={listing.kecamatan} ratio="4 / 5" rounded="rounded-none" />
             <div className="p-4">
               <p className="font-display text-xl font-semibold text-navy">{formatRupiah(listing.price)}</p>
               <p className="mt-1 text-sm text-ink/60">
