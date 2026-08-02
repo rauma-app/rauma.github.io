@@ -16,7 +16,7 @@ export default function ListingCard({ listing }) {
       <ImageSlider
         images={listing.images}
         alt={listing.title || listing.kecamatan}
-        ratio="3 / 4"
+        ratio="1 / 1"
         rounded="rounded-none"
       />
       <div className="p-3 sm:p-4">
