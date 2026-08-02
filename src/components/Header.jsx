@@ -39,7 +39,7 @@ export default function Header() {
           <img
             src={rauLogo}
             alt="Rauma"
-            className="h-10 md:h-14 w-auto object-contain"
+            className="h-14 md:h-16 w-auto object-contain"
           />
         </Link>
 
