@@ -175,6 +175,36 @@ export default function Home() {
     setLoadingMore(false);
   }
 
+  // Kalau izin GPS UDAH pernah diizinkan sebelumnya (browser masih ingat),
+  // langsung ambil ulang lokasinya diam-diam begitu halaman dibuka/direload
+  // -- tanpa nunggu popup nongol lagi. Ini yang bikin personalisasi lokasi
+  // tetap jalan meskipun halaman di-reload (misal ganti mode desktop/mobile).
+  useEffect(() => {
+    if (!navigator.permissions || !navigator.geolocation) return;
+    let cancelled = false;
+
+    navigator.permissions
+      .query({ name: 'geolocation' })
+      .then((status) => {
+        if (cancelled || status.state !== 'granted') return;
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            if (!cancelled) {
+              handleLocationGranted({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+            }
+          },
+          () => {},
+          { enableHighAccuracy: false, timeout: 8000 }
+        );
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function handleSearch(e) {
     e.preventDefault();
     const q = searchQuery.trim();
@@ -245,14 +275,7 @@ export default function Home() {
 
         {/* Baris 1: Perumahan */}
         <section className="mt-8">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-xl font-semibold text-navy">Perumahan</h2>
-            {userLoc && (
-              <span className="rounded-full bg-forest/10 px-2.5 py-1 text-[11px] font-semibold text-forest">
-                📍 Terdekat dari Kamu
-              </span>
-            )}
-          </div>
+          <h2 className="font-display text-xl font-semibold text-navy">Perumahan</h2>
           {perumahan.length === 0 && !loading ? (
             <p className="mt-4 text-sm text-ink/40">Belum ada listing perumahan.</p>
           ) : (
@@ -261,9 +284,6 @@ export default function Home() {
                 {perumahan.map((l) => (
                   <div key={l.id} className="w-44 flex-shrink-0 sm:w-60">
                     <ListingCard listing={l} />
-                    {l.distanceKm != null && (
-                      <p className="mt-1 text-xs text-ink/40">± {l.distanceKm} km dari lokasi kamu</p>
-                    )}
                   </div>
                 ))}
                 {hasMorePerumahan && (
@@ -286,25 +306,13 @@ export default function Home() {
 
         {/* Baris 2+: Rumah Pribadi */}
         <section className="mt-10">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-xl font-semibold text-navy">Rumah Pribadi</h2>
-            {userLoc && (
-              <span className="rounded-full bg-forest/10 px-2.5 py-1 text-[11px] font-semibold text-forest">
-                📍 Terdekat dari Kamu
-              </span>
-            )}
-          </div>
+          <h2 className="font-display text-xl font-semibold text-navy">Rumah Pribadi</h2>
           {pribadi.length === 0 && !loading ? (
             <p className="mt-4 text-sm text-ink/40">Belum ada listing rumah pribadi.</p>
           ) : (
             <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
               {pribadi.map((l) => (
-                <div key={l.id}>
-                  <ListingCard listing={l} />
-                  {l.distanceKm != null && (
-                    <p className="mt-1 text-xs text-ink/40">± {l.distanceKm} km dari lokasi kamu</p>
-                  )}
-                </div>
+                <ListingCard key={l.id} listing={l} />
               ))}
             </div>
           )}
@@ -321,7 +329,7 @@ export default function Home() {
           )}
         </section>
 
-        <LocationPermissionPopup onLocationGranted={handleLocationGranted} />
+        <LocationPermissionPopup onLocationGranted={handleLocationGranted} suppress={!!userLoc} />
       </div>
     </div>
   );
