@@ -75,16 +75,30 @@ export default {
           const lon = parseFloat(url.searchParams.get("lon"));
           const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 200);
           const type = url.searchParams.get("type");
+          const minPrice = url.searchParams.get("minPrice");
+          const maxPrice = url.searchParams.get("maxPrice");
 
           if (Number.isNaN(lat) || Number.isNaN(lon)) {
             return json({ error: "Parameter lat & lon wajib diisi angka" }, 400);
           }
 
-          const query = type
-            ? "SELECT * FROM listings WHERE status = 'approved' AND lat IS NOT NULL AND lon IS NOT NULL AND type = ?"
-            : "SELECT * FROM listings WHERE status = 'approved' AND lat IS NOT NULL AND lon IS NOT NULL";
-          const stmt = type ? env.DB.prepare(query).bind(type) : env.DB.prepare(query);
-          const { results } = await stmt.all();
+          const nearbyConditions = ["status = 'approved'", "lat IS NOT NULL", "lon IS NOT NULL"];
+          const nearbyParams = [];
+          if (type) {
+            nearbyConditions.push("type = ?");
+            nearbyParams.push(type);
+          }
+          if (minPrice) {
+            nearbyConditions.push("price >= ?");
+            nearbyParams.push(Number(minPrice));
+          }
+          if (maxPrice) {
+            nearbyConditions.push("price <= ?");
+            nearbyParams.push(Number(maxPrice));
+          }
+
+          const nearbyQuery = `SELECT * FROM listings WHERE ${nearbyConditions.join(" AND ")}`;
+          const { results } = await env.DB.prepare(nearbyQuery).bind(...nearbyParams).all();
 
           const toRad = (deg) => (deg * Math.PI) / 180;
           const haversineKm = (lat1, lon1, lat2, lon2) => {
@@ -149,12 +163,15 @@ export default {
         //   ?status=pending        -> filter status tertentu
         //   ?status=all            -> tanpa filter status sama sekali (khusus admin)
         //   (tanpa ?status)        -> default hanya status = 'approved' (aman utk publik)
+        //   ?minPrice=&maxPrice=   -> filter rentang harga (dipakai Pasti Pas / HNWI)
         if (path === "/api/listings" && method === "GET") {
           const type = url.searchParams.get("type");
           const category = url.searchParams.get("category");
           const owner = url.searchParams.get("owner");
           const status = url.searchParams.get("status");
           const whatsapp = url.searchParams.get("whatsapp");
+          const minPrice = url.searchParams.get("minPrice");
+          const maxPrice = url.searchParams.get("maxPrice");
 
           const conditions = [];
           const params = [];
@@ -174,6 +191,14 @@ export default {
           if (whatsapp) {
             conditions.push("whatsapp = ?");
             params.push(whatsapp);
+          }
+          if (minPrice) {
+            conditions.push("price >= ?");
+            params.push(Number(minPrice));
+          }
+          if (maxPrice) {
+            conditions.push("price <= ?");
+            params.push(Number(maxPrice));
           }
 
           if (status === "all") {
@@ -261,9 +286,78 @@ export default {
         }
       }
 
+      // =============================================================
+      // 3. ENDPOINT SIMPAN/BOOKMARK LISTING (/api/saved)
+      // =============================================================
+      if (path.startsWith("/api/saved")) {
+        const savedParts = path.split("/").filter(Boolean); // ['api','saved'] atau ['api','saved','status']
+
+        // GET /api/saved/status?uid=&listingId=  -> cek apakah 1 listing sudah disimpan user ini
+        if (savedParts.length === 3 && savedParts[2] === "status" && method === "GET") {
+          const uid = url.searchParams.get("uid");
+          const listingId = url.searchParams.get("listingId");
+          if (!uid || !listingId) {
+            return json({ error: "Parameter uid & listingId wajib diisi" }, 400);
+          }
+          const row = await env.DB.prepare(
+            "SELECT 1 FROM saved_listings WHERE uid = ? AND listing_id = ?"
+          )
+            .bind(uid, listingId)
+            .first();
+          return json({ saved: !!row });
+        }
+
+        // GET /api/saved?uid=  -> daftar listing yang disimpan user ini (data lengkap, join ke tabel listings)
+        if (path === "/api/saved" && method === "GET") {
+          const uid = url.searchParams.get("uid");
+          if (!uid) {
+            return json({ error: "Parameter uid wajib diisi" }, 400);
+          }
+          const { results } = await env.DB.prepare(
+            `SELECT listings.* FROM saved_listings
+             JOIN listings ON saved_listings.listing_id = listings.id
+             WHERE saved_listings.uid = ?
+             ORDER BY saved_listings.created_at DESC`
+          )
+            .bind(uid)
+            .all();
+          return json(results || []);
+        }
+
+        // POST /api/saved { uid, listingId }  -> simpan listing
+        if (path === "/api/saved" && method === "POST") {
+          const body = await request.json();
+          if (!body.uid || !body.listingId) {
+            return json({ error: "uid & listingId wajib diisi" }, 400);
+          }
+          const savedId = `${body.uid}_${body.listingId}`;
+          await env.DB.prepare(
+            "INSERT OR IGNORE INTO saved_listings (id, uid, listing_id) VALUES (?, ?, ?)"
+          )
+            .bind(savedId, body.uid, body.listingId)
+            .run();
+          return json({ success: true });
+        }
+
+        // DELETE /api/saved { uid, listingId }  -> batalkan simpan (unsave)
+        if (path === "/api/saved" && method === "DELETE") {
+          const body = await request.json();
+          if (!body.uid || !body.listingId) {
+            return json({ error: "uid & listingId wajib diisi" }, 400);
+          }
+          await env.DB.prepare(
+            "DELETE FROM saved_listings WHERE uid = ? AND listing_id = ?"
+          )
+            .bind(body.uid, body.listingId)
+            .run();
+          return json({ success: true });
+        }
+      }
+
       return json({ error: "Endpoint tidak ditemukan" }, 404);
     } catch (err) {
       return json({ error: err.message }, 500);
     }
   },
 };
+              
