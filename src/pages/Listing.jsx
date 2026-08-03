@@ -5,6 +5,7 @@ import ImageSlider from '../components/ImageSlider';
 import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
 import VerifiedBadge from '../components/VerifiedBadge';
+import SaveButton from '../components/SaveButton';
 import { ADMIN_UIDS } from '../lib/admin';
 import { PREMIUM_UIDS } from '../lib/premium';
 import { formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
@@ -143,11 +144,14 @@ export default function Listing() {
       )}
 
       {/* Slider Gambar */}
-      {ImageSlider ? (
-        <ImageSlider images={listing.images} alt={listing.title || lokasiText} ratio="3 / 2" enableLightbox />
-      ) : (
-        <img src={listing.images?.[0]} alt={listing.title} className="w-full h-64 object-cover rounded-2xl" />
-      )}
+      <div className="relative">
+        {ImageSlider ? (
+          <ImageSlider images={listing.images} alt={listing.title || lokasiText} ratio="3 / 2" enableLightbox />
+        ) : (
+          <img src={listing.images?.[0]} alt={listing.title} className="w-full h-64 object-cover rounded-2xl" />
+        )}
+        <SaveButton listingId={listing.id} className="absolute bottom-3 right-3 z-10" />
+      </div>
 
       {/* Informasi Utama */}
       <div className="mt-6">
@@ -237,18 +241,16 @@ export default function Listing() {
           </div>
         )}
 
-         {waLink && (
+        {waLink && (
           <a
             href={waLink}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2 rounded-full bg-[#186E29] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1EBE5B] transition-colors"
+            className="flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1EBE57]"
           >
             <span>💬</span> Chat Sekarang
           </a>
-)}
-        
-        
+        )}
       </section>
 
       {/* Rekomendasi Terkait */}
@@ -266,5 +268,4 @@ export default function Listing() {
       )}
     </div>
   );
-      }
-          
+}
