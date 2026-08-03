@@ -14,6 +14,7 @@ import KalkulatorKPR from './pages/KalkulatorKPR';
 import Posting from './pages/Posting';
 import Listing from './pages/Listing';
 import MyListings from './pages/MyListings';
+import SavedListings from './pages/SavedListings';
 import AdminPending from './pages/AdminPending';
 import SellerProfile from './pages/SellerProfile';
 import TentangKami from './pages/TentangKami';
@@ -57,6 +58,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <MyListings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/disimpan"
+            element={
+              <ProtectedRoute>
+                <SavedListings />
               </ProtectedRoute>
             }
           />
