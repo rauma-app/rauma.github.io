@@ -5,12 +5,12 @@ export default {
     extend: {
       colors: {
         navy: {
-          DEFAULT: '#16274F',
+          DEFAULT: '#0C4A6E',
           light: '#233B6E',
           dark: '#0E1A38',
         },
         forest: {
-          DEFAULT: '#145C34',
+          DEFAULT: '#0C4A6E',
           light: '#1B7645',
           dark: '#0D3E23',
         },
