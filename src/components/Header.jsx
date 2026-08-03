@@ -39,7 +39,7 @@ export default function Header() {
           <img
             src={rauLogo}
             alt="Rauma"
-            className="h-14 md:h-16 w-auto object-contain"
+            className="h-10 md:h-14 w-auto object-contain"
           />
         </Link>
 
@@ -70,11 +70,25 @@ export default function Header() {
             {open && (
               <div className="absolute right-0 mt-2 w-48 overflow-hidden rounded-xl border border-line bg-white shadow-lg">
                 <Link
+                  to="/posting"
+                  onClick={() => setOpen(false)}
+                  className="block px-4 py-3 text-sm text-ink hover:bg-cream"
+                >
+                  Posting
+                </Link>
+                <Link
                   to="/iklan-saya"
                   onClick={() => setOpen(false)}
                   className="block px-4 py-3 text-sm text-ink hover:bg-cream"
                 >
                   Iklan Saya
+                </Link>
+                <Link
+                  to="/disimpan"
+                  onClick={() => setOpen(false)}
+                  className="block px-4 py-3 text-sm text-ink hover:bg-cream"
+                >
+                  Disimpan
                 </Link>
                 {isAdmin(user) && (
                   <Link
@@ -85,13 +99,6 @@ export default function Header() {
                     Tinjau Iklan (Admin)
                   </Link>
                 )}
-                <Link
-                  to="/posting"
-                  onClick={() => setOpen(false)}
-                  className="block px-4 py-3 text-sm text-ink hover:bg-cream"
-                >
-                  Posting
-                </Link>
                 <button
                   onClick={async () => {
                     setOpen(false);
