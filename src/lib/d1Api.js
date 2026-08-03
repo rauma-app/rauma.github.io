@@ -30,6 +30,7 @@ export const d1Api = {
       if (params.category) qs.set('category', params.category);
       if (params.owner) qs.set('owner', params.owner);
       if (params.status) qs.set('status', params.status);
+      if (params.whatsapp) qs.set('whatsapp', params.whatsapp);
 
       const query = qs.toString();
       const url = `${API_BASE_URL}/listings${query ? `?${query}` : ''}`;
