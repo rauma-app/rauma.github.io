@@ -242,7 +242,7 @@ export default function Listing() {
             href={waLink}
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-2 rounded-full bg-forest px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-dark transition-colors"
+            className="flex items-center gap-2 rounded-full bg-[25D366] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1EBE5B] transition-colors"
           >
             <span>💬</span> Chat Sekarang
           </a>
