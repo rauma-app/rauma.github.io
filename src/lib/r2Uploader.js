@@ -1,9 +1,17 @@
+import { compressImage } from './imageCompress';
+
 const WORKER_URL = 'https://rauma-uploader.abduloh-salam7.workers.dev';
 
 export async function uploadToR2(file) {
   try {
+    // Kompres dulu sebelum upload (resize + convert ke WebP/JPEG) biar
+    // hemat kuota R2 & lebih cepat diakses pengunjung. Kalau kompresi
+    // gagal karena alasan apapun, compressImage sudah aman mengembalikan
+    // file asli, jadi upload tetap lanjut.
+    const compressedFile = await compressImage(file);
+
     const formData = new FormData();
-    formData.append('file', file);
+    formData.append('file', compressedFile);
 
     const response = await fetch(`${WORKER_URL}/upload`, {
       method: 'POST',
