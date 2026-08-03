@@ -63,6 +63,7 @@ export default function Posting() {
   const [loadingExisting, setLoadingExisting] = useState(isEditMode);
   const [error, setError] = useState('');
   const [listingCount, setListingCount] = useState(null);
+  const [phoneLimitReached, setPhoneLimitReached] = useState(false);
 
   const userIsAdmin = isAdmin(user);
   const userIsPremium = isPremium(user);
@@ -228,6 +229,21 @@ export default function Posting() {
       return;
     }
 
+    // Cegah akali batas iklan gratis dengan ganti-ganti akun Google: hitung
+    // juga berapa iklan yang sudah pakai nomor WhatsApp ini, lintas akun
+    // manapun. Admin & Premium gak kena batas ini.
+    if (!isEditMode && !userIsAdmin && !userIsPremium) {
+      try {
+        const listingsWithSamePhone = await d1Api.getListings({ whatsapp: form.whatsapp, status: 'all' });
+        if (listingsWithSamePhone.length >= FREE_LISTING_LIMIT) {
+          setPhoneLimitReached(true);
+          return;
+        }
+      } catch (err) {
+        console.error('Gagal mengecek limit nomor WhatsApp:', err);
+      }
+    }
+
     if (form.videoUrl && !/^https?:\/\//i.test(form.videoUrl.trim())) {
       setError('URL video harus diawali http:// atau https://');
       return;
@@ -303,6 +319,26 @@ export default function Posting() {
       // 3. Simpan ke Cloudflare D1
       await d1Api.createListing(payload);
 
+      // 4. Kirim notifikasi email ke admin tiap ada listing BARU (bukan edit)
+      // biar gak perlu bolak-balik cek Tinjau Iklan. Pakai FormSubmit yang
+      // sama seperti fitur Carikan Properti (sudah aktif ke rauma.contact@gmail.com).
+      // Fire-and-forget: gagal kirim email TIDAK menggagalkan posting iklan.
+      if (!isEditMode) {
+        fetch('https://formsubmit.co/ajax/rauma.contact@gmail.com', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            _subject: 'Listing Baru Diposting - Rauma',
+            Judul: payload.title || '(tanpa judul)',
+            Harga: `Rp${Number(payload.price || 0).toLocaleString('id-ID')}`,
+            Lokasi: `${payload.kecamatan ? payload.kecamatan + ', ' : ''}${payload.kabupaten || payload.location || ''}`,
+            Tipe: payload.type || '-',
+            Status: payload.status,
+            Link: `${window.location.origin}/id/${payload.id}`,
+          }),
+        }).catch((err) => console.error('Gagal kirim notifikasi email listing baru:', err));
+      }
+
       // Redirect ke detail iklan
       navigate(`/id/${payload.id}`);
     } catch (err) {
@@ -318,7 +354,7 @@ export default function Posting() {
     return <div className="mx-auto max-w-xl px-4 py-16 text-center text-ink/50">Memuat data iklan...</div>;
   }
 
-  if (limitReached) {
+  if (limitReached || phoneLimitReached) {
     const waLink = `https://wa.me/${PREMIUM_WHATSAPP}?text=${encodeURIComponent(
       'Halo, saya mau upgrade akun Rauma saya ke Premium.'
     )}`;
@@ -331,7 +367,9 @@ export default function Posting() {
             Batas {FREE_LISTING_LIMIT} Iklan Tercapai
           </h2>
           <p className="mt-2 text-sm text-ink/70">
-            Akun kamu udah punya {listingCount} iklan. Bantu kami dengan Upgrade ke <b>Rauma Premium</b> ({PREMIUM_PRICE_LABEL}) buat lanjut posting lebih banyak.
+            {phoneLimitReached
+              ? <>Nomor WhatsApp ini sudah dipakai untuk {FREE_LISTING_LIMIT} iklan (walaupun beda akun Google). Bantu kami dengan Upgrade ke <b>Rauma Premium</b> ({PREMIUM_PRICE_LABEL}) buat lanjut posting lebih banyak.</>
+              : <>Akun kamu udah punya {listingCount} iklan. Bantu kami dengan Upgrade ke <b>Rauma Premium</b> ({PREMIUM_PRICE_LABEL}) buat lanjut posting lebih banyak.</>}
           </p>
 
           <ul className="mt-4 space-y-1.5 text-left text-sm text-ink/80">
@@ -421,29 +459,30 @@ export default function Posting() {
 
         <div className={CICILAN_TYPES.includes(form.type) ? 'grid grid-cols-2 gap-4' : ''}>
           <Field label="Harga">
-            <div className="flex items-center gap-2 rounded-xl border border-line bg-white px-4 focus-within:border-forest">
-              <span className="text-ink/50">Rp</span>
+            <div className="relative">
+              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink/50">Rp</span>
               <input
                 type="text"
                 inputMode="numeric"
                 placeholder="100.000.000"
                 value={priceDisplay}
                 onChange={handlePriceChange}
-                className="w-full rounded-xl bg-transparent py-3 text-ink placeholder:text-ink/40 outline-none"/>
+                className="w-full rounded-xl border border-line bg-white py-3 pl-10 pr-4 text-ink placeholder:text-ink/40 outline-none focus:border-forest"
+              />
             </div>
           </Field>
 
           {CICILAN_TYPES.includes(form.type) && (
             <Field label="Cicilan Mulai dari">
-              <div className="flex items-center gap-2 rounded-xl border border-line bg-white px-4 focus-within:border-forest">
-                <span className="text-ink/50">Rp</span>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink/50">Rp</span>
                 <input
                   type="text"
                   inputMode="numeric"
                   placeholder="2.500.000"
                   value={cicilanDisplay}
                   onChange={handleCicilanChange}
-                  className="w-full bg-transparent py-3 text-ink placeholder:text-ink/40 outline-none"
+                  className="w-full rounded-xl border border-line bg-white py-3 pl-10 pr-4 text-ink placeholder:text-ink/40 outline-none focus:border-forest"
                 />
               </div>
               <p className="mt-1.5 text-xs text-ink/40">Opsional. Cicilan per bulan, tampil berdampingan dengan harga jual.</p>
@@ -596,3 +635,4 @@ function Field({ label, children }) {
     </div>
   );
 }
+  
