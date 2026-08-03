@@ -15,8 +15,8 @@ import iconTakeOverKPR from '../assets/icons/kpr_syariah.svg';
 import iconKalkulatorKPR from '../assets/icons/nabung.svg';
 
 const CATEGORY_SHORTCUTS = [
-  { icon: iconTermurah, label: 'Termurah', to: '/termurah' },
-  { icon: iconTermahal, label: 'Termahal', to: '/termahal' },
+  { icon: iconTermurah, label: 'Pasti Pas', to: '/termurah' },
+  { icon: iconTermahal, label: 'HNWI', to: '/termahal' },
   { icon: iconSubsidi, label: 'Rumah Subsidi', to: '/subsidi' },
   { icon: iconCariProperti, label: 'Carikan Properti', to: '/carikan-properti' },
   { icon: iconTakeOverKPR, label: 'Take Over KPR', to: '/take-over-kpr' },
@@ -333,4 +333,4 @@ export default function Home() {
       </div>
     </div>
   );
-}
+      }
