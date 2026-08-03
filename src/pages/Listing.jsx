@@ -237,23 +237,15 @@ export default function Listing() {
           </div>
         )}
 
-{waLink && (
-  <a
-    href={waLink}
-    target="_blank"
-    rel="noreferrer"
-    className="inline-flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1EBE5B] transition-colors shadow-sm"
-  >
-    {/* WhatsApp SVG Icon */}
-    <svg
-      className="w-5 h-5 fill-current"
-      viewBox="0 0 24 24"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984 0 1.762.459 3.48 1.333 4.994L2 22l5.133-1.345a9.967 9.967 0 0 0 4.877 1.27h.004c5.507 0 9.99-4.478 9.99-9.985 0-2.667-1.038-5.176-2.924-7.062A9.92 9.92 0 0 0 12.012 2zm0 18.293h-.003a8.31 8.31 0 0 1-4.24-1.164l-.304-.181-3.152.825.84-3.072-.199-.316a8.293 8.293 0 0 1-1.272-4.398c0-4.58 3.727-8.307 8.308-8.307 2.219 0 4.305.865 5.872 2.433a8.267 8.267 0 0 1 2.428 5.874c-.001 4.58-3.728 8.306-8.278 8.306z" />
-    </svg>
-    <span>Chat Sekarang</span>
-  </a>
+         {waLink && (
+          <a
+            href={waLink}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#1EBE5B] transition-colors"
+          >
+            <span>💬</span> Chat Sekarang
+          </a>
 )}
         
         
