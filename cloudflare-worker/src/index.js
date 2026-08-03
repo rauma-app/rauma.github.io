@@ -154,6 +154,7 @@ export default {
           const category = url.searchParams.get("category");
           const owner = url.searchParams.get("owner");
           const status = url.searchParams.get("status");
+          const whatsapp = url.searchParams.get("whatsapp");
 
           const conditions = [];
           const params = [];
@@ -169,6 +170,10 @@ export default {
           if (owner) {
             conditions.push("ownerUid = ?");
             params.push(owner);
+          }
+          if (whatsapp) {
+            conditions.push("whatsapp = ?");
+            params.push(whatsapp);
           }
 
           if (status === "all") {
