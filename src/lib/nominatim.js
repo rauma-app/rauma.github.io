@@ -11,14 +11,16 @@
 
 const BASE_URL = 'https://nominatim.openstreetmap.org/search';
 
-/**
- * Cari kandidat lokasi (kota/kabupaten + kecamatan) di Indonesia.
- * @param {string} query
- * @returns {Promise<Array<{label, kabupaten, kecamatan, lat, lon}>>}
- */
-export async function searchLocation(query) {
-  if (!query || query.trim().length < 3) return [];
+// Kata-kata prefix administratif Indonesia yang sering bikin pencarian ke
+// Nominatim gagal match (data OSM biasanya cuma nyimpen nama tempatnya
+// doang, tanpa embel-embel "Kec"/"Kabupaten" di depannya).
+const ADMIN_PREFIX_RE = /\b(kec\.?|kecamatan|kab\.?|kabupaten|kota|kel\.?|kelurahan|desa)\b/gi;
 
+function cleanQuery(query) {
+  return query.replace(ADMIN_PREFIX_RE, '').replace(/\s+/g, ' ').replace(/,\s*,/g, ',').trim();
+}
+
+async function fetchNominatim(query) {
   const params = new URLSearchParams({
     q: query,
     format: 'jsonv2',
@@ -26,7 +28,7 @@ export async function searchLocation(query) {
     namedetails: '1',
     countrycodes: 'id',
     'accept-language': 'id',
-    limit: '8',
+    limit: '10',
   });
 
   const res = await fetch(`${BASE_URL}?${params.toString()}`, {
@@ -37,7 +39,30 @@ export async function searchLocation(query) {
   });
 
   if (!res.ok) return [];
-  const data = await res.json();
+  return res.json();
+}
+
+/**
+ * Cari kandidat lokasi (kota/kabupaten + kecamatan) di Indonesia.
+ * @param {string} query
+ * @returns {Promise<Array<{label, kabupaten, kecamatan, lat, lon}>>}
+ */
+export async function searchLocation(query) {
+  if (!query || query.trim().length < 3) return [];
+
+  const cleaned = cleanQuery(query);
+  // Kalau user nulis pola "Ciasem, Kabupaten Subang", ambil bagian nama
+  // kabupaten/kota-nya buat jadi acuan disambiguasi hasil nanti.
+  const parts = cleaned.split(',').map((p) => p.trim()).filter(Boolean);
+  const hintedArea = parts.length > 1 ? parts[parts.length - 1] : null;
+
+  let data = await fetchNominatim(cleaned);
+
+  // Fallback: kalau query gabungan gak ketemu apa-apa (kasus "Ciasem" yang
+  // hilang total), coba lagi cuma pakai nama tempat paling spesifiknya saja.
+  if (data.length === 0 && parts.length > 1) {
+    data = await fetchNominatim(parts[0]);
+  }
 
   const seen = new Set();
   const results = [];
@@ -79,6 +104,19 @@ export async function searchLocation(query) {
       kecamatan,
       lat: parseFloat(item.lat),
       lon: parseFloat(item.lon),
+    });
+  }
+
+  // Disambiguasi: kalau user nyebut nama kabupaten/kota di query-nya (misal
+  // "Kabupaten Subang"), dahulukan hasil yang kabupatennya benar-benar
+  // cocok -- biar gak ketuker sama tempat senama di kabupaten lain
+  // (kasus "Binong, Subang" vs "Binong, Cilegon").
+  if (hintedArea) {
+    const hint = hintedArea.toLowerCase();
+    results.sort((a, b) => {
+      const aMatch = a.kabupaten.toLowerCase().includes(hint) ? 0 : 1;
+      const bMatch = b.kabupaten.toLowerCase().includes(hint) ? 0 : 1;
+      return aMatch - bMatch;
     });
   }
 
