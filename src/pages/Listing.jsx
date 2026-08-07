@@ -9,16 +9,24 @@ import SaveButton from '../components/SaveButton';
 import { ADMIN_UIDS } from '../lib/admin';
 import { PREMIUM_UIDS } from '../lib/premium';
 import { formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
+import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
+// Baris sisa spesifikasi (Luas & Kamar sudah digabung terpisah, lihat di bawah)
 const SPEC_ROWS = [
-  { key: 'luasTanah', label: 'Luas Tanah', icon: '📐', suffix: ' m²' },
-  { key: 'luasBangunan', label: 'Luas Bangunan', icon: '🏠', suffix: ' m²' },
-  { key: 'bedrooms', label: 'Kamar Tidur', icon: '🛏️', suffix: '' },
-  { key: 'bathrooms', label: 'Kamar Mandi', icon: '🚿', suffix: '' },
   { key: 'electricity', label: 'Daya Listrik', icon: '⚡', suffix: '' },
   { key: 'air', label: 'Air', icon: '💧', suffix: '' },
   { key: 'sertifikat', label: 'Sertifikat', icon: '📋', suffix: '' },
   { key: 'unitTersedia', label: 'Unit Tersedia', icon: '🏘️', suffix: ' unit' },
+];
+
+// Material bangunan (opsional) - hanya tampil kalau ada isinya
+const MATERIAL_ROWS = [
+  { key: 'materialPondasi', label: 'Pondasi' },
+  { key: 'materialDinding', label: 'Dinding' },
+  { key: 'materialAtap', label: 'Penutup Atap' },
+  { key: 'materialKusen', label: 'Kusen' },
+  { key: 'materialLantai', label: 'Lantai' },
+  { key: 'materialKloset', label: 'Kloset' },
 ];
 
 export default function Listing() {
@@ -27,6 +35,7 @@ export default function Listing() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [related, setRelated] = useState([]);
+  const [materialOpen, setMaterialOpen] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -173,6 +182,26 @@ export default function Listing() {
       <section className="mt-8">
         <h2 className="font-display text-xl font-semibold text-navy mb-3">Spesifikasi</h2>
         <dl className="divide-y divide-line rounded-2xl border border-line bg-white">
+          {listing.luasBangunan && listing.luasTanah && (
+            <div className="flex items-center justify-between px-4 py-3">
+              <dt className="flex items-center gap-2 text-sm text-ink/60">
+                <span>📐</span> Luas Bangunan &amp; Tanah
+              </dt>
+              <dd className="text-sm font-medium text-ink">
+                {listing.luasBangunan}m² / {listing.luasTanah}m²
+              </dd>
+            </div>
+          )}
+          {listing.bedrooms && listing.bathrooms && (
+            <div className="flex items-center justify-between px-4 py-3">
+              <dt className="flex items-center gap-2 text-sm text-ink/60">
+                <span>🛏️</span> Kamar Tidur &amp; Mandi
+              </dt>
+              <dd className="text-sm font-medium text-ink">
+                {listing.bedrooms} / {listing.bathrooms}
+              </dd>
+            </div>
+          )}
           {SPEC_ROWS.filter((row) => listing[row.key]).map((row) => (
             <div key={row.key} className="flex items-center justify-between px-4 py-3">
               <dt className="flex items-center gap-2 text-sm text-ink/60">
@@ -197,6 +226,36 @@ export default function Listing() {
           )}
         </dl>
       </section>
+
+      {/* Material Bangunan (opsional, hanya tampil kalau ada isinya) */}
+      {MATERIAL_ROWS.some((row) => listing[row.key]) && (
+        <section className="mt-4">
+          <div className="rounded-2xl border border-line bg-white">
+            <button
+              type="button"
+              onClick={() => setMaterialOpen((o) => !o)}
+              className="flex w-full items-center justify-between px-4 py-3.5 text-left"
+            >
+              <span className="font-display text-base font-semibold text-navy">Material</span>
+              {materialOpen ? (
+                <FaChevronUp className="text-ink/50" size={14} />
+              ) : (
+                <FaChevronDown className="text-ink/50" size={14} />
+              )}
+            </button>
+            {materialOpen && (
+              <dl className="divide-y divide-line border-t border-line">
+                {MATERIAL_ROWS.filter((row) => listing[row.key]).map((row) => (
+                  <div key={row.key} className="flex items-center justify-between px-4 py-3">
+                    <dt className="text-sm text-ink/60">{row.label}</dt>
+                    <dd className="text-sm font-medium text-ink">{listing[row.key]}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Deskripsi */}
       {listing.description && (

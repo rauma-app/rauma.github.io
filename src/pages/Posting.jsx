@@ -6,12 +6,22 @@ import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../lib/admin';
 import { isPremium, FREE_LISTING_LIMIT, PREMIUM_LISTING_LIMIT } from '../lib/premium';
 import LocationAutocomplete from '../components/LocationAutocomplete';
+import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
 const PREMIUM_WHATSAPP = '6285156222635';
 const PREMIUM_PRICE_LABEL = 'Rp299.000/tahun';
 
 const SERTIFIKAT_OPTIONS = ['SHM', 'SHGB', 'HGB', 'AJB', 'Girik', 'PPJB', 'Lainnya'];
 const AIR_OPTIONS = ['PDAM', 'Sumur Bor', 'Sumur Gali', 'Lainnya'];
+
+const MATERIAL_FIELDS = [
+  { key: 'materialPondasi', label: 'Pondasi', options: ['Batu Kali', 'Footplat / Cakar Ayam', 'Straus Pile / Bore Pile', 'Tiang Pancang'] },
+  { key: 'materialDinding', label: 'Dinding', options: ['Bata Ringan (Hebel)', 'Bata Merah', 'Batako', 'Panel Beton Precast'] },
+  { key: 'materialAtap', label: 'Penutup Atap', options: ['Genteng Beton', 'Genteng Keramik', 'Genteng Metal', 'Atap UPVC', 'Genteng Tanah Liat'] },
+  { key: 'materialKusen', label: 'Kusen', options: ['Aluminium', 'Kayu', 'UPVC', 'Besi Hollow / Steel Frame'] },
+  { key: 'materialLantai', label: 'Lantai', options: ['Granit Tile (Homogeneous Tile)', 'Keramik', 'Marmer / Granit Alam', 'Floor Hardener / Acian'] },
+  { key: 'materialKloset', label: 'Kloset', options: ['Duduk', 'Jongkok'] },
+];
 
 const TYPE_LABELS = {
   pribadi: 'Pribadi',
@@ -38,6 +48,12 @@ const emptyForm = {
   videoUrl: '',
   description: '',
   whatsapp: '',
+  materialPondasi: '',
+  materialDinding: '',
+  materialAtap: '',
+  materialKusen: '',
+  materialLantai: '',
+  materialKloset: '',
 };
 
 const MAX_PHOTOS = 5;
@@ -64,6 +80,7 @@ export default function Posting() {
   const [error, setError] = useState('');
   const [listingCount, setListingCount] = useState(null);
   const [phoneLimitReached, setPhoneLimitReached] = useState(false);
+  const [materialOpen, setMaterialOpen] = useState(false);
 
   const userIsAdmin = isAdmin(user);
   const userIsPremium = isPremium(user);
@@ -145,7 +162,19 @@ export default function Posting() {
           videoUrl: data.videoUrl || '',
           description: data.description || '',
           whatsapp: data.whatsapp || data.seller_phone || '',
+          materialPondasi: data.materialPondasi || '',
+          materialDinding: data.materialDinding || '',
+          materialAtap: data.materialAtap || '',
+          materialKusen: data.materialKusen || '',
+          materialLantai: data.materialLantai || '',
+          materialKloset: data.materialKloset || '',
         });
+
+        // Kalau ada material yang sudah keisi (edit iklan lama), buka
+        // section-nya otomatis biar user langsung lihat & bisa ubah.
+        if (data.materialPondasi || data.materialDinding || data.materialAtap || data.materialKusen || data.materialLantai || data.materialKloset) {
+          setMaterialOpen(true);
+        }
 
         setPriceDisplay(formatThousands(String(data.price || '')));
         setCicilanDisplay(data.cicilanPerBulan ? formatThousands(String(data.cicilanPerBulan)) : '');
@@ -224,6 +253,16 @@ export default function Posting() {
       return;
     }
 
+    if (!form.luasBangunan || !form.luasTanah) {
+      setError('Luas Bangunan dan Luas Tanah wajib diisi.');
+      return;
+    }
+
+    if (!form.bedrooms || !form.bathrooms) {
+      setError('Kamar Tidur dan Kamar Mandi wajib diisi.');
+      return;
+    }
+
     if (form.whatsapp.length < 10 || form.whatsapp.length > 13) {
       setError('Nomor WhatsApp harus 10-13 digit.');
       return;
@@ -297,7 +336,15 @@ export default function Posting() {
         electricity: form.electricity || null,
         air: form.air || null,
         sertifikat: form.sertifikat || null,
-        
+
+        // Material Bangunan (opsional)
+        materialPondasi: form.materialPondasi || null,
+        materialDinding: form.materialDinding || null,
+        materialAtap: form.materialAtap || null,
+        materialKusen: form.materialKusen || null,
+        materialLantai: form.materialLantai || null,
+        materialKloset: form.materialKloset || null,
+
         // Detail Tambahan
         videoUrl: form.videoUrl ? form.videoUrl.trim() : null,
         description: form.description || '',
@@ -590,6 +637,37 @@ export default function Posting() {
           />
           <p className="mt-1.5 text-xs text-ink/40">Opsional. Tempel link video tur rumah kalau ada.</p>
         </Field>
+
+        <div className="rounded-xl border border-line bg-white">
+          <button
+            type="button"
+            onClick={() => setMaterialOpen((o) => !o)}
+            className="flex w-full items-center justify-between px-4 py-3.5 text-left"
+          >
+            <span className="text-sm font-semibold text-ink">
+              Material <span className="font-normal text-ink/40">(opsional)</span>
+            </span>
+            {materialOpen ? (
+              <FaChevronUp className="text-ink/50" size={14} />
+            ) : (
+              <FaChevronDown className="text-ink/50" size={14} />
+            )}
+          </button>
+          {materialOpen && (
+            <div className="space-y-4 border-t border-line px-4 py-4">
+              {MATERIAL_FIELDS.map((f) => (
+                <Field key={f.key} label={f.label}>
+                  <select value={form[f.key]} onChange={(e) => update(f.key, e.target.value)} className="input">
+                    <option value="">Pilih {f.label}</option>
+                    {f.options.map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
+                </Field>
+              ))}
+            </div>
+          )}
+        </div>
 
         <Field label="Deskripsi">
           <textarea
