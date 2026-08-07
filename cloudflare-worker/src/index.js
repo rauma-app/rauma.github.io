@@ -235,8 +235,9 @@ export default {
               luasTanah, luasBangunan, unitTersedia, bedrooms, bathrooms,
               electricity, air, sertifikat, videoUrl, description,
               phone, seller_phone, whatsapp, seller_uid, ownerUid, ownerName, ownerPhoto,
-              images, status
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              images, status,
+              materialPondasi, materialDinding, materialAtap, materialKusen, materialLantai, materialKloset
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               title=excluded.title, type=excluded.type, category=excluded.category, price=excluded.price,
               cicilanPerBulan=excluded.cicilanPerBulan, location=excluded.location, kabupaten=excluded.kabupaten,
@@ -246,7 +247,10 @@ export default {
               sertifikat=excluded.sertifikat, videoUrl=excluded.videoUrl, description=excluded.description,
               phone=excluded.phone, seller_phone=excluded.seller_phone, whatsapp=excluded.whatsapp,
               seller_uid=excluded.seller_uid, ownerUid=excluded.ownerUid, ownerName=excluded.ownerName,
-              ownerPhoto=excluded.ownerPhoto, images=excluded.images, status=excluded.status`
+              ownerPhoto=excluded.ownerPhoto, images=excluded.images, status=excluded.status,
+              materialPondasi=excluded.materialPondasi, materialDinding=excluded.materialDinding,
+              materialAtap=excluded.materialAtap, materialKusen=excluded.materialKusen,
+              materialLantai=excluded.materialLantai, materialKloset=excluded.materialKloset`
           )
             .bind(
               idToSave,
@@ -278,7 +282,13 @@ export default {
               body.ownerName || null,
               body.ownerPhoto || null,
               imagesJson,
-              body.status || "pending"
+              body.status || "pending",
+              body.materialPondasi || null,
+              body.materialDinding || null,
+              body.materialAtap || null,
+              body.materialKusen || null,
+              body.materialLantai || null,
+              body.materialKloset || null
             )
             .run();
 
@@ -361,3 +371,4 @@ export default {
   },
 };
 
+                        
