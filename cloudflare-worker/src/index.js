@@ -457,4 +457,28 @@ export default {
           )
             .bind(savedId, body.uid, body.listingId)
             .run();
-          return json({ suc
+          return json({ success: true });
+        }
+
+        // DELETE /api/saved { uid, listingId }  -> batalkan simpan (unsave)
+        if (path === "/api/saved" && method === "DELETE") {
+          const body = await request.json();
+          if (!body.uid || !body.listingId) {
+            return json({ error: "uid & listingId wajib diisi" }, 400);
+          }
+          await env.DB.prepare(
+            "DELETE FROM saved_listings WHERE uid = ? AND listing_id = ?"
+          )
+            .bind(body.uid, body.listingId)
+            .run();
+          return json({ success: true });
+        }
+      }
+
+      return json({ error: "Endpoint tidak ditemukan" }, 404);
+    } catch (err) {
+      return json({ error: err.message }, 500);
+    }
+  },
+};
+              
