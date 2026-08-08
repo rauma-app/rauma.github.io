@@ -136,6 +136,34 @@ export const d1Api = {
     }
   },
 
+  // Ambil semua akun Premium (buat dipakai di seluruh situs & halaman Admin)
+  async getPremiumAccounts() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/premium`);
+      if (!res.ok) return [];
+      return await res.json();
+    } catch (err) {
+      console.error('Error d1Api.getPremiumAccounts:', err);
+      return [];
+    }
+  },
+
+  // Tambah/update 1 akun jadi Premium. label = nama tampilan (misal nama perumahan)
+  async addPremiumAccount(uid, label) {
+    const res = await fetch(`${API_BASE_URL}/premium`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid, label }),
+    });
+    return await res.json();
+  },
+
+  // Cabut status Premium 1 akun
+  async removePremiumAccount(uid) {
+    const res = await fetch(`${API_BASE_URL}/premium/${uid}`, { method: 'DELETE' });
+    return await res.json();
+  },
+
   // Hapus properti
   async deleteListing(id) {
     try {
