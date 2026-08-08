@@ -164,6 +164,7 @@ export default {
         //   ?status=all            -> tanpa filter status sama sekali (khusus admin)
         //   (tanpa ?status)        -> default hanya status = 'approved' (aman utk publik)
         //   ?minPrice=&maxPrice=   -> filter rentang harga (dipakai Pasti Pas / HNWI)
+        //   ?location=bandung     -> cari di kolom kabupaten/kecamatan/location (LIKE, dipakai fitur search)
         if (path === "/api/listings" && method === "GET") {
           const type = url.searchParams.get("type");
           const category = url.searchParams.get("category");
@@ -172,6 +173,7 @@ export default {
           const whatsapp = url.searchParams.get("whatsapp");
           const minPrice = url.searchParams.get("minPrice");
           const maxPrice = url.searchParams.get("maxPrice");
+          const location = url.searchParams.get("location");
 
           const conditions = [];
           const params = [];
@@ -199,6 +201,17 @@ export default {
           if (maxPrice) {
             conditions.push("price <= ?");
             params.push(Number(maxPrice));
+          }
+          if (location) {
+            // Kata pencarian bisa berupa beberapa kata (misal "bandung barat"),
+            // masing-masing kata dicocokkan LIKE ke kabupaten/kecamatan/location
+            // -- listing cocok kalau SEMUA kata ketemu di salah satu kolom itu.
+            const words = location.split(/\s+/).filter(Boolean).slice(0, 5);
+            for (const word of words) {
+              conditions.push("(kabupaten LIKE ? OR kecamatan LIKE ? OR location LIKE ?)");
+              const like = `%${word}%`;
+              params.push(like, like, like);
+            }
           }
 
           if (status === "all") {
@@ -371,4 +384,3 @@ export default {
   },
 };
 
-                        
