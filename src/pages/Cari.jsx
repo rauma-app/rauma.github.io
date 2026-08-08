@@ -16,20 +16,38 @@ export default function Cari() {
   const parsed = useMemo(() => parseSearchQuery(rawQuery), [rawQuery]);
 
   const [results, setResults] = useState([]);
+  const [fallbackResults, setFallbackResults] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     async function run() {
       setLoading(true);
+      setFallbackResults([]);
       const data = await d1Api.getListings({
         minPrice: parsed.minPrice || undefined,
         maxPrice: parsed.maxPrice || undefined,
         location: parsed.location || undefined,
       });
-      if (!cancelled) {
-        setResults(data);
-        setLoading(false);
+      if (cancelled) return;
+      setResults(data);
+      setLoading(false);
+
+      // Kalau kosong dan ada lokasi + harga minimum, coba cariin alternatif:
+      // properti di lokasi yang SAMA tapi dengan harga di BAWAH rentang yang
+      // dicari (misal cari 300-399jt kosong -> tawarin yang di bawah 300jt).
+      // Biar halaman gak kosong-kosong amat.
+      if (data.length === 0 && parsed.location && parsed.minPrice) {
+        const alt = await d1Api.getListings({
+          location: parsed.location,
+          maxPrice: parsed.minPrice - 1,
+        });
+        if (!cancelled) {
+          // Urutkan dari yang harganya paling mendekati budget (termahal dulu),
+          // ambil beberapa saja biar gak kepanjangan.
+          const sorted = [...alt].sort((a, b) => (b.price || 0) - (a.price || 0)).slice(0, 8);
+          setFallbackResults(sorted);
+        }
       }
     }
     run();
@@ -73,6 +91,20 @@ export default function Cari() {
         </div>
       )}
 
+      {!loading && results.length === 0 && fallbackResults.length > 0 && (
+        <div className="mt-8">
+          <h2 className="font-display text-lg font-semibold text-navy">
+            Rumah {parsed.locationLabel ? `di ${parsed.locationLabel} ` : ''}dengan harga lebih rendah
+          </h2>
+          <p className="mt-1 text-sm text-ink/50">Mungkin ini cocok, harganya di bawah budget yang kamu cari.</p>
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
+            {fallbackResults.map((item) => (
+              <ListingCard key={item.id} listing={item} />
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
         {results.map((item) => (
           <ListingCard key={item.id} listing={item} />
@@ -81,4 +113,3 @@ export default function Cari() {
     </div>
   );
 }
-
