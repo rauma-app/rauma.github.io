@@ -12,14 +12,19 @@ export default function SellerProfile() {
   const { uid } = useParams();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [soldUnits, setSoldUnits] = useState(0);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
         // Tanpa ?status -> otomatis hanya yang 'approved' (halaman publik)
-        const data = await d1Api.getListings({ owner: uid });
+        const [data, stats] = await Promise.all([
+          d1Api.getListings({ owner: uid }),
+          d1Api.getSellerStats(uid),
+        ]);
         setListings(data);
+        setSoldUnits(stats?.sold_units || 0);
       } catch (err) {
         console.error(err);
       } finally {
@@ -65,7 +70,9 @@ export default function SellerProfile() {
               <VerifiedBadge size={20} color="blue" />
             )}
           </h1>
-          <p className="text-sm text-ink/50">{listings.length} iklan tayang</p>
+          <p className="text-sm text-ink/50">
+            {listings.length} iklan tayang{soldUnits > 0 ? ` · ${soldUnits} unit terjual` : ''}
+          </p>
         </div>
       </div>
 
