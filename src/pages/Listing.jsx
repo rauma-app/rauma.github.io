@@ -124,10 +124,27 @@ export default function Listing() {
   const formattedPriceShort = formatRupiahShort ? formatRupiahShort(listing.price) : `Rp ${listing.price.toLocaleString('id-ID')}`;
   const formattedPriceFull = formatRupiah ? formatRupiah(listing.price) : `Rp ${listing.price.toLocaleString('id-ID')}`;
 
+  // Harga versi ringkas khusus buat pesan WhatsApp, contoh: "Rp 900jt" / "Rp 1,2M"
+  // (beda dari formattedPriceShort yang pakai "900 Jt" dengan spasi & huruf besar)
+  const formattedPriceWA = (() => {
+    const value = listing.price;
+    if (value == null || Number.isNaN(value)) return '-';
+    if (value >= 1_000_000_000) {
+      return `Rp ${(value / 1_000_000_000).toFixed(2).replace(/\.?0+$/, '').replace('.', ',')}M`;
+    }
+    if (value >= 1_000_000) {
+      return `Rp ${Math.round(value / 1_000_000)}jt`;
+    }
+    return formattedPriceFull;
+  })();
+
+  // URL halaman iklan ini, ikut disertakan di pesan WhatsApp
+  const listingUrl = typeof window !== 'undefined' ? window.location.href : '';
+
   const waNumber = (listing.whatsapp || '').replace(/[^0-9]/g, '');
   const waLink = waNumber
     ? `https://wa.me/${waNumber.startsWith('0') ? '62' + waNumber.slice(1) : waNumber}?text=${encodeURIComponent(
-        `Halo, saya tertarik dengan rumah di ${listing.kecamatan ? listing.kecamatan + ' - ' : ''}${listing.kabupaten} (${formattedPriceFull}).`
+        `Halo, saya tertarik dengan rumah di ${listing.kecamatan ? listing.kecamatan + ' - ' : ''}${listing.kabupaten} (${formattedPriceWA}).\n\n${listingUrl}`
       )}`
     : null;
 
@@ -327,4 +344,5 @@ export default function Listing() {
       )}
     </div>
   );
-}
+                  }
+              
