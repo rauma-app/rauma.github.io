@@ -4,7 +4,8 @@ import { d1Api } from '../lib/d1Api';
 import { useAuth } from '../context/AuthContext';
 import ImageSlider from '../components/ImageSlider';
 import { formatMonthlyShort, formatRupiahShort } from '../lib/kpr';
-import { isAdmin, isPremium } from '../lib/admin';
+import { isAdmin } from '../lib/admin';
+import { isPremium } from '../lib/premium';
 
 const STATUS_LABELS = {
   pending: { text: 'Menunggu Persetujuan', className: 'bg-amber-100 text-amber-700' },
@@ -280,5 +281,4 @@ export default function MyListings() {
       )}
     </div>
   );
-              }
-        
+}
