@@ -61,6 +61,37 @@ export default {
       }
 
       // =============================================================
+      // 2a. ENDPOINT PREMIUM ACCOUNTS (kelola akun Premium tanpa perlu
+      // edit kode -- dipakai halaman Admin -> "Kelola Premium")
+      // =============================================================
+      if (path === "/api/premium" && method === "GET") {
+        const { results } = await env.DB.prepare(
+          "SELECT uid, label, created_at FROM premium_accounts ORDER BY created_at DESC"
+        ).all();
+        return json(results || []);
+      }
+
+      if (path === "/api/premium" && method === "POST") {
+        const body = await request.json().catch(() => ({}));
+        if (!body.uid) {
+          return json({ error: "Field 'uid' wajib diisi" }, 400);
+        }
+        await env.DB.prepare(
+          `INSERT INTO premium_accounts (uid, label, created_at) VALUES (?, ?, datetime('now'))
+           ON CONFLICT(uid) DO UPDATE SET label = excluded.label`
+        )
+          .bind(body.uid, body.label || null)
+          .run();
+        return json({ success: true });
+      }
+
+      if (path.startsWith("/api/premium/") && method === "DELETE") {
+        const uid = path.split("/").filter(Boolean)[2];
+        await env.DB.prepare("DELETE FROM premium_accounts WHERE uid = ?").bind(uid).run();
+        return json({ success: true });
+      }
+
+      // =============================================================
       // 2b. ENDPOINT SELLERS (statistik unit terjual per penjual)
       // =============================================================
       if (path.startsWith("/api/sellers/")) {
@@ -426,29 +457,4 @@ export default {
           )
             .bind(savedId, body.uid, body.listingId)
             .run();
-          return json({ success: true });
-        }
-
-        // DELETE /api/saved { uid, listingId }  -> batalkan simpan (unsave)
-        if (path === "/api/saved" && method === "DELETE") {
-          const body = await request.json();
-          if (!body.uid || !body.listingId) {
-            return json({ error: "uid & listingId wajib diisi" }, 400);
-          }
-          await env.DB.prepare(
-            "DELETE FROM saved_listings WHERE uid = ? AND listing_id = ?"
-          )
-            .bind(body.uid, body.listingId)
-            .run();
-          return json({ success: true });
-        }
-      }
-
-      return json({ error: "Endpoint tidak ditemukan" }, 404);
-    } catch (err) {
-      return json({ error: err.message }, 500);
-    }
-  },
-};
-
-              
+          return json({ suc
