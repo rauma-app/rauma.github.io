@@ -20,7 +20,7 @@ function normalizeListing(raw) {
 
 export const d1Api = {
   // Ambil listing dengan filter opsional:
-  //   { type, category, owner, status, minPrice, maxPrice }
+  //   { type, category, owner, status, minPrice, maxPrice, location }
   // status='all' -> tanpa filter status (khusus admin)
   // status tidak diisi -> default hanya yang 'approved' (aman utk publik)
   async getListings(params = {}) {
@@ -33,6 +33,7 @@ export const d1Api = {
       if (params.whatsapp) qs.set('whatsapp', params.whatsapp);
       if (params.minPrice) qs.set('minPrice', params.minPrice);
       if (params.maxPrice) qs.set('maxPrice', params.maxPrice);
+      if (params.location) qs.set('location', params.location);
 
       const query = qs.toString();
       const url = `${API_BASE_URL}/listings${query ? `?${query}` : ''}`;
