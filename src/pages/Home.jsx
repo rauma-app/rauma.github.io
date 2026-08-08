@@ -5,6 +5,7 @@ import { d1Api } from '../lib/d1Api';
 
 import ListingCard from '../components/ListingCard';
 import LocationPermissionPopup from '../components/LocationPermissionPopup';
+import { slugifySearch } from '../lib/searchParser';
 import Seo from '../components/Seo';
 
 import iconTermurah from '../assets/icons/termurah.svg';
@@ -208,7 +209,7 @@ export default function Home() {
   function handleSearch(e) {
     e.preventDefault();
     const q = searchQuery.trim();
-    navigate(q ? `/cari?q=${encodeURIComponent(q)}` : '/cari');
+    navigate(q ? `/cari/${slugifySearch(q)}` : '/cari');
   }
 
   return (
@@ -333,4 +334,4 @@ export default function Home() {
       </div>
     </div>
   );
-      }
+}
