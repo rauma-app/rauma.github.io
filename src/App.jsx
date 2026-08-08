@@ -10,6 +10,7 @@ import PriceSortedList from './pages/PriceSortedList';
 import { SubsidiList } from './pages/SpecialCategoryList';
 import TakeOverKPRPage from './pages/TakeOverKPRPage';
 import CariProperti from './pages/CariProperti';
+import Cari from './pages/Cari';
 import KalkulatorKPR from './pages/KalkulatorKPR';
 import Posting from './pages/Posting';
 import Listing from './pages/Listing';
@@ -32,6 +33,8 @@ export default function App() {
           <Route path="/termahal" element={<PriceSortedList />} />
           <Route path="/subsidi" element={<SubsidiList />} />
           <Route path="/carikan-properti" element={<CariProperti />} />
+          <Route path="/cari" element={<Cari />} />
+          <Route path="/cari/:slug" element={<Cari />} />
           <Route path="/take-over-kpr" element={<TakeOverKPRPage />} />
           <Route path="/kalkulator-kpr" element={<KalkulatorKPR />} />
           <Route path="/tentang-kami" element={<TentangKami />} />
