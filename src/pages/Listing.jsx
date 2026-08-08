@@ -185,7 +185,7 @@ export default function Listing() {
           <p className="font-display text-3xl font-bold text-navy">{formattedPriceShort}</p>
           {listing.cicilanPerBulan && formatMonthlyShort && (
             <p className="text-sm text-ink/50">
-              Cicilan mulai {formatMonthlyShort(listing.cicilanPerBulan)}
+              Mulai {formatMonthlyShort(listing.cicilanPerBulan)}
             </p>
           )}
         </div>
@@ -344,5 +344,4 @@ export default function Listing() {
       )}
     </div>
   );
-                  }
-              
+                }
