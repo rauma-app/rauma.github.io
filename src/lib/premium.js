@@ -1,20 +1,25 @@
-// Daftar UID Firebase Auth akun PREMIUM (bukan admin, tapi upgrade berbayar).
-// Cara dapetin UID: sama seperti admin -- Firebase Console -> Authentication
-// -> tab "Users" -> cari akun Google-nya -> copy kolom "User UID".
+// Status Premium sekarang disimpan di database (tabel `premium_accounts`),
+// BUKAN di-hardcode di file ini lagi. Kelola akun Premium (tambah/hapus)
+// lewat halaman Admin -> "Kelola Premium" di web, tanpa perlu edit kode.
 //
-// Benefit akun premium (diatur lewat UID di sini, BUKAN lewat halaman admin):
+// `premiumMap` didapat dari <PremiumProvider> (lihat src/context/PremiumContext.jsx),
+// isinya { [uid]: label }, di-fetch sekali dari /api/premium waktu situs dibuka.
+//
+// Benefit akun premium:
 //   - Maksimal 50 iklan aktif (user biasa cuma 2)
 //   - Ceklis biru di sebelah nama
 //   - Halaman profil bisa dibuka publik
 //   - Bisa posting tipe Perumahan, Subsidi, dan Jual Cepat
 // Akun premium TETAP TIDAK bisa membuka halaman Tinjau Iklan (Admin
 // Pending) dan tidak bisa hapus/approve iklan orang lain -- itu cuma admin.
-export const PREMIUM_UIDS = [
-  // 'contoh-uid-akun-premium-di-sini',
-];
 
-export function isPremium(user) {
-  return Boolean(user && PREMIUM_UIDS.includes(user.uid));
+export function isPremiumUid(premiumMap, uid) {
+  return Boolean(uid && premiumMap && Object.prototype.hasOwnProperty.call(premiumMap, uid));
+}
+
+// Helper buat user yang lagi login (ambil premiumMap dari usePremium()).
+export function isPremium(user, premiumMap) {
+  return Boolean(user && isPremiumUid(premiumMap, user.uid));
 }
 
 // Batas jumlah iklan untuk user biasa (non-admin, non-premium).
