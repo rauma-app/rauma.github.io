@@ -108,6 +108,34 @@ export const d1Api = {
     }
   },
 
+  // Tandai 1 listing (atau sejumlah `amount` unit dari listing perumahan)
+  // sebagai terjual. Otomatis nambah hitungan unit terjual di profil penjual.
+  async markListingSold(id, amount = 1) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/listings/${id}/mark-sold`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount }),
+      });
+      return await res.json();
+    } catch (err) {
+      console.error('Error d1Api.markListingSold:', err);
+      throw err;
+    }
+  },
+
+  // Ambil total unit terjual milik 1 penjual (ditampilkan di halaman profil)
+  async getSellerStats(uid) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/sellers/${uid}`);
+      if (!res.ok) return { uid, sold_units: 0 };
+      return await res.json();
+    } catch (err) {
+      console.error('Error d1Api.getSellerStats:', err);
+      return { uid, sold_units: 0 };
+    }
+  },
+
   // Hapus properti
   async deleteListing(id) {
     try {
