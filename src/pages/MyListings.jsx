@@ -6,6 +6,7 @@ import ImageSlider from '../components/ImageSlider';
 import { formatMonthlyShort, formatRupiahShort } from '../lib/kpr';
 import { isAdmin } from '../lib/admin';
 import { isPremium } from '../lib/premium';
+import { usePremium } from '../context/PremiumContext';
 
 const STATUS_LABELS = {
   pending: { text: 'Menunggu Persetujuan', className: 'bg-amber-100 text-amber-700' },
@@ -24,7 +25,8 @@ export default function MyListings() {
   // Menu "Hapus" versi lengkap (Sudah Terjual / Hapus Saja) cuma buat
   // premium & admin -- sesuai fitur statistik "unit terjual" yang juga
   // cuma tampil di profil mereka. User biasa tetap "Hapus" polos.
-  const canTrackSold = isAdmin(user) || isPremium(user);
+  const { premiumMap } = usePremium();
+  const canTrackSold = isAdmin(user) || isPremium(user, premiumMap);
 
   // activeListing = listing yang sedang dibuka menu Hapus-nya.
   // step: 'menu' (pilih Sudah Terjual / Hapus Saja) atau 'qty' (isi jumlah unit, khusus perumahan)

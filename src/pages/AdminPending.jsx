@@ -2,16 +2,23 @@ import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { d1Api } from '../lib/d1Api';
 import { useAuth } from '../context/AuthContext';
+import { usePremium } from '../context/PremiumContext';
 import { isAdmin } from '../lib/admin';
 import ImageSlider from '../components/ImageSlider';
 import { formatRupiah } from '../lib/kpr';
 
 export default function AdminPending() {
   const { user, loading: authLoading } = useAuth();
+  const { premiumMap, refresh: refreshPremium } = usePremium();
   const [pending, setPending] = useState([]);
   const [allListings, setAllListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
+
+  // Form tambah akun Premium baru
+  const [newUid, setNewUid] = useState('');
+  const [newLabel, setNewLabel] = useState('');
+  const [premiumBusy, setPremiumBusy] = useState(false);
 
   useEffect(() => {
     if (!user || !isAdmin(user)) return;
@@ -63,6 +70,39 @@ export default function AdminPending() {
       alert('Gagal memperbarui status. Coba lagi ya.');
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function handleAddPremium(e) {
+    e.preventDefault();
+    const uid = newUid.trim();
+    if (!uid) return;
+    setPremiumBusy(true);
+    try {
+      await d1Api.addPremiumAccount(uid, newLabel.trim());
+      await refreshPremium();
+      setNewUid('');
+      setNewLabel('');
+    } catch (err) {
+      console.error(err);
+      alert('Gagal menambah akun Premium. Coba lagi ya.');
+    } finally {
+      setPremiumBusy(false);
+    }
+  }
+
+  async function handleRemovePremium(uid) {
+    const confirmed = window.confirm(`Cabut status Premium buat akun ini? (UID: ${uid})`);
+    if (!confirmed) return;
+    setPremiumBusy(true);
+    try {
+      await d1Api.removePremiumAccount(uid);
+      await refreshPremium();
+    } catch (err) {
+      console.error(err);
+      alert('Gagal menghapus akun Premium. Coba lagi ya.');
+    } finally {
+      setPremiumBusy(false);
     }
   }
 
@@ -120,6 +160,58 @@ export default function AdminPending() {
                 </button>
               </div>
             </div>
+          </div>
+        ))}
+      </div>
+
+      <h2 className="mt-12 font-display text-xl font-semibold text-navy">Kelola Premium</h2>
+      <p className="mt-1 text-sm text-ink/50">
+        Tambah/hapus akun Premium (ceklis biru) langsung dari sini, tanpa perlu edit kode. Cara dapat UID akun:
+        Firebase Console → Authentication → tab Users → copy kolom User UID.
+      </p>
+
+      <form onSubmit={handleAddPremium} className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <input
+          type="text"
+          placeholder="UID akun Google"
+          value={newUid}
+          onChange={(e) => setNewUid(e.target.value)}
+          className="flex-1 rounded-full border border-line px-4 py-2 text-sm"
+        />
+        <input
+          type="text"
+          placeholder="Label (misal: Arcadia Townhouse Cimahi)"
+          value={newLabel}
+          onChange={(e) => setNewLabel(e.target.value)}
+          className="flex-1 rounded-full border border-line px-4 py-2 text-sm"
+        />
+        <button
+          type="submit"
+          disabled={premiumBusy || !newUid.trim()}
+          className="rounded-full bg-forest px-5 py-2 text-sm font-semibold text-white hover:bg-forest-dark disabled:opacity-50"
+        >
+          + Tambah
+        </button>
+      </form>
+
+      <div className="mt-4 divide-y divide-line rounded-2xl border border-line bg-white">
+        {Object.keys(premiumMap).length === 0 && (
+          <p className="p-4 text-sm text-ink/50">Belum ada akun Premium.</p>
+        )}
+        {Object.entries(premiumMap).map(([uid, label]) => (
+          <div key={uid} className="flex items-center justify-between gap-3 p-4">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-navy">{label || '(tanpa label)'}</p>
+              <p className="truncate text-xs text-ink/40">{uid}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleRemovePremium(uid)}
+              disabled={premiumBusy}
+              className="shrink-0 rounded-full border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              Hapus
+            </button>
           </div>
         ))}
       </div>

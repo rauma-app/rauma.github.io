@@ -6,10 +6,11 @@ import Seo from '../components/Seo';
 import VerifiedBadge from '../components/VerifiedBadge';
 import ProfilePhotoViewer from '../components/ProfilePhotoViewer';
 import { ADMIN_UIDS } from '../lib/admin';
-import { PREMIUM_UIDS } from '../lib/premium';
+import { usePremium } from '../context/PremiumContext';
 
 export default function SellerProfile() {
   const { uid } = useParams();
+  const { premiumMap, loading: premiumLoading } = usePremium();
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [soldUnits, setSoldUnits] = useState(0);
@@ -35,9 +36,10 @@ export default function SellerProfile() {
   }, [uid]);
 
   const owner = listings[0];
-  const isOwnerVerified = ADMIN_UIDS.includes(uid) || PREMIUM_UIDS.includes(uid);
+  const isOwnerPremium = Boolean(uid && premiumMap && premiumMap[uid] !== undefined);
+  const isOwnerVerified = ADMIN_UIDS.includes(uid) || isOwnerPremium;
 
-  if (!loading && !isOwnerVerified) {
+  if (!loading && !premiumLoading && !isOwnerVerified) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
         <p className="text-ink/60">Halaman profil ini tidak tersedia.</p>
@@ -66,7 +68,7 @@ export default function SellerProfile() {
           <h1 className="flex items-center gap-1.5 font-display text-2xl font-semibold text-navy">
             {owner ? owner.ownerName : 'Profil Pengiklan'}
             {owner && ADMIN_UIDS.includes(owner.ownerUid) && <VerifiedBadge size={20} color="gold" />}
-            {owner && PREMIUM_UIDS.includes(owner.ownerUid) && !ADMIN_UIDS.includes(owner.ownerUid) && (
+            {owner && isOwnerPremium && !ADMIN_UIDS.includes(owner.ownerUid) && (
               <VerifiedBadge size={20} color="blue" />
             )}
           </h1>

@@ -7,7 +7,7 @@ import Seo from '../components/Seo';
 import VerifiedBadge from '../components/VerifiedBadge';
 import SaveButton from '../components/SaveButton';
 import { ADMIN_UIDS } from '../lib/admin';
-import { PREMIUM_UIDS } from '../lib/premium';
+import { usePremium } from '../context/PremiumContext';
 import { formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
@@ -34,6 +34,7 @@ export default function Listing() {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const { premiumMap } = usePremium();
   const [related, setRelated] = useState([]);
   const [materialOpen, setMaterialOpen] = useState(false);
 
@@ -153,9 +154,8 @@ export default function Listing() {
   const seoDescription = `Rumah dijual di ${lokasiText} harga ${formattedPriceFull}. Lihat detail & hubungi penjual di Rauma.`;
 
   const adminList = Array.isArray(ADMIN_UIDS) ? ADMIN_UIDS : [];
-  const premiumList = Array.isArray(PREMIUM_UIDS) ? PREMIUM_UIDS : [];
   const isOwnerAdmin = adminList.includes(listing.ownerUid);
-  const isOwnerPremium = premiumList.includes(listing.ownerUid);
+  const isOwnerPremium = Boolean(listing.ownerUid && premiumMap && premiumMap[listing.ownerUid] !== undefined);
   const isOwnerVerified = isOwnerAdmin || isOwnerPremium;
 
   return (
@@ -344,4 +344,4 @@ export default function Listing() {
       )}
     </div>
   );
-                }
+}

@@ -5,6 +5,7 @@ import { r2Uploader } from '../lib/r2Uploader';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../lib/admin';
 import { isPremium, FREE_LISTING_LIMIT, PREMIUM_LISTING_LIMIT } from '../lib/premium';
+import { usePremium } from '../context/PremiumContext';
 import LocationAutocomplete from '../components/LocationAutocomplete';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
@@ -83,7 +84,8 @@ export default function Posting() {
   const [materialOpen, setMaterialOpen] = useState(false);
 
   const userIsAdmin = isAdmin(user);
-  const userIsPremium = isPremium(user);
+  const { premiumMap } = usePremium();
+  const userIsPremium = isPremium(user, premiumMap);
   const listingLimit = userIsAdmin ? Infinity : userIsPremium ? PREMIUM_LISTING_LIMIT : FREE_LISTING_LIMIT;
   const limitReached = !isEditMode && listingCount !== null && listingCount >= listingLimit;
 
