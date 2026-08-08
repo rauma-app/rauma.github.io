@@ -61,6 +61,18 @@ export default {
       }
 
       // =============================================================
+      // 2b. ENDPOINT SELLERS (statistik unit terjual per penjual)
+      // =============================================================
+      if (path.startsWith("/api/sellers/")) {
+        const sellerParts = path.split("/").filter(Boolean); // ['api', 'sellers', uid]
+        if (sellerParts.length === 3 && method === "GET") {
+          const uid = sellerParts[2];
+          const row = await env.DB.prepare("SELECT sold_units FROM sellers WHERE uid = ?").bind(uid).first();
+          return json({ uid, sold_units: row ? row.sold_units : 0 });
+        }
+      }
+
+      // =============================================================
       // 2. ENDPOINT DATABASE D1 (/api/listings)
       // =============================================================
       if (path.startsWith("/api/listings")) {
@@ -146,6 +158,61 @@ export default {
             .run();
 
           return json({ success: true });
+        }
+
+        // POST /api/listings/:id/mark-sold  { amount }
+        // Tandai sejumlah unit dari 1 listing sebagai terjual:
+        //  - Listing biasa (unitTersedia kosong/1)      -> amount dipaksa 1, status jadi 'sold'
+        //  - Listing perumahan (unitTersedia > 1)       -> unitTersedia dikurangi `amount`,
+        //                                                   status jadi 'sold' HANYA kalau sisa unit jadi 0
+        // Setiap unit yang terjual juga menambah hitungan `sold_units` milik
+        // pemilik listing di tabel `sellers`, supaya tetap terhitung di profil
+        // walau listing-nya nanti dihapus.
+        if (pathParts.length === 4 && pathParts[3] === "mark-sold" && method === "POST") {
+          const id = pathParts[2];
+          const body = await request.json().catch(() => ({}));
+
+          const listing = await env.DB.prepare("SELECT ownerUid, unitTersedia FROM listings WHERE id = ?")
+            .bind(id)
+            .first();
+          if (!listing) {
+            return json({ error: "Properti tidak ditemukan" }, 404);
+          }
+
+          const currentUnits = Number(listing.unitTersedia);
+          const isMultiUnit = Number.isFinite(currentUnits) && currentUnits > 1;
+
+          let amount = 1;
+          let newUnitTersedia = null;
+          let newStatus = "sold";
+
+          if (isMultiUnit) {
+            const requested = Math.floor(Number(body.amount) || 1);
+            amount = Math.min(Math.max(requested, 1), currentUnits);
+            newUnitTersedia = currentUnits - amount;
+            newStatus = newUnitTersedia <= 0 ? "sold" : "approved";
+          }
+
+          if (isMultiUnit) {
+            await env.DB.prepare("UPDATE listings SET unitTersedia = ?, status = ? WHERE id = ?")
+              .bind(newUnitTersedia, newStatus, id)
+              .run();
+          } else {
+            await env.DB.prepare("UPDATE listings SET status = ? WHERE id = ?")
+              .bind(newStatus, id)
+              .run();
+          }
+
+          if (listing.ownerUid) {
+            await env.DB.prepare(
+              `INSERT INTO sellers (uid, sold_units) VALUES (?, ?)
+               ON CONFLICT(uid) DO UPDATE SET sold_units = sold_units + excluded.sold_units`
+            )
+              .bind(listing.ownerUid, amount)
+              .run();
+          }
+
+          return json({ success: true, amount, newStatus, newUnitTersedia });
         }
 
         // DELETE /api/listings/:id (HAPUS PROPERTI)
@@ -384,3 +451,4 @@ export default {
   },
 };
 
+              
