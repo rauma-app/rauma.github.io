@@ -4,6 +4,36 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
+    // --- Helper tanggal WIB (UTC+7), dipakai buat filter periode statistik ---
+    // datetime('now') di SQLite/D1 itu UTC, jadi semua boundary di sini
+    // dihitung dulu di jam WIB terus dikonversi balik ke UTC buat query.
+    function wibNow() {
+      return new Date(Date.now() + 7 * 3600 * 1000);
+    }
+    function toSqlUTC(wibWallClockDate) {
+      return new Date(wibWallClockDate.getTime() - 7 * 3600 * 1000)
+        .toISOString()
+        .slice(0, 19)
+        .replace("T", " ");
+    }
+    function getPeriodRange(period) {
+      const now = wibNow();
+      const y = now.getUTCFullYear();
+      const m = now.getUTCMonth();
+      const d = now.getUTCDate();
+      if (period === "today") {
+        return { start: toSqlUTC(new Date(Date.UTC(y, m, d, 0, 0, 0))), end: null };
+      }
+      if (period === "lastmonth") {
+        return {
+          start: toSqlUTC(new Date(Date.UTC(y, m - 1, 1, 0, 0, 0))),
+          end: toSqlUTC(new Date(Date.UTC(y, m, 1, 0, 0, 0))),
+        };
+      }
+      // default: 'month' -> bulan ini
+      return { start: toSqlUTC(new Date(Date.UTC(y, m, 1, 0, 0, 0))), end: null };
+    }
+
     // Header CORS Lengkap
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
@@ -89,6 +119,92 @@ export default {
         const uid = path.split("/").filter(Boolean)[2];
         await env.DB.prepare("DELETE FROM premium_accounts WHERE uid = ?").bind(uid).run();
         return json({ success: true });
+      }
+
+      // =============================================================
+      // 2c. ENDPOINT ANALYTICS (pageview, klik whatsapp, pencarian)
+      // =============================================================
+      if (path === "/api/events" && method === "POST") {
+        const body = await request.json().catch(() => ({}));
+        const eventType = body.event_type;
+        if (!["pageview", "whatsapp_click", "search"].includes(eventType)) {
+          return json({ error: "event_type tidak valid" }, 400);
+        }
+        await env.DB.prepare(
+          `INSERT INTO analytics_events (event_type, anon_id, listing_id, query_text, created_at)
+           VALUES (?, ?, ?, ?, datetime('now'))`
+        )
+          .bind(eventType, body.anon_id || null, body.listing_id || null, body.query_text || null)
+          .run();
+        return json({ success: true });
+      }
+
+      // GET /api/admin/stats?period=today|month|lastmonth
+      // Dashboard statistik buat Admin: pengunjung, klik WA, pencarian,
+      // listing baru, unit & nilai terjual (per periode) + data all-time
+      // dan listing per daerah (snapshot sekarang, gak difilter periode).
+      if (path === "/api/admin/stats" && method === "GET") {
+        const period = url.searchParams.get("period") || "today";
+        const { start, end } = getPeriodRange(period);
+        const endClause = end ? "AND created_at < ?" : "";
+        const bindDate = (base) => (end ? [...base, start, end] : [...base, start]);
+
+        const pageviewsRow = await env.DB.prepare(
+          `SELECT COUNT(DISTINCT anon_id) AS n FROM analytics_events WHERE event_type = 'pageview' AND created_at >= ? ${endClause}`
+        )
+          .bind(...bindDate([]))
+          .first();
+
+        const waClicksRow = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM analytics_events WHERE event_type = 'whatsapp_click' AND created_at >= ? ${endClause}`
+        )
+          .bind(...bindDate([]))
+          .first();
+
+        const searchesRow = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM analytics_events WHERE event_type = 'search' AND created_at >= ? ${endClause}`
+        )
+          .bind(...bindDate([]))
+          .first();
+
+        const newListingsRow = await env.DB.prepare(
+          `SELECT COUNT(*) AS n FROM listings WHERE created_at >= ? ${endClause}`
+        )
+          .bind(...bindDate([]))
+          .first();
+
+        const soldPeriodRow = await env.DB.prepare(
+          `SELECT COALESCE(SUM(amount), 0) AS units, COALESCE(SUM(total_value), 0) AS value
+           FROM sales_log WHERE created_at >= ? ${endClause}`
+        )
+          .bind(...bindDate([]))
+          .first();
+
+        const soldAllTimeRow = await env.DB.prepare(
+          `SELECT COALESCE(SUM(amount), 0) AS units, COALESCE(SUM(total_value), 0) AS value FROM sales_log`
+        ).first();
+
+        const { results: byArea } = await env.DB.prepare(
+          `SELECT COALESCE(kabupaten, 'Lainnya') AS kabupaten, COUNT(*) AS count
+           FROM listings WHERE status = 'approved'
+           GROUP BY kabupaten ORDER BY count DESC`
+        ).all();
+
+        return json({
+          period: {
+            pengunjung: pageviewsRow?.n || 0,
+            klik_whatsapp: waClicksRow?.n || 0,
+            pencarian: searchesRow?.n || 0,
+            listing_baru: newListingsRow?.n || 0,
+            unit_terjual: soldPeriodRow?.units || 0,
+            nilai_terjual: soldPeriodRow?.value || 0,
+          },
+          all_time: {
+            unit_terjual: soldAllTimeRow?.units || 0,
+            nilai_terjual: soldAllTimeRow?.value || 0,
+          },
+          listing_per_daerah: byArea || [],
+        });
       }
 
       // =============================================================
@@ -198,12 +314,14 @@ export default {
         //                                                   status jadi 'sold' HANYA kalau sisa unit jadi 0
         // Setiap unit yang terjual juga menambah hitungan `sold_units` milik
         // pemilik listing di tabel `sellers`, supaya tetap terhitung di profil
-        // walau listing-nya nanti dihapus.
+        // walau listing-nya nanti dihapus. Dicatat JUGA ke `sales_log` --
+        // berlaku buat SEMUA user (bukan cuma premium/admin) -- supaya
+        // dashboard statistik Admin (nilai properti terjual) akurat.
         if (pathParts.length === 4 && pathParts[3] === "mark-sold" && method === "POST") {
           const id = pathParts[2];
           const body = await request.json().catch(() => ({}));
 
-          const listing = await env.DB.prepare("SELECT ownerUid, unitTersedia FROM listings WHERE id = ?")
+          const listing = await env.DB.prepare("SELECT ownerUid, unitTersedia, price FROM listings WHERE id = ?")
             .bind(id)
             .first();
           if (!listing) {
@@ -242,6 +360,15 @@ export default {
               .bind(listing.ownerUid, amount)
               .run();
           }
+
+          const pricePerUnit = Number(listing.price) || 0;
+          const totalValue = pricePerUnit * amount;
+          await env.DB.prepare(
+            `INSERT INTO sales_log (listing_id, uid, amount, price, total_value, created_at)
+             VALUES (?, ?, ?, ?, ?, datetime('now'))`
+          )
+            .bind(id, listing.ownerUid || null, amount, pricePerUnit, totalValue)
+            .run();
 
           return json({ success: true, amount, newStatus, newUnitTersedia });
         }
