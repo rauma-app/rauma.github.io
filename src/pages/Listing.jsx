@@ -288,33 +288,33 @@ export default function Listing() {
       )}
 
       {/* Kontak Penjual */}
-      <section className="mt-8 flex items-center justify-between rounded-2xl border border-line bg-white p-4">
+      <section className="mt-8 flex items-center justify-between gap-3 rounded-2xl border border-line bg-white p-4">
         {isOwnerVerified ? (
-          <Link to={`/penjual/${listing.ownerUid}`} className="flex items-center gap-3 hover:opacity-80">
+          <Link to={`/penjual/${listing.ownerUid}`} className="flex min-w-0 items-center gap-3 hover:opacity-80">
             {listing.ownerPhoto && (
               <img
                 src={listing.ownerPhoto}
                 alt={listing.ownerName}
                 referrerPolicy="no-referrer"
-                className="h-11 w-11 rounded-full object-cover"
+                className="h-11 w-11 shrink-0 rounded-full object-cover"
               />
             )}
-            <span className="flex items-center gap-1 font-semibold text-ink">
-              {listing.ownerName}
+            <span className="flex min-w-0 items-center gap-1 truncate font-semibold text-ink">
+              <span className="truncate">{listing.ownerName}</span>
               {VerifiedBadge && <VerifiedBadge color={isOwnerAdmin ? 'gold' : 'blue'} />}
             </span>
           </Link>
         ) : (
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             {listing.ownerPhoto && (
               <img
                 src={listing.ownerPhoto}
                 alt={listing.ownerName}
                 referrerPolicy="no-referrer"
-                className="h-11 w-11 rounded-full object-cover"
+                className="h-11 w-11 shrink-0 rounded-full object-cover"
               />
             )}
-            <span className="font-semibold text-ink">{listing.ownerName}</span>
+            <span className="truncate font-semibold text-ink">{listing.ownerName}</span>
           </div>
         )}
 
@@ -324,9 +324,9 @@ export default function Listing() {
             target="_blank"
             rel="noreferrer"
             onClick={() => d1Api.logEvent('whatsapp_click', { anon_id: getAnonId(), listing_id: listing.id })}
-            className="flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1EBE57]"
+            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[#064734] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#053a2a]"
           >
-            <FaWhatsapp size={18} /> Chat Sekarang
+            <FaWhatsapp size={16} /> WhatsApp
           </a>
         )}
       </section>
@@ -346,5 +346,4 @@ export default function Listing() {
       )}
     </div>
   );
-    }
-            
+}
