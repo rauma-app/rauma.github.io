@@ -99,6 +99,15 @@ export default function Header() {
                     Tinjau Iklan (Admin)
                   </Link>
                 )}
+                {isAdmin(user) && (
+                  <Link
+                    to="/admin/statistik"
+                    onClick={() => setOpen(false)}
+                    className="block px-4 py-3 text-sm text-forest hover:bg-cream"
+                  >
+                    Statistik (Admin)
+                  </Link>
+                )}
                 <button
                   onClick={async () => {
                     setOpen(false);
