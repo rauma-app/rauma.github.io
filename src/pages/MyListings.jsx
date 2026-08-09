@@ -4,9 +4,6 @@ import { d1Api } from '../lib/d1Api';
 import { useAuth } from '../context/AuthContext';
 import ImageSlider from '../components/ImageSlider';
 import { formatMonthlyShort, formatRupiahShort } from '../lib/kpr';
-import { isAdmin } from '../lib/admin';
-import { isPremium } from '../lib/premium';
-import { usePremium } from '../context/PremiumContext';
 
 const STATUS_LABELS = {
   pending: { text: 'Menunggu Persetujuan', className: 'bg-amber-100 text-amber-700' },
@@ -22,11 +19,13 @@ export default function MyListings() {
   const [deletingId, setDeletingId] = useState(null);
   const [processingId, setProcessingId] = useState(null);
 
-  // Menu "Hapus" versi lengkap (Sudah Terjual / Hapus Saja) cuma buat
-  // premium & admin -- sesuai fitur statistik "unit terjual" yang juga
-  // cuma tampil di profil mereka. User biasa tetap "Hapus" polos.
-  const { premiumMap } = usePremium();
-  const canTrackSold = isAdmin(user) || isPremium(user, premiumMap);
+  // Menu "Hapus" versi lengkap (Sudah Terjual / Hapus Saja) berlaku buat
+  // SEMUA user -- supaya dashboard statistik Admin (nilai properti terjual)
+  // ngitung transaksi dari SEMUA orang, bukan cuma premium/admin. Yang
+  // TETAP dibatasi cuma tampilan "unit terjual" di halaman profil publik
+  // (itu logikanya ada di SellerProfile.jsx, cuma premium/admin yang punya
+  // halaman profil).
+  const canTrackSold = true;
 
   // activeListing = listing yang sedang dibuka menu Hapus-nya.
   // step: 'menu' (pilih Sudah Terjual / Hapus Saja) atau 'qty' (isi jumlah unit, khusus perumahan)

@@ -4,6 +4,7 @@ import { d1Api } from '../lib/d1Api';
 import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
 import { parseSearchQuery, deslugify } from '../lib/searchParser';
+import { getAnonId } from '../lib/anon';
 
 export default function Cari() {
   const { slug } = useParams();
@@ -18,6 +19,15 @@ export default function Cari() {
   const [results, setResults] = useState([]);
   const [fallbackResults, setFallbackResults] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Catat query yang benar-benar diketik orang -- data ini yang dibaca di
+  // dashboard statistik Admin buat lihat area mana yang paling banyak
+  // dicari (termasuk yang hasilnya kosong -- itu sinyal ekspansi).
+  useEffect(() => {
+    if (rawQuery) {
+      d1Api.logEvent('search', { anon_id: getAnonId(), query_text: rawQuery });
+    }
+  }, [rawQuery]);
 
   useEffect(() => {
     let cancelled = false;

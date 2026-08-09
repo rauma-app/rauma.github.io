@@ -8,6 +8,7 @@ import VerifiedBadge from '../components/VerifiedBadge';
 import SaveButton from '../components/SaveButton';
 import { ADMIN_UIDS } from '../lib/admin';
 import { usePremium } from '../context/PremiumContext';
+import { getAnonId } from '../lib/anon';
 import { formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
@@ -322,6 +323,7 @@ export default function Listing() {
             href={waLink}
             target="_blank"
             rel="noreferrer"
+            onClick={() => d1Api.logEvent('whatsapp_click', { anon_id: getAnonId(), listing_id: listing.id })}
             className="flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1EBE57]"
           >
             <span>💬</span> Chat Sekarang
