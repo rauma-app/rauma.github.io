@@ -136,6 +136,34 @@ export const d1Api = {
     }
   },
 
+  // Catat 1 event analytics (pageview / whatsapp_click / search).
+  // Fire-and-forget -- kalau gagal (misal lagi offline), diamkan aja,
+  // jangan sampai ganggu pengalaman user.
+  async logEvent(eventType, extra = {}) {
+    try {
+      await fetch(`${API_BASE_URL}/events`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_type: eventType, ...extra }),
+      });
+    } catch (err) {
+      // sengaja diabaikan
+    }
+  },
+
+  // Ambil data buat dashboard statistik Admin.
+  // period: 'today' | 'month' | 'lastmonth'
+  async getAdminStats(period = 'today') {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/stats?period=${period}`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      console.error('Error d1Api.getAdminStats:', err);
+      return null;
+    }
+  },
+
   // Ambil semua akun Premium (buat dipakai di seluruh situs & halaman Admin)
   async getPremiumAccounts() {
     try {
