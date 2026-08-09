@@ -1,9 +1,11 @@
-import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from './components/ProtectedRoute';
+import { d1Api } from './lib/d1Api';
+import { getAnonId } from './lib/anon';
 import Home from './pages/Home';
 import PerumahanList from './pages/PerumahanList';
 import PriceSortedList from './pages/PriceSortedList';
@@ -17,13 +19,27 @@ import Listing from './pages/Listing';
 import MyListings from './pages/MyListings';
 import SavedListings from './pages/SavedListings';
 import AdminPending from './pages/AdminPending';
+import AdminStats from './pages/AdminStats';
 import SellerProfile from './pages/SellerProfile';
 import TentangKami from './pages/TentangKami';
+
+// Nyatet 1 "pageview" tiap kali pindah halaman -- dipakai dashboard
+// statistik Admin buat hitung jumlah pengunjung. Gak render apa-apa,
+// cuma efek samping di background.
+function PageviewTracker() {
+  const location = useLocation();
+  useEffect(() => {
+    d1Api.logEvent('pageview', { anon_id: getAnonId() });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+  return null;
+}
 
 export default function App() {
   return (
     <div className="flex min-h-screen flex-col bg-cream">
       <ScrollToTop />
+      <PageviewTracker />
       <Header />
       <main className="flex-1">
         <Routes>
@@ -73,6 +89,7 @@ export default function App() {
             }
           />
           <Route path="/admin" element={<AdminPending />} />
+          <Route path="/admin/statistik" element={<AdminStats />} />
         </Routes>
       </main>
       <Footer />
