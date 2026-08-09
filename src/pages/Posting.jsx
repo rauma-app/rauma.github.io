@@ -698,7 +698,7 @@ export default function Posting() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded-full bg-forest py-3.5 text-center font-semibold text-white hover:bg-forest-dark disabled:opacity-60"
+          className="w-full rounded-full bg-[#064734] py-3.5 text-center font-semibold text-white hover:bg-forest-dark disabled:opacity-60"
         >
           {submitting ? 'Menyimpan...' : isEditMode ? 'SIMPAN PERUBAHAN' : 'POSTING'}
         </button>
