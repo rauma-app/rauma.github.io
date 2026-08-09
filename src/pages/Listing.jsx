@@ -10,7 +10,7 @@ import { ADMIN_UIDS } from '../lib/admin';
 import { usePremium } from '../context/PremiumContext';
 import { getAnonId } from '../lib/anon';
 import { formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
-import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaChevronDown, FaChevronUp, FaWhatsapp } from 'react-icons/fa';
 
 // Baris sisa spesifikasi (Luas & Kamar sudah digabung terpisah, lihat di bawah)
 const SPEC_ROWS = [
@@ -326,7 +326,7 @@ export default function Listing() {
             onClick={() => d1Api.logEvent('whatsapp_click', { anon_id: getAnonId(), listing_id: listing.id })}
             className="flex items-center gap-2 rounded-full bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1EBE57]"
           >
-            <span>💬</span> Chat Sekarang
+            <FaWhatsapp size={18} /> Chat Sekarang
           </a>
         )}
       </section>
@@ -346,4 +346,5 @@ export default function Listing() {
       )}
     </div>
   );
-}
+    }
+            
