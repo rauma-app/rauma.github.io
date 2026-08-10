@@ -192,6 +192,34 @@ export const d1Api = {
     return await res.json();
   },
 
+  // Ambil semua akun Admin Perumahan (centang kuning terbatas)
+  async getPerumahanAdmins() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/perumahan-admins`);
+      if (!res.ok) return [];
+      return await res.json();
+    } catch (err) {
+      console.error('Error d1Api.getPerumahanAdmins:', err);
+      return [];
+    }
+  },
+
+  // Tambah/update 1 akun jadi Admin Perumahan. label = catatan internal (opsional)
+  async addPerumahanAdmin(uid, label) {
+    const res = await fetch(`${API_BASE_URL}/perumahan-admins`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid, label }),
+    });
+    return await res.json();
+  },
+
+  // Cabut status Admin Perumahan 1 akun
+  async removePerumahanAdmin(uid) {
+    const res = await fetch(`${API_BASE_URL}/perumahan-admins/${uid}`, { method: 'DELETE' });
+    return await res.json();
+  },
+
   // Hapus properti
   async deleteListing(id) {
     try {
