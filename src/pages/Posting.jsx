@@ -96,6 +96,29 @@ export default function Posting() {
     userIsAdmin || userIsPerumahanAdmin ? Infinity : userIsPremium ? PREMIUM_LISTING_LIMIT : FREE_LISTING_LIMIT;
   const limitReached = !isEditMode && listingCount !== null && listingCount >= listingLimit;
 
+  // Kategori yang boleh dipilih, beda-beda tergantung role:
+  //  - Admin Perumahan : cuma 'perumahan' (dikunci, gak ada pilihan lain)
+  //  - Admin utama     : semua kategori (gak berubah)
+  //  - Premium         : pribadi, take_over_kpr, subsidi (perumahan DICABUT)
+  //  - User biasa      : pribadi, take_over_kpr
+  const typeOptions = userIsPerumahanAdmin
+    ? ['perumahan']
+    : userIsAdmin
+      ? ['pribadi', 'take_over_kpr', 'perumahan', 'subsidi']
+      : userIsPremium
+        ? ['pribadi', 'take_over_kpr', 'subsidi']
+        : ['pribadi', 'take_over_kpr'];
+
+  // Admin Perumahan cuma punya 1 kategori -> paksa selalu 'perumahan'.
+  // PENTING: hook ini harus dipanggil sebelum return apa pun di bawah
+  // (loading/limit), biar urutan hooks konsisten tiap render.
+  useEffect(() => {
+    if (userIsPerumahanAdmin && form.type !== 'perumahan') {
+      update('type', 'perumahan');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userIsPerumahanAdmin]);
+
   // Cek limit listing milik user dari Cloudflare D1
   useEffect(() => {
     if (isEditMode || !user || userIsAdmin || userIsPerumahanAdmin) return;
@@ -481,27 +504,6 @@ export default function Posting() {
       </div>
     );
   }
-
-  // Kategori yang boleh dipilih, beda-beda tergantung role:
-  //  - Admin Perumahan : cuma 'perumahan' (dikunci, gak ada pilihan lain)
-  //  - Admin utama     : semua kategori (gak berubah)
-  //  - Premium         : pribadi, take_over_kpr, subsidi (perumahan DICABUT)
-  //  - User biasa      : pribadi, take_over_kpr
-  const typeOptions = userIsPerumahanAdmin
-    ? ['perumahan']
-    : userIsAdmin
-      ? ['pribadi', 'take_over_kpr', 'perumahan', 'subsidi']
-      : userIsPremium
-        ? ['pribadi', 'take_over_kpr', 'subsidi']
-        : ['pribadi', 'take_over_kpr'];
-
-  // Admin Perumahan cuma punya 1 kategori -> paksa selalu 'perumahan'
-  useEffect(() => {
-    if (userIsPerumahanAdmin && form.type !== 'perumahan') {
-      update('type', 'perumahan');
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userIsPerumahanAdmin]);
 
   return (
     <div className="mx-auto max-w-xl px-4 py-8">
