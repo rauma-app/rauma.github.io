@@ -1,11 +1,15 @@
-import React, { useEffect, useRef, useState } from 'react';
+                  import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../lib/admin';
+import { isPerumahanAdmin } from '../lib/perumahanAdmin';
+import { usePremium } from '../context/PremiumContext';
 import rauLogo from '../assets/logo/rauma-logo.svg';
 
 export default function Header() {
   const { user, loginWithGoogle, logout } = useAuth();
+  const { perumahanAdminMap } = usePremium();
+  const userIsPerumahanAdmin = isPerumahanAdmin(user, perumahanAdminMap);
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
   const navigate = useNavigate();
@@ -83,14 +87,16 @@ export default function Header() {
                 >
                   Iklan Saya
                 </Link>
-                <Link
-                  to="/disimpan"
-                  onClick={() => setOpen(false)}
-                  className="block px-4 py-3 text-sm text-ink hover:bg-cream"
-                >
-                  Disimpan
-                </Link>
-                {isAdmin(user) && (
+                {!userIsPerumahanAdmin && (
+                  <Link
+                    to="/disimpan"
+                    onClick={() => setOpen(false)}
+                    className="block px-4 py-3 text-sm text-ink hover:bg-cream"
+                  >
+                    Disimpan
+                  </Link>
+                )}
+                {isAdmin(user) && !userIsPerumahanAdmin && (
                   <Link
                     to="/admin"
                     onClick={() => setOpen(false)}
@@ -99,7 +105,7 @@ export default function Header() {
                     Tinjau Iklan (Admin)
                   </Link>
                 )}
-                {isAdmin(user) && (
+                {isAdmin(user) && !userIsPerumahanAdmin && (
                   <Link
                     to="/admin/statistik"
                     onClick={() => setOpen(false)}
