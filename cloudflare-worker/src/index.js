@@ -122,6 +122,38 @@ export default {
       }
 
       // =============================================================
+      // 2b. ENDPOINT ADMIN PERUMAHAN (akun centang kuning terbatas, cuma
+      // bisa posting kategori Perumahan -- dikelola dari halaman Admin ->
+      // "Kelola Admin Perumahan", sama seperti Premium)
+      // =============================================================
+      if (path === "/api/perumahan-admins" && method === "GET") {
+        const { results } = await env.DB.prepare(
+          "SELECT uid, label, created_at FROM perumahan_admins ORDER BY created_at DESC"
+        ).all();
+        return json(results || []);
+      }
+
+      if (path === "/api/perumahan-admins" && method === "POST") {
+        const body = await request.json().catch(() => ({}));
+        if (!body.uid) {
+          return json({ error: "Field 'uid' wajib diisi" }, 400);
+        }
+        await env.DB.prepare(
+          `INSERT INTO perumahan_admins (uid, label, created_at) VALUES (?, ?, datetime('now'))
+           ON CONFLICT(uid) DO UPDATE SET label = excluded.label`
+        )
+          .bind(body.uid, body.label || null)
+          .run();
+        return json({ success: true });
+      }
+
+      if (path.startsWith("/api/perumahan-admins/") && method === "DELETE") {
+        const uid = path.split("/").filter(Boolean)[2];
+        await env.DB.prepare("DELETE FROM perumahan_admins WHERE uid = ?").bind(uid).run();
+        return json({ success: true });
+      }
+
+      // =============================================================
       // 2c. ENDPOINT ANALYTICS (pageview, klik whatsapp, pencarian)
       // =============================================================
       if (path === "/api/events" && method === "POST") {
@@ -428,7 +460,7 @@ export default {
             params.push(Number(maxPrice));
           }
           if (location) {
-            // Kata pencarian bisa berupa beberapa kata (misal "bandung barat"),
+           // Kata pencarian bisa berupa beberapa kata (misal "bandung barat"),
             // masing-masing kata dicocokkan LIKE ke kabupaten/kecamatan/location
             // -- listing cocok kalau SEMUA kata ketemu di salah satu kolom itu.
             const words = location.split(/\s+/).filter(Boolean).slice(0, 5);
@@ -441,7 +473,7 @@ export default {
 
           if (status === "all") {
             // tidak ada filter status, admin ingin lihat semuanya
-          } else if (status) {
+             } else if (status) {
             conditions.push("status = ?");
             params.push(status);
           } else {
@@ -474,8 +506,9 @@ export default {
               electricity, air, sertifikat, videoUrl, description,
               phone, seller_phone, whatsapp, seller_uid, ownerUid, ownerName, ownerPhoto,
               images, status,
-              materialPondasi, materialDinding, materialAtap, materialKusen, materialLantai, materialKloset
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              materialPondasi, materialDinding, materialAtap, materialKusen, materialLantai, materialKloset,
+              perumahanName, perumahanPhoto
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               title=excluded.title, type=excluded.type, category=excluded.category, price=excluded.price,
               cicilanPerBulan=excluded.cicilanPerBulan, location=excluded.location, kabupaten=excluded.kabupaten,
@@ -488,7 +521,8 @@ export default {
               ownerPhoto=excluded.ownerPhoto, images=excluded.images, status=excluded.status,
               materialPondasi=excluded.materialPondasi, materialDinding=excluded.materialDinding,
               materialAtap=excluded.materialAtap, materialKusen=excluded.materialKusen,
-              materialLantai=excluded.materialLantai, materialKloset=excluded.materialKloset`
+              materialLantai=excluded.materialLantai, materialKloset=excluded.materialKloset,
+              perumahanName=excluded.perumahanName, perumahanPhoto=excluded.perumahanPhoto`
           )
             .bind(
               idToSave,
@@ -526,7 +560,9 @@ export default {
               body.materialAtap || null,
               body.materialKusen || null,
               body.materialLantai || null,
-              body.materialKloset || null
+              body.materialKloset || null,
+              body.perumahanName || null,
+              body.perumahanPhoto || null
             )
             .run();
 
@@ -608,4 +644,3 @@ export default {
     }
   },
 };
-              
