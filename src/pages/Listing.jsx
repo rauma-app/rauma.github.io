@@ -289,7 +289,24 @@ export default function Listing() {
 
       {/* Kontak Penjual */}
       <section className="mt-8 flex items-center justify-between gap-3 rounded-2xl border border-line bg-white p-4">
-        {isOwnerVerified ? (
+        {listing.perumahanName ? (
+          // Listing dari Admin Perumahan: tampilkan Nama Perumahan (bukan
+          // nama akun), centang biru otomatis, TIDAK bisa diklik.
+          <div className="flex min-w-0 items-center gap-3">
+            {listing.perumahanPhoto && (
+              <img
+                src={listing.perumahanPhoto}
+                alt={listing.perumahanName}
+                referrerPolicy="no-referrer"
+                className="h-11 w-11 shrink-0 rounded-full object-cover"
+              />
+            )}
+            <span className="flex min-w-0 items-center gap-1 truncate font-semibold text-ink">
+              <span className="truncate">{listing.perumahanName}</span>
+              <VerifiedBadge color="blue" />
+            </span>
+          </div>
+        ) : isOwnerVerified ? (
           <Link to={`/penjual/${listing.ownerUid}`} className="flex min-w-0 items-center gap-3 hover:opacity-80">
             {listing.ownerPhoto && (
               <img
@@ -326,7 +343,7 @@ export default function Listing() {
             onClick={() => d1Api.logEvent('whatsapp_click', { anon_id: getAnonId(), listing_id: listing.id })}
             className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[#064734] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#053a2a]"
           >
-            <FaWhatsapp size={16} /> WhatsApp
+            <FaWhatsapp size={16} /> Chat
           </a>
         )}
       </section>

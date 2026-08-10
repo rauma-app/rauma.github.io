@@ -5,6 +5,7 @@ import { r2Uploader } from '../lib/r2Uploader';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../lib/admin';
 import { isPremium, FREE_LISTING_LIMIT, PREMIUM_LISTING_LIMIT } from '../lib/premium';
+import { isPerumahanAdmin } from '../lib/perumahanAdmin';
 import { usePremium } from '../context/PremiumContext';
 import LocationAutocomplete from '../components/LocationAutocomplete';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
@@ -55,6 +56,8 @@ const emptyForm = {
   materialKusen: '',
   materialLantai: '',
   materialKloset: '',
+  perumahanName: '',
+  perumahanPhoto: '', // URL foto lama (mode edit); file barunya di state perumahanPhotoFile
 };
 
 const MAX_PHOTOS = 5;
@@ -82,16 +85,20 @@ export default function Posting() {
   const [listingCount, setListingCount] = useState(null);
   const [phoneLimitReached, setPhoneLimitReached] = useState(false);
   const [materialOpen, setMaterialOpen] = useState(false);
+  const [perumahanPhotoFile, setPerumahanPhotoFile] = useState(null);
+  const [perumahanPhotoPreview, setPerumahanPhotoPreview] = useState('');
 
   const userIsAdmin = isAdmin(user);
-  const { premiumMap } = usePremium();
+  const { premiumMap, perumahanAdminMap } = usePremium();
   const userIsPremium = isPremium(user, premiumMap);
-  const listingLimit = userIsAdmin ? Infinity : userIsPremium ? PREMIUM_LISTING_LIMIT : FREE_LISTING_LIMIT;
+  const userIsPerumahanAdmin = isPerumahanAdmin(user, perumahanAdminMap);
+  const listingLimit =
+    userIsAdmin || userIsPerumahanAdmin ? Infinity : userIsPremium ? PREMIUM_LISTING_LIMIT : FREE_LISTING_LIMIT;
   const limitReached = !isEditMode && listingCount !== null && listingCount >= listingLimit;
 
   // Cek limit listing milik user dari Cloudflare D1
   useEffect(() => {
-    if (isEditMode || !user || userIsAdmin) return;
+    if (isEditMode || !user || userIsAdmin || userIsPerumahanAdmin) return;
     let cancelled = false;
 
     async function loadCount() {
@@ -170,7 +177,13 @@ export default function Posting() {
           materialKusen: data.materialKusen || '',
           materialLantai: data.materialLantai || '',
           materialKloset: data.materialKloset || '',
+          perumahanName: data.perumahanName || '',
+          perumahanPhoto: data.perumahanPhoto || '',
         });
+
+        if (data.perumahanPhoto) {
+          setPerumahanPhotoPreview(data.perumahanPhoto);
+        }
 
         // Kalau ada material yang sudah keisi (edit iklan lama), buka
         // section-nya otomatis biar user langsung lihat & bisa ubah.
@@ -270,10 +283,21 @@ export default function Posting() {
       return;
     }
 
+    if (userIsPerumahanAdmin) {
+      if (!form.perumahanName.trim()) {
+        setError('Nama Perumahan wajib diisi.');
+        return;
+      }
+      if (!perumahanPhotoFile && !form.perumahanPhoto) {
+        setError('Foto Profil Perumahan wajib diisi.');
+        return;
+      }
+    }
+
     // Cegah akali batas iklan gratis dengan ganti-ganti akun Google: hitung
     // juga berapa iklan yang sudah pakai nomor WhatsApp ini, lintas akun
     // manapun. Admin & Premium gak kena batas ini.
-    if (!isEditMode && !userIsAdmin && !userIsPremium) {
+    if (!isEditMode && !userIsAdmin && !userIsPremium && !userIsPerumahanAdmin) {
       try {
         const listingsWithSamePhone = await d1Api.getListings({ whatsapp: form.whatsapp, status: 'all' });
         if (listingsWithSamePhone.length >= FREE_LISTING_LIMIT) {
@@ -303,6 +327,12 @@ export default function Posting() {
       }
 
       const imageUrls = [...existingImages, ...newImageUrls];
+
+      // 1b. Upload Foto Profil Perumahan (kalau ada file baru)
+      let perumahanPhotoUrl = form.perumahanPhoto || '';
+      if (userIsPerumahanAdmin && perumahanPhotoFile) {
+        perumahanPhotoUrl = await r2Uploader.uploadFile(perumahanPhotoFile);
+      }
 
       // Safe Extraction untuk Lokasi
       const locObj = typeof form.location === 'object' && form.location !== null ? form.location : {};
@@ -360,9 +390,13 @@ export default function Posting() {
         ownerName: resolvedOwnerName,
         ownerPhoto: resolvedOwnerPhoto,
 
+        // Perumahan (khusus role Admin Perumahan)
+        perumahanName: userIsPerumahanAdmin ? form.perumahanName.trim() : null,
+        perumahanPhoto: userIsPerumahanAdmin ? perumahanPhotoUrl || null : null,
+
         // Media & Status
         images: imageUrls,
-        status: userIsAdmin ? 'approved' : 'pending',
+        status: userIsAdmin || userIsPerumahanAdmin ? 'approved' : 'pending',
       };
 
       // 3. Simpan ke Cloudflare D1
@@ -448,6 +482,27 @@ export default function Posting() {
     );
   }
 
+  // Kategori yang boleh dipilih, beda-beda tergantung role:
+  //  - Admin Perumahan : cuma 'perumahan' (dikunci, gak ada pilihan lain)
+  //  - Admin utama     : semua kategori (gak berubah)
+  //  - Premium         : pribadi, take_over_kpr, subsidi (perumahan DICABUT)
+  //  - User biasa      : pribadi, take_over_kpr
+  const typeOptions = userIsPerumahanAdmin
+    ? ['perumahan']
+    : userIsAdmin
+      ? ['pribadi', 'take_over_kpr', 'perumahan', 'subsidi']
+      : userIsPremium
+        ? ['pribadi', 'take_over_kpr', 'subsidi']
+        : ['pribadi', 'take_over_kpr'];
+
+  // Admin Perumahan cuma punya 1 kategori -> paksa selalu 'perumahan'
+  useEffect(() => {
+    if (userIsPerumahanAdmin && form.type !== 'perumahan') {
+      update('type', 'perumahan');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userIsPerumahanAdmin]);
+
   return (
     <div className="mx-auto max-w-xl px-4 py-8">
       <h1 className="font-display text-2xl font-semibold text-navy">
@@ -455,26 +510,75 @@ export default function Posting() {
       </h1>
 
       <form onSubmit={handleSubmit} className="mt-6 space-y-5">
-        <div className="flex flex-wrap gap-2">
-          {['pribadi', 'take_over_kpr', ...(userIsAdmin || userIsPremium ? ['perumahan', 'subsidi'] : [])].map((t) => (
-            <button
-              type="button"
-              key={t}
-              onClick={() => update('type', t)}
-              className={`rounded-full border px-5 py-2 text-sm font-semibold transition-colors ${
-                form.type === t
-                  ? 'border-navy bg-navy text-white'
-                  : 'border-line bg-white text-ink/60'
-              }`}
-            >
-              {TYPE_LABELS[t] || t}
-            </button>
-          ))}
-        </div>
-        {!userIsAdmin && (
+        {userIsPerumahanAdmin ? (
+          <div className="rounded-full border border-forest bg-forest/10 px-5 py-2 text-sm font-semibold text-forest w-fit">
+            Perumahan
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {typeOptions.map((t) => (
+              <button
+                type="button"
+                key={t}
+                onClick={() => update('type', t)}
+                className={`rounded-full border px-5 py-2 text-sm font-semibold transition-colors ${
+                  form.type === t
+                    ? 'border-navy bg-navy text-white'
+                    : 'border-line bg-white text-ink/60'
+                }`}
+              >
+                {TYPE_LABELS[t] || t}
+              </button>
+            ))}
+          </div>
+        )}
+        {!userIsAdmin && !userIsPerumahanAdmin && (
           <p className="-mt-3 text-xs text-ink/40">
             Iklan kamu akan ditinjau dulu sebelum tayang publik (biasanya cepat).
           </p>
+        )}
+
+        {userIsPerumahanAdmin && (
+          <div className="rounded-xl border border-line bg-white p-4 space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-ink">Nama Perumahan</label>
+              <input
+                type="text"
+                value={form.perumahanName}
+                onChange={(e) => update('perumahanName', e.target.value)}
+                placeholder="Misal: Arcadia Townhouse Cimahi"
+                className="input"
+              />
+              <p className="mt-1.5 text-xs text-ink/40">
+                Ini yang tampil di halaman iklan (gantiin nama akun), sejajar tombol WhatsApp.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold text-ink">Foto Profil Perumahan</label>
+              <div className="flex items-center gap-3">
+                <label className="flex h-16 w-16 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-ink/10 text-xl text-ink/40 hover:bg-ink/20">
+                  {perumahanPhotoPreview ? (
+                    <img src={perumahanPhotoPreview} alt="Preview" className="h-full w-full object-cover" />
+                  ) : (
+                    '+'
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setPerumahanPhotoFile(file);
+                      setPerumahanPhotoPreview(URL.createObjectURL(file));
+                    }}
+                    className="hidden"
+                  />
+                </label>
+                <p className="text-xs text-ink/40">Logo/foto resmi perumahan, biar keliatan official.</p>
+              </div>
+            </div>
+          </div>
         )}
 
         <div>

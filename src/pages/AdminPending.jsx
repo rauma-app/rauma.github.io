@@ -9,7 +9,7 @@ import { formatRupiah } from '../lib/kpr';
 
 export default function AdminPending() {
   const { user, loading: authLoading } = useAuth();
-  const { premiumMap, refresh: refreshPremium } = usePremium();
+  const { premiumMap, perumahanAdminMap, refresh: refreshRoles } = usePremium();
   const [pending, setPending] = useState([]);
   const [allListings, setAllListings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,6 +19,11 @@ export default function AdminPending() {
   const [newUid, setNewUid] = useState('');
   const [newLabel, setNewLabel] = useState('');
   const [premiumBusy, setPremiumBusy] = useState(false);
+
+  // Form tambah akun Admin Perumahan baru
+  const [newPaUid, setNewPaUid] = useState('');
+  const [newPaLabel, setNewPaLabel] = useState('');
+  const [perumahanAdminBusy, setPerumahanAdminBusy] = useState(false);
 
   useEffect(() => {
     if (!user || !isAdmin(user)) return;
@@ -80,7 +85,7 @@ export default function AdminPending() {
     setPremiumBusy(true);
     try {
       await d1Api.addPremiumAccount(uid, newLabel.trim());
-      await refreshPremium();
+      await refreshRoles();
       setNewUid('');
       setNewLabel('');
     } catch (err) {
@@ -97,12 +102,45 @@ export default function AdminPending() {
     setPremiumBusy(true);
     try {
       await d1Api.removePremiumAccount(uid);
-      await refreshPremium();
+      await refreshRoles();
     } catch (err) {
       console.error(err);
       alert('Gagal menghapus akun Premium. Coba lagi ya.');
     } finally {
       setPremiumBusy(false);
+    }
+  }
+
+  async function handleAddPerumahanAdmin(e) {
+    e.preventDefault();
+    const uid = newPaUid.trim();
+    if (!uid) return;
+    setPerumahanAdminBusy(true);
+    try {
+      await d1Api.addPerumahanAdmin(uid, newPaLabel.trim());
+      await refreshRoles();
+      setNewPaUid('');
+      setNewPaLabel('');
+    } catch (err) {
+      console.error(err);
+      alert('Gagal menambah akun Admin Perumahan. Coba lagi ya.');
+    } finally {
+      setPerumahanAdminBusy(false);
+    }
+  }
+
+  async function handleRemovePerumahanAdmin(uid) {
+    const confirmed = window.confirm(`Cabut status Admin Perumahan buat akun ini? (UID: ${uid})`);
+    if (!confirmed) return;
+    setPerumahanAdminBusy(true);
+    try {
+      await d1Api.removePerumahanAdmin(uid);
+      await refreshRoles();
+    } catch (err) {
+      console.error(err);
+      alert('Gagal menghapus akun Admin Perumahan. Coba lagi ya.');
+    } finally {
+      setPerumahanAdminBusy(false);
     }
   }
 
@@ -180,7 +218,7 @@ export default function AdminPending() {
         />
         <input
           type="text"
-          placeholder="Label (misal: Arcadia Townhouse Cimahi)"
+          placeholder="Label (opsional, buat catatan internal)"
           value={newLabel}
           onChange={(e) => setNewLabel(e.target.value)}
           className="flex-1 rounded-full border border-line px-4 py-2 text-sm"
@@ -208,6 +246,59 @@ export default function AdminPending() {
               type="button"
               onClick={() => handleRemovePremium(uid)}
               disabled={premiumBusy}
+              className="shrink-0 rounded-full border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
+            >
+              Hapus
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <h2 className="mt-12 font-display text-xl font-semibold text-navy">Kelola Admin Perumahan</h2>
+      <p className="mt-1 text-sm text-ink/50">
+        Akun centang kuning terbatas -- cuma bisa posting kategori Perumahan, menu cuma Posting &amp; Iklan Saya.
+        Dipakai sebagai wadah buat banyak nama perumahan (diisi per-listing lewat kolom "Nama Perumahan" di form
+        Posting), jadi gak perlu bikin akun Google baru buat tiap perumahan.
+      </p>
+
+      <form onSubmit={handleAddPerumahanAdmin} className="mt-4 flex flex-col gap-2 sm:flex-row">
+        <input
+          type="text"
+          placeholder="UID akun Google"
+          value={newPaUid}
+          onChange={(e) => setNewPaUid(e.target.value)}
+          className="flex-1 rounded-full border border-line px-4 py-2 text-sm"
+        />
+        <input
+          type="text"
+          placeholder="Label (opsional, buat catatan internal)"
+          value={newPaLabel}
+          onChange={(e) => setNewPaLabel(e.target.value)}
+          className="flex-1 rounded-full border border-line px-4 py-2 text-sm"
+        />
+        <button
+          type="submit"
+          disabled={perumahanAdminBusy || !newPaUid.trim()}
+          className="rounded-full bg-forest px-5 py-2 text-sm font-semibold text-white hover:bg-forest-dark disabled:opacity-50"
+        >
+          + Tambah
+        </button>
+      </form>
+
+      <div className="mt-4 divide-y divide-line rounded-2xl border border-line bg-white">
+        {Object.keys(perumahanAdminMap).length === 0 && (
+          <p className="p-4 text-sm text-ink/50">Belum ada akun Admin Perumahan.</p>
+        )}
+        {Object.entries(perumahanAdminMap).map(([uid, label]) => (
+          <div key={uid} className="flex items-center justify-between gap-3 p-4">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-navy">{label || '(tanpa label)'}</p>
+              <p className="truncate text-xs text-ink/40">{uid}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleRemovePerumahanAdmin(uid)}
+              disabled={perumahanAdminBusy}
               className="shrink-0 rounded-full border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-600 hover:bg-red-50 disabled:opacity-50"
             >
               Hapus
