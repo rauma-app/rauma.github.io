@@ -30,6 +30,7 @@ const SECTIONS = [
       { label: 'Kebijakan dan Privasi', to: '/kebijakan-privasi' },
       { label: 'Syarat & Ketentuan', to: '/syarat-ketentuan' },
       { label: 'Saran & Masukan', to: '/saran-masukan' },
+      { label: 'Kerjasama', to: '/kerjasama' },
       { label: 'Peta Situs', to: '/peta-situs' },
     ],
   },
