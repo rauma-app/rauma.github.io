@@ -26,14 +26,14 @@ export default function InfoTip({ text }) {
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label="Info"
-        className="ml-1 flex h-4 w-4 items-center justify-center rounded-full border border-ink/30 text-[10px] font-semibold leading-none text-ink/50 hover:border-forest hover:text-forest"
+        className="ml-1 flex h-4 w-4 items-center justify-center rounded-full border-2 border-ink/70 text-[10px] font-bold leading-none text-ink/80 hover:border-forest hover:text-forest"
       >
         i
       </button>
       {open && (
-        <span className="absolute left-1/2 top-full z-20 mt-1.5 w-56 -translate-x-1/2 rounded-lg bg-navy px-3 py-2 text-xs font-normal leading-snug text-white shadow-lg">
+        <span className="absolute left-0 top-full z-20 mt-1.5 w-56 max-w-[80vw] rounded-lg bg-navy px-3 py-2 text-xs font-normal leading-snug text-white shadow-lg">
           {text}
-          <span className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 bg-navy" />
+          <span className="absolute -top-1 left-2 h-2 w-2 rotate-45 bg-navy" />
         </span>
       )}
     </span>
