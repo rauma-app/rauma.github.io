@@ -26,6 +26,7 @@ import KebijakanPrivasi from './pages/KebijakanPrivasi';
 import SyaratKetentuan from './pages/SyaratKetentuan';
 import SaranMasukan from './pages/SaranMasukan';
 import PetaSitus from './pages/PetaSitus';
+import Kerjasama from './pages/Kerjasama';
 
 // Nyatet 1 "pageview" tiap kali pindah halaman -- dipakai dashboard
 // statistik Admin buat hitung jumlah pengunjung. Gak render apa-apa,
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/syarat-ketentuan" element={<SyaratKetentuan />} />
           <Route path="/saran-masukan" element={<SaranMasukan />} />
           <Route path="/peta-situs" element={<PetaSitus />} />
+          <Route path="/kerjasama" element={<Kerjasama />} />
           <Route path="/id/:id" element={<Listing />} />
           <Route path="/penjual/:uid" element={<SellerProfile />} />
           <Route
