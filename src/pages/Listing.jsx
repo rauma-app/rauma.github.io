@@ -301,9 +301,13 @@ export default function Listing() {
                 className="h-11 w-11 shrink-0 rounded-full object-cover"
               />
             )}
-            <span className="flex min-w-0 flex-wrap items-center gap-1 font-semibold text-ink">
-              <span>{listing.perumahanName}</span>
-              <VerifiedBadge color="blue" />
+            <span className="flex min-w-0 flex-1 items-baseline gap-1.5 font-semibold text-ink">
+              <span className="leading-tight">
+                {listing.perumahanName}
+                <span className="ml-1 inline-block align-middle">
+                  <VerifiedBadge color="blue" />
+                </span>
+              </span>
             </span>
           </div>
         ) : isOwnerVerified ? (

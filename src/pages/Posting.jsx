@@ -60,7 +60,7 @@ const emptyForm = {
   perumahanPhoto: '', // URL foto lama (mode edit); file barunya di state perumahanPhotoFile
 };
 
-const MAX_PHOTOS = 5;
+const MAX_PHOTOS = 8;
 
 function formatThousands(digits) {
   if (!digits) return '';
