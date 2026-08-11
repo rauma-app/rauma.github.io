@@ -33,7 +33,7 @@ const INFO_LINKS = [
   { label: 'Peta Situs', to: '/peta-situs' },
   {
     label: 'Kerjasama',
-    href: `https://wa.me/6285156222635?text=${encodeURIComponent('Halo, saya ingin kerja sama dengan Rauma.id')}`,
+    to: '/kerjasama',
   },
 ];
 
