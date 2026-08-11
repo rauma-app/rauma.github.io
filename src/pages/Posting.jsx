@@ -8,6 +8,7 @@ import { isPremium, FREE_LISTING_LIMIT, PREMIUM_LISTING_LIMIT } from '../lib/pre
 import { isPerumahanAdmin } from '../lib/perumahanAdmin';
 import { usePremium } from '../context/PremiumContext';
 import LocationAutocomplete from '../components/LocationAutocomplete';
+import InfoTip from '../components/InfoTip';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
 
 const PREMIUM_WHATSAPP = '6285156222635';
@@ -645,7 +646,7 @@ export default function Posting() {
           )}
         </div>
 
-        <Field label="Lokasi">
+        <Field label="Lokasi" info="Jika lokasi tidak ada, tulis alamat lengkap di deskripsi">
           <LocationAutocomplete
             value={form.location}
             onSelect={(loc) => update('location', loc)}
@@ -735,7 +736,7 @@ export default function Posting() {
           </Field>
         )}
 
-        <Field label="URL Video">
+        <Field label="URL Video" info="Kosongkan jika tidak ada">
           <input
             type="url"
             value={form.videoUrl}
@@ -743,7 +744,6 @@ export default function Posting() {
             placeholder="Masukkan link video jika ada (YouTube/TikTok/Instagram)"
             className="input"
           />
-          <p className="mt-1.5 text-xs text-ink/40">Opsional. Tempel link video tur rumah kalau ada.</p>
         </Field>
 
         <div className="rounded-xl border border-line bg-white">
@@ -777,7 +777,7 @@ export default function Posting() {
           )}
         </div>
 
-        <Field label="Deskripsi">
+        <Field label="Deskripsi" info="Jelaskan mengapa orang harus membeli rumahmu, tambahkan bonus jika ada, tipe pembayaran, dan lain-lain">
           <textarea
             rows={4}
             value={form.description}
@@ -813,10 +813,13 @@ export default function Posting() {
   );
 }
 
-function Field({ label, children }) {
+function Field({ label, info, children }) {
   return (
     <div>
-      <label className="mb-2 block text-sm font-semibold text-ink">{label}</label>
+      <label className="mb-2 block text-sm font-semibold text-ink">
+        {label}
+        {info && <InfoTip text={info} />}
+      </label>
       {children}
     </div>
   );
