@@ -22,6 +22,10 @@ import AdminPending from './pages/AdminPending';
 import AdminStats from './pages/AdminStats';
 import SellerProfile from './pages/SellerProfile';
 import TentangKami from './pages/TentangKami';
+import KebijakanPrivasi from './pages/KebijakanPrivasi';
+import SyaratKetentuan from './pages/SyaratKetentuan';
+import SaranMasukan from './pages/SaranMasukan';
+import PetaSitus from './pages/PetaSitus';
 
 // Nyatet 1 "pageview" tiap kali pindah halaman -- dipakai dashboard
 // statistik Admin buat hitung jumlah pengunjung. Gak render apa-apa,
@@ -54,6 +58,10 @@ export default function App() {
           <Route path="/take-over-kpr" element={<TakeOverKPRPage />} />
           <Route path="/kalkulator-kpr" element={<KalkulatorKPR />} />
           <Route path="/tentang-kami" element={<TentangKami />} />
+          <Route path="/kebijakan-privasi" element={<KebijakanPrivasi />} />
+          <Route path="/syarat-ketentuan" element={<SyaratKetentuan />} />
+          <Route path="/saran-masukan" element={<SaranMasukan />} />
+          <Route path="/peta-situs" element={<PetaSitus />} />
           <Route path="/id/:id" element={<Listing />} />
           <Route path="/penjual/:uid" element={<SellerProfile />} />
           <Route
