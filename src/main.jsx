@@ -18,3 +18,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 );
 
+// Daftarkan service worker buat PWA (syarat "installable" di Chrome/Edge).
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Diamkan aja kalau gagal (misal browser lama) -- situs tetap jalan normal
+    });
+  });
+}
+
