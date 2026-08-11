@@ -4,7 +4,6 @@ import { FaInstagram, FaFacebook, FaTiktok, FaYoutube, FaTimes } from 'react-ico
 import rauLogo2 from '../assets/logo/rauma-logo2.svg';
 import { usePwaInstall } from '../lib/usePwaInstall';
 
-// GANTI nilai-nilai placeholder di bawah ini dengan data asli kamu.
 const SOCIAL_LINKS = [
   { label: 'Instagram', Icon: FaInstagram, href: 'https://www.instagram.com/rauma.id' },
   { label: 'Facebook', Icon: FaFacebook, href: 'https://www.facebook.com/share/1LCqxTSf8M/' },
@@ -15,14 +14,27 @@ const SOCIAL_LINKS = [
 const CONTACT = {
   phone: '+62 851-5622-2635',
   email: 'halo@rauma.id',
-  
 };
 
-const QUICK_LINKS = [
-  { label: 'Tentang Kami', to: '/tentang-kami' },
-  { label: 'Kerja Sama', href: `https://wa.me/6285156222635?text=${encodeURIComponent('Halo, saya ingin kerja sama dengan Rauma.id')}` },
+const NAVIGASI_LINKS = [
+  { label: 'Cari Rumah', to: '/cari' },
   { label: 'Perumahan', to: '/perumahan' },
+  { label: 'Take Over KPR', to: '/take-over-kpr' },
+  { label: 'Rumah Subsidi', to: '/subsidi' },
+  { label: 'Kalkulator KPR', to: '/kalkulator-kpr' },
   { label: 'Pasang Iklan', to: '/posting' },
+];
+
+const INFO_LINKS = [
+  { label: 'Tentang Kami', to: '/tentang-kami' },
+  { label: 'Kebijakan dan Privasi', to: '/kebijakan-privasi' },
+  { label: 'Syarat & Ketentuan', to: '/syarat-ketentuan' },
+  { label: 'Saran & Masukan', to: '/saran-masukan' },
+  { label: 'Peta Situs', to: '/peta-situs' },
+  {
+    label: 'Kerjasama',
+    href: `https://wa.me/6285156222635?text=${encodeURIComponent('Halo, saya ingin kerja sama dengan Rauma.id')}`,
+  },
 ];
 
 export default function Footer() {
@@ -35,17 +47,15 @@ export default function Footer() {
     } else if (needsIosInstructions) {
       setShowIosHelp(true);
     } else {
-      // Browser gak support instalasi PWA sama sekali (misal desktop Firefox) --
-      // arahkan buka di Chrome/Safari aja sebagai fallback yang paling aman.
       alert('Buka situs ini lewat Chrome (Android) atau Safari (iPhone) untuk bisa install ke homescreen.');
     }
   }
 
   return (
     <footer className="mt-16 bg-navy text-cream/80">
-      <div className="mx-auto max-w-6xl px-4 py-10">
-        <div className="grid gap-10 sm:grid-cols-[1.3fr_1fr_1.3fr]">
-          {/* Kolom 1: Logo gambar baru, deskripsi, social media */}
+      <div className="mx-auto max-w-6xl px-4 py-12">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
+          {/* Kolom 1: Logo, deskripsi, social media */}
           <div>
             <span className="flex select-none items-center gap-2">
               <img
@@ -57,10 +67,11 @@ export default function Footer() {
               />
             </span>
             <p className="mt-3 max-w-xs text-sm">
-              Rauma.id adalah platform jual beli rumah KPR yang mudah dan gratis untuk
-              seluruh masyarakat Indonesia.
+              Platform jual beli rumah KPR yang mudah dan gratis untuk seluruh masyarakat
+              Indonesia. Temukan hunian impianmu, atau pasarkan propertimu ke ribuan calon
+              pembeli.
             </p>
-            <div className="mt-4 flex gap-3">
+            <div className="mt-5 flex gap-3">
               {SOCIAL_LINKS.map(({ label, Icon, href }) => (
                 <a
                   key={label}
@@ -76,31 +87,58 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Kolom 2: Tautan */}
+          {/* Kolom 2: Navigasi */}
           <div>
-            <p className="text-sm font-semibold text-white">Tautan</p>
-            <ul className="mt-3 space-y-2 text-sm">
-              {QUICK_LINKS.map((l) => (
+            <p className="text-sm font-semibold uppercase tracking-wide text-white/90">Navigasi</p>
+            <ul className="mt-4 space-y-2.5 text-sm">
+              {NAVIGASI_LINKS.map((l) => (
+                <li key={l.label}>
+                  <Link to={l.to} className="hover:text-white">{l.label}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Kolom 3: Informasi */}
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-wide text-white/90">Informasi</p>
+            <ul className="mt-4 space-y-2.5 text-sm">
+              {INFO_LINKS.map((l) => (
                 <li key={l.label}>
                   {l.to ? (
                     <Link to={l.to} className="hover:text-white">{l.label}</Link>
                   ) : (
-                    <a href={l.href} target="_blank" rel="noreferrer" className="hover:text-white">{l.label}</a>
+                    <a href={l.href} target="_blank" rel="noreferrer" className="hover:text-white">
+                      {l.label}
+                    </a>
                   )}
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Kolom 3: Download Aplikasi (Transparan berdampingan) & Hubungi Kami */}
+          {/* Kolom 4: Kontak & Download Aplikasi */}
           <div>
-            <div>
-              <p className="text-sm font-semibold text-white">Download Aplikasi Kami</p>
+            <p className="text-sm font-semibold uppercase tracking-wide text-white/90">Hubungi Kami</p>
+            <ul className="mt-4 space-y-2.5 text-sm">
+              <li className="flex items-center gap-2">
+                <span aria-hidden>📞</span>
+                <a href={`https://wa.me/${CONTACT.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:text-white">
+                  {CONTACT.phone}
+                </a>
+              </li>
+              <li className="flex items-center gap-2">
+                <span aria-hidden>✉️</span>
+                <a href={`mailto:${CONTACT.email}`} className="hover:text-white">{CONTACT.email}</a>
+              </li>
+            </ul>
+
+            <div className="mt-6 border-t border-white/10 pt-6">
+              <p className="text-sm font-semibold uppercase tracking-wide text-white/90">Download Aplikasi</p>
               {installed ? (
                 <p className="mt-3 text-xs text-cream/50">Aplikasi sudah terpasang di perangkat kamu 🎉</p>
               ) : (
                 <div className="mt-3 flex flex-row gap-3">
-                  {/* Tombol App Store Transparan -- klik = coba install PWA (iOS: tampilkan instruksi manual) */}
                   <button
                     type="button"
                     onClick={handleInstallClick}
@@ -115,7 +153,6 @@ export default function Footer() {
                     </div>
                   </button>
 
-                  {/* Tombol Google Play Transparan -- klik = coba install PWA */}
                   <button
                     type="button"
                     onClick={handleInstallClick}
@@ -132,24 +169,11 @@ export default function Footer() {
                 </div>
               )}
             </div>
-
-            <div className="mt-6 border-t border-white/10 pt-6">
-              <p className="text-sm font-semibold text-white">Hubungi Kami</p>
-              <ul className="mt-3 space-y-2 text-sm">
-                <li className="flex items-center gap-2">
-                  <span aria-hidden>📞</span> {CONTACT.phone}
-                </li>
-                <li className="flex items-center gap-2">
-                  <span aria-hidden>✉️</span> {CONTACT.email}
-                </li>
-                
-              </ul>
-            </div>
           </div>
         </div>
 
         {/* Copyright di tengah */}
-        <div className="mt-8 border-t border-white/10 pt-6 text-center text-xs text-cream/50">
+        <div className="mt-10 border-t border-white/10 pt-6 text-center text-xs text-cream/50">
           © {new Date().getFullYear()} Rauma.id. Seluruh hak cipta dilindungi.
         </div>
       </div>
