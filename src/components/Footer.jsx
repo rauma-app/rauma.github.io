@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+          import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaInstagram, FaFacebook, FaTiktok, FaYoutube, FaTimes } from 'react-icons/fa';
 import rauLogo2 from '../assets/logo/rauma-logo2.svg';
@@ -9,20 +9,6 @@ const SOCIAL_LINKS = [
   { label: 'Facebook', Icon: FaFacebook, href: 'https://www.facebook.com/share/1LCqxTSf8M/' },
   { label: 'TikTok', Icon: FaTiktok, href: 'https://tiktok.com/@rauma.id' },
   { label: 'YouTube', Icon: FaYoutube, href: 'https://youtube.com/@rauma_id?si=OZ_FgC_Wgjhgypsq' },
-];
-
-const CONTACT = {
-  phone: '+62 851-5622-2635',
-  email: 'halo@rauma.id',
-};
-
-const NAVIGASI_LINKS = [
-  { label: 'Cari Rumah', to: '/cari' },
-  { label: 'Perumahan', to: '/perumahan' },
-  { label: 'Take Over KPR', to: '/take-over-kpr' },
-  { label: 'Rumah Subsidi', to: '/subsidi' },
-  { label: 'Kalkulator KPR', to: '/kalkulator-kpr' },
-  { label: 'Pasang Iklan', to: '/posting' },
 ];
 
 const INFO_LINKS = [
@@ -54,7 +40,7 @@ export default function Footer() {
   return (
     <footer className="mt-16 bg-navy text-cream/80">
       <div className="mx-auto max-w-6xl px-4 py-12">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
+        <div className="grid gap-10 sm:grid-cols-2">
           {/* Kolom 1: Logo, deskripsi, social media */}
           <div>
             <span className="flex select-none items-center gap-2">
@@ -87,22 +73,10 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Kolom 2: Navigasi */}
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-white/90">Navigasi</p>
-            <ul className="mt-4 space-y-2.5 text-sm">
-              {NAVIGASI_LINKS.map((l) => (
-                <li key={l.label}>
-                  <Link to={l.to} className="hover:text-white">{l.label}</Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Kolom 3: Informasi */}
-          <div>
+          {/* Kolom 2: Informasi & Download Aplikasi */}
+          <div className="sm:max-w-xs sm:justify-self-end">
             <p className="text-sm font-semibold uppercase tracking-wide text-white/90">Informasi</p>
-            <ul className="mt-4 space-y-2.5 text-sm">
+            <ul className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm sm:grid-cols-1">
               {INFO_LINKS.map((l) => (
                 <li key={l.label}>
                   {l.to ? (
@@ -114,23 +88,6 @@ export default function Footer() {
                   )}
                 </li>
               ))}
-            </ul>
-          </div>
-
-          {/* Kolom 4: Kontak & Download Aplikasi */}
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-white/90">Hubungi Kami</p>
-            <ul className="mt-4 space-y-2.5 text-sm">
-              <li className="flex items-center gap-2">
-                <span aria-hidden>📞</span>
-                <a href={`https://wa.me/${CONTACT.phone.replace(/\D/g, '')}`} target="_blank" rel="noreferrer" className="hover:text-white">
-                  {CONTACT.phone}
-                </a>
-              </li>
-              <li className="flex items-center gap-2">
-                <span aria-hidden>✉️</span>
-                <a href={`mailto:${CONTACT.email}`} className="hover:text-white">{CONTACT.email}</a>
-              </li>
             </ul>
 
             <div className="mt-6 border-t border-white/10 pt-6">
