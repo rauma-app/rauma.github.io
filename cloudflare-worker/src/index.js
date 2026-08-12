@@ -1,3 +1,91 @@
+// =============================================================
+// Verifikasi Firebase ID Token TANPA library luar (murni Web Crypto API
+// bawaan Cloudflare Workers) -- supaya bisa langsung ditempel di editor
+// dashboard Cloudflare tanpa proses "npm install"/bundling apapun.
+// =============================================================
+
+let cachedJWKS = null;
+let cachedJWKSAt = 0;
+
+async function getGoogleJWKS() {
+  const ONE_HOUR = 3600 * 1000;
+  if (cachedJWKS && Date.now() - cachedJWKSAt < ONE_HOUR) return cachedJWKS;
+  const res = await fetch(
+    "https://www.googleapis.com/service_accounts/v1/jwk/[email protected]"
+  );
+  const data = await res.json();
+  cachedJWKS = data.keys || [];
+  cachedJWKSAt = Date.now();
+  return cachedJWKS;
+}
+
+function base64UrlDecode(str) {
+  const padded = str.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((str.length + 3) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+function base64UrlDecodeToString(str) {
+  return new TextDecoder().decode(base64UrlDecode(str));
+}
+
+async function verifyFirebaseIdToken(token, projectId) {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+  const [headerB64, payloadB64, sigB64] = parts;
+
+  const header = JSON.parse(base64UrlDecodeToString(headerB64));
+  const payload = JSON.parse(base64UrlDecodeToString(payloadB64));
+
+  if (header.alg !== "RS256" || !header.kid) return null;
+
+  // --- Cek klaim dasar dulu (murah), baru verifikasi tanda tangan (mahal) ---
+  const nowSec = Math.floor(Date.now() / 1000);
+  if (!payload.exp || payload.exp < nowSec) return null;
+  if (!payload.iat || payload.iat > nowSec + 60) return null;
+  if (payload.aud !== projectId) return null;
+  if (payload.iss !== `https://securetoken.google.com/${projectId}`) return null;
+  if (!payload.sub) return null;
+
+  const keys = await getGoogleJWKS();
+  const jwk = keys.find((k) => k.kid === header.kid);
+  if (!jwk) return null;
+
+  let cryptoKey;
+  try {
+    cryptoKey = await crypto.subtle.importKey(
+      "jwk",
+      jwk,
+      { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+      false,
+      ["verify"]
+    );
+  } catch {
+    return null;
+  }
+
+  const signedData = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
+  const signature = base64UrlDecode(sigB64);
+
+  const valid = await crypto.subtle.verify("RSASSA-PKCS1-v1_5", cryptoKey, signature, signedData);
+  if (!valid) return null;
+
+  return { uid: payload.sub, email: payload.email || null, name: payload.name || null };
+}
+
+// Domain yang boleh manggil API ini. Ganti/tambah kalau sudah pakai domain
+// sendiri (misal https://rauma.id) -- JANGAN dibiarkan "*" lagi, karena
+// digabung dengan endpoint yang sekarang udah butuh login, browser tetap
+// perlu tau origin mana yang "dipercaya" buat kirim cookie/header auth.
+const ALLOWED_ORIGINS = [
+  "https://rauma.id",
+  "https://rauma.github.io", // sementara, boleh dihapus nanti kalau domain rauma.id sudah aktif penuh
+  "http://localhost:5173",
+  "http://localhost:3000",
+];
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -5,8 +93,6 @@ export default {
     const method = request.method;
 
     // --- Helper tanggal WIB (UTC+7), dipakai buat filter periode statistik ---
-    // datetime('now') di SQLite/D1 itu UTC, jadi semua boundary di sini
-    // dihitung dulu di jam WIB terus dikonversi balik ke UTC buat query.
     function wibNow() {
       return new Date(Date.now() + 7 * 3600 * 1000);
     }
@@ -30,16 +116,19 @@ export default {
           end: toSqlUTC(new Date(Date.UTC(y, m, 1, 0, 0, 0))),
         };
       }
-      // default: 'month' -> bulan ini
       return { start: toSqlUTC(new Date(Date.UTC(y, m, 1, 0, 0, 0))), end: null };
     }
 
-    // Header CORS Lengkap
+    // --- CORS: cuma refleksikan origin yang ada di whitelist, bukan "*" ---
+    const origin = request.headers.get("Origin") || "";
     const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      Vary: "Origin",
     };
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      corsHeaders["Access-Control-Allow-Origin"] = origin;
+    }
 
     if (method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
@@ -51,20 +140,81 @@ export default {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
 
+    const unauthorized = (msg = "Kamu harus login dulu") => json({ error: msg }, 401);
+    const forbidden = (msg = "Kamu tidak punya akses untuk aksi ini") => json({ error: msg }, 403);
+
+    // =============================================================
+    // AUTH: verifikasi Firebase ID Token dari header Authorization.
+    // Ini yang tadinya HILANG SAMA SEKALI -- semua endpoint sensitif di
+    // bawah sekarang wajib lewat sini dulu.
+    // =============================================================
+    async function getAuthedUser() {
+      const header = request.headers.get("Authorization") || "";
+      const m = header.match(/^Bearer (.+)$/);
+      if (!m) return null;
+      try {
+        return await verifyFirebaseIdToken(m[1], env.FIREBASE_PROJECT_ID);
+      } catch (err) {
+        return null;
+      }
+    }
+
+    function isAdminUid(uid) {
+      const list = (env.ADMIN_UIDS || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return list.includes(uid);
+    }
+
+    // --- Rate limiting ringan (opsional). Cuma aktif kalau ada binding KV
+    // bernama RATE_LIMIT di wrangler.toml. Kalau belum di-setup, fungsi ini
+    // gak ngapa-ngapain (skip diam-diam) -- jadi gak bikin apa pun rusak
+    // buat yang belum sempat setup KV-nya sebelum launching.
+    async function tooManyRequests(key, limit, windowSeconds) {
+      if (!env.RATE_LIMIT) return false;
+      try {
+        const current = Number((await env.RATE_LIMIT.get(key)) || "0");
+        if (current >= limit) return true;
+        await env.RATE_LIMIT.put(key, String(current + 1), { expirationTtl: windowSeconds });
+        return false;
+      } catch {
+        return false; // kalau KV lagi error, jangan sampai nge-block user beneran
+      }
+    }
+    function clientIp() {
+      return request.headers.get("CF-Connecting-IP") || "unknown";
+    }
+
     try {
       // =============================================================
       // 1. ENDPOINT UPLOAD & TAMPIL GAMBAR R2
       // =============================================================
       if (path === "/upload" && method === "POST") {
+        const authed = await getAuthedUser();
+        if (!authed) return unauthorized("Login dulu untuk upload foto");
+
+        if (await tooManyRequests(`upload:${authed.uid}`, 40, 3600)) {
+          return json({ error: "Terlalu banyak upload, coba lagi nanti" }, 429);
+        }
+
         const formData = await request.formData();
         const file = formData.get("file");
 
-        if (!file) {
+        if (!file || typeof file === "string") {
           return json({ error: "File tidak ditemukan" }, 400);
         }
+        if (!file.type || !file.type.startsWith("image/")) {
+          return json({ error: "File harus berupa gambar" }, 400);
+        }
+        const MAX_BYTES = 10 * 1024 * 1024; // 10MB, longgar buat jaga-jaga kompresi gagal
+        if (file.size > MAX_BYTES) {
+          return json({ error: "Ukuran gambar maksimal 10MB" }, 400);
+        }
 
-        const fileExt = file.name.split(".").pop() || "jpg";
-        const key = `properties/${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+        const fileExt = (file.name || "").split(".").pop()?.toLowerCase() || "jpg";
+        const safeExt = /^[a-z0-9]{2,5}$/.test(fileExt) ? fileExt : "jpg";
+        const key = `properties/${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${safeExt}`;
 
         await env.RAUMA_IMAGES.put(key, await file.arrayBuffer(), {
           httpMetadata: { contentType: file.type || "image/jpeg" },
@@ -85,14 +235,15 @@ export default {
         const headers = new Headers();
         object.writeHttpMetadata(headers);
         headers.set("etag", object.httpEtag);
-        headers.set("Access-Control-Allow-Origin", "*");
+        headers.set("Access-Control-Allow-Origin", ALLOWED_ORIGINS.includes(origin) ? origin : "");
 
         return new Response(object.body, { headers });
       }
 
       // =============================================================
-      // 2a. ENDPOINT PREMIUM ACCOUNTS (kelola akun Premium tanpa perlu
-      // edit kode -- dipakai halaman Admin -> "Kelola Premium")
+      // 2a. ENDPOINT PREMIUM ACCOUNTS -- GET publik (buat nampilin badge di
+      // seluruh situs), tapi POST/DELETE (nambah/cabut premium) SEKARANG
+      // WAJIB ADMIN. Ini yang tadinya bisa dipanggil siapa aja.
       // =============================================================
       if (path === "/api/premium" && method === "GET") {
         const { results } = await env.DB.prepare(
@@ -102,6 +253,10 @@ export default {
       }
 
       if (path === "/api/premium" && method === "POST") {
+        const authed = await getAuthedUser();
+        if (!authed) return unauthorized();
+        if (!isAdminUid(authed.uid)) return forbidden("Hanya admin yang bisa mengelola akun Premium");
+
         const body = await request.json().catch(() => ({}));
         if (!body.uid) {
           return json({ error: "Field 'uid' wajib diisi" }, 400);
@@ -116,15 +271,18 @@ export default {
       }
 
       if (path.startsWith("/api/premium/") && method === "DELETE") {
+        const authed = await getAuthedUser();
+        if (!authed) return unauthorized();
+        if (!isAdminUid(authed.uid)) return forbidden("Hanya admin yang bisa mengelola akun Premium");
+
         const uid = path.split("/").filter(Boolean)[2];
         await env.DB.prepare("DELETE FROM premium_accounts WHERE uid = ?").bind(uid).run();
         return json({ success: true });
       }
 
       // =============================================================
-      // 2b. ENDPOINT ADMIN PERUMAHAN (akun centang kuning terbatas, cuma
-      // bisa posting kategori Perumahan -- dikelola dari halaman Admin ->
-      // "Kelola Admin Perumahan", sama seperti Premium)
+      // 2b. ENDPOINT ADMIN PERUMAHAN -- sama seperti Premium: GET publik,
+      // POST/DELETE admin-only.
       // =============================================================
       if (path === "/api/perumahan-admins" && method === "GET") {
         const { results } = await env.DB.prepare(
@@ -134,6 +292,10 @@ export default {
       }
 
       if (path === "/api/perumahan-admins" && method === "POST") {
+        const authed = await getAuthedUser();
+        if (!authed) return unauthorized();
+        if (!isAdminUid(authed.uid)) return forbidden("Hanya admin yang bisa mengelola Admin Perumahan");
+
         const body = await request.json().catch(() => ({}));
         if (!body.uid) {
           return json({ error: "Field 'uid' wajib diisi" }, 400);
@@ -148,6 +310,10 @@ export default {
       }
 
       if (path.startsWith("/api/perumahan-admins/") && method === "DELETE") {
+        const authed = await getAuthedUser();
+        if (!authed) return unauthorized();
+        if (!isAdminUid(authed.uid)) return forbidden("Hanya admin yang bisa mengelola Admin Perumahan");
+
         const uid = path.split("/").filter(Boolean)[2];
         await env.DB.prepare("DELETE FROM perumahan_admins WHERE uid = ?").bind(uid).run();
         return json({ success: true });
@@ -155,27 +321,34 @@ export default {
 
       // =============================================================
       // 2c. ENDPOINT ANALYTICS (pageview, klik whatsapp, pencarian)
+      // Tetap publik/anonim (memang buat pengunjung yang belum login),
+      // tapi dibatasi rate + panjang teks biar gak gampang di-spam bot.
       // =============================================================
       if (path === "/api/events" && method === "POST") {
+        if (await tooManyRequests(`events:${clientIp()}`, 120, 60)) {
+          return json({ error: "Terlalu banyak permintaan" }, 429);
+        }
         const body = await request.json().catch(() => ({}));
         const eventType = body.event_type;
         if (!["pageview", "whatsapp_click", "search"].includes(eventType)) {
           return json({ error: "event_type tidak valid" }, 400);
         }
+        const queryText = typeof body.query_text === "string" ? body.query_text.slice(0, 200) : null;
         await env.DB.prepare(
           `INSERT INTO analytics_events (event_type, anon_id, listing_id, query_text, created_at)
            VALUES (?, ?, ?, ?, datetime('now'))`
         )
-          .bind(eventType, body.anon_id || null, body.listing_id || null, body.query_text || null)
+          .bind(eventType, body.anon_id || null, body.listing_id || null, queryText)
           .run();
         return json({ success: true });
       }
 
-      // GET /api/admin/stats?period=today|month|lastmonth
-      // Dashboard statistik buat Admin: pengunjung, klik WA, pencarian,
-      // listing baru, unit & nilai terjual (per periode) + data all-time
-      // dan listing per daerah (snapshot sekarang, gak difilter periode).
+      // GET /api/admin/stats?period=today|month|lastmonth  -- SEKARANG ADMIN-ONLY
       if (path === "/api/admin/stats" && method === "GET") {
+        const authed = await getAuthedUser();
+        if (!authed) return unauthorized();
+        if (!isAdminUid(authed.uid)) return forbidden("Hanya admin yang bisa melihat statistik");
+
         const period = url.searchParams.get("period") || "today";
         const { start, end } = getPeriodRange(period);
         const endClause = end ? "AND created_at < ?" : "";
@@ -240,10 +413,10 @@ export default {
       }
 
       // =============================================================
-      // 2b. ENDPOINT SELLERS (statistik unit terjual per penjual)
+      // 2b. ENDPOINT SELLERS (statistik unit terjual per penjual) -- publik
       // =============================================================
       if (path.startsWith("/api/sellers/")) {
-        const sellerParts = path.split("/").filter(Boolean); // ['api', 'sellers', uid]
+        const sellerParts = path.split("/").filter(Boolean);
         if (sellerParts.length === 3 && method === "GET") {
           const uid = sellerParts[2];
           const row = await env.DB.prepare("SELECT sold_units FROM sellers WHERE uid = ?").bind(uid).first();
@@ -255,12 +428,9 @@ export default {
       // 2. ENDPOINT DATABASE D1 (/api/listings)
       // =============================================================
       if (path.startsWith("/api/listings")) {
-        const pathParts = path.split("/").filter(Boolean); // ['api', 'listings', 'item_xxx']
+        const pathParts = path.split("/").filter(Boolean);
 
-        // GET /api/listings/nearby?lat=&lon=&limit= (N RUMAH TERDEKAT SE-INDONESIA)
-        // Hitung jarak asli (haversine) dari SEMUA listing yang punya
-        // koordinat di database, bukan cuma dari data yang sudah ke-load di
-        // frontend -- supaya hasilnya akurat dari Sabang sampai Merauke.
+        // GET /api/listings/nearby -- publik (cuma listing approved yang punya koordinat)
         if (pathParts.length === 3 && pathParts[2] === "nearby" && method === "GET") {
           const lat = parseFloat(url.searchParams.get("lat"));
           const lon = parseFloat(url.searchParams.get("lon"));
@@ -312,7 +482,7 @@ export default {
           return json(withDistance.slice(0, limit));
         }
 
-        // GET /api/listings/:id (DETAIL 1 PROPERTI)
+        // GET /api/listings/:id -- publik (detail 1 properti)
         if (pathParts.length === 3 && method === "GET") {
           const id = pathParts[2];
           const result = await env.DB.prepare("SELECT * FROM listings WHERE id = ?").bind(id).first();
@@ -323,8 +493,13 @@ export default {
           return json(result);
         }
 
-        // PATCH /api/listings/:id (UPDATE STATUS: approve / reject, dsb)
+        // PATCH /api/listings/:id (approve/reject) -- ADMIN ONLY.
+        // Tadinya siapa aja bisa approve iklan sendiri lewat sini.
         if (pathParts.length === 3 && method === "PATCH") {
+          const authed = await getAuthedUser();
+          if (!authed) return unauthorized();
+          if (!isAdminUid(authed.uid)) return forbidden("Hanya admin yang bisa mengubah status iklan");
+
           const id = pathParts[2];
           const body = await request.json();
 
@@ -339,17 +514,11 @@ export default {
           return json({ success: true });
         }
 
-        // POST /api/listings/:id/mark-sold  { amount }
-        // Tandai sejumlah unit dari 1 listing sebagai terjual:
-        //  - Listing biasa (unitTersedia kosong/1)      -> amount dipaksa 1, status jadi 'sold'
-        //  - Listing perumahan (unitTersedia > 1)       -> unitTersedia dikurangi `amount`,
-        //                                                   status jadi 'sold' HANYA kalau sisa unit jadi 0
-        // Setiap unit yang terjual juga menambah hitungan `sold_units` milik
-        // pemilik listing di tabel `sellers`, supaya tetap terhitung di profil
-        // walau listing-nya nanti dihapus. Dicatat JUGA ke `sales_log` --
-        // berlaku buat SEMUA user (bukan cuma premium/admin) -- supaya
-        // dashboard statistik Admin (nilai properti terjual) akurat.
+        // POST /api/listings/:id/mark-sold -- pemilik iklan ATAU admin
         if (pathParts.length === 4 && pathParts[3] === "mark-sold" && method === "POST") {
+          const authed = await getAuthedUser();
+          if (!authed) return unauthorized();
+
           const id = pathParts[2];
           const body = await request.json().catch(() => ({}));
 
@@ -358,6 +527,9 @@ export default {
             .first();
           if (!listing) {
             return json({ error: "Properti tidak ditemukan" }, 404);
+          }
+          if (listing.ownerUid !== authed.uid && !isAdminUid(authed.uid)) {
+            return forbidden("Bukan pemilik iklan ini");
           }
 
           const currentUnits = Number(listing.unitTersedia);
@@ -405,23 +577,28 @@ export default {
           return json({ success: true, amount, newStatus, newUnitTersedia });
         }
 
-        // DELETE /api/listings/:id (HAPUS PROPERTI)
+        // DELETE /api/listings/:id -- pemilik iklan ATAU admin
         if (pathParts.length === 3 && method === "DELETE") {
+          const authed = await getAuthedUser();
+          if (!authed) return unauthorized();
+
           const id = pathParts[2];
+          const existing = await env.DB.prepare("SELECT ownerUid FROM listings WHERE id = ?").bind(id).first();
+          if (!existing) {
+            return json({ error: "Properti tidak ditemukan" }, 404);
+          }
+          if (existing.ownerUid !== authed.uid && !isAdminUid(authed.uid)) {
+            return forbidden("Bukan pemilik iklan ini");
+          }
+
           await env.DB.prepare("DELETE FROM listings WHERE id = ?").bind(id).run();
           return json({ success: true });
         }
 
-        // GET /api/listings (AMBIL SEMUA / FILTER PROPERTI)
-        // Query params yang didukung:
-        //   ?type=perumahan        -> filter kolom type
-        //   ?category=Rumah        -> filter kolom category
-        //   ?owner=<uid>           -> filter ownerUid (dipakai "Iklan Saya" & profil penjual)
-        //   ?status=pending        -> filter status tertentu
-        //   ?status=all            -> tanpa filter status sama sekali (khusus admin)
-        //   (tanpa ?status)        -> default hanya status = 'approved' (aman utk publik)
-        //   ?minPrice=&maxPrice=   -> filter rentang harga (dipakai Pasti Pas / HNWI)
-        //   ?location=bandung     -> cari di kolom kabupaten/kecamatan/location (LIKE, dipakai fitur search)
+        // GET /api/listings -- publik HANYA untuk status='approved' (default).
+        // Minta status lain (all/pending/rejected) sekarang wajib login, dan
+        // cuma boleh: admin (lihat semua), atau pemilik lihat listingnya
+        // sendiri (?owner=uid miliknya), atau cek nomor WA duplikat (?whatsapp=).
         if (path === "/api/listings" && method === "GET") {
           const type = url.searchParams.get("type");
           const category = url.searchParams.get("category");
@@ -431,6 +608,17 @@ export default {
           const minPrice = url.searchParams.get("minPrice");
           const maxPrice = url.searchParams.get("maxPrice");
           const location = url.searchParams.get("location");
+
+          if (status && status !== "approved") {
+            const authed = await getAuthedUser();
+            if (!authed) return unauthorized();
+            const admin = isAdminUid(authed.uid);
+            const selfScoped = owner && owner === authed.uid;
+            const phoneCheck = Boolean(whatsapp);
+            if (!admin && !selfScoped && !phoneCheck) {
+              return forbidden("Tidak boleh melihat iklan status ini");
+            }
+          }
 
           const conditions = [];
           const params = [];
@@ -460,9 +648,6 @@ export default {
             params.push(Number(maxPrice));
           }
           if (location) {
-           // Kata pencarian bisa berupa beberapa kata (misal "bandung barat"),
-            // masing-masing kata dicocokkan LIKE ke kabupaten/kecamatan/location
-            // -- listing cocok kalau SEMUA kata ketemu di salah satu kolom itu.
             const words = location.split(/\s+/).filter(Boolean).slice(0, 5);
             for (const word of words) {
               conditions.push("(kabupaten LIKE ? OR kecamatan LIKE ? OR location LIKE ?)");
@@ -472,8 +657,8 @@ export default {
           }
 
           if (status === "all") {
-            // tidak ada filter status, admin ingin lihat semuanya
-             } else if (status) {
+            // tidak ada filter status
+          } else if (status) {
             conditions.push("status = ?");
             params.push(status);
           } else {
@@ -490,12 +675,33 @@ export default {
           return json(results || []);
         }
 
-        // POST /api/listings (POSTING PROPERTI BARU / EDIT PROPERTI LAMA)
+        // POST /api/listings (POSTING BARU / EDIT) -- wajib login. Non-admin
+        // cuma boleh posting/edit ATAS NAMA DIRINYA SENDIRI, gak bisa
+        // menimpa listing orang lain, dan gak bisa set status='approved'
+        // sendiri (dipaksa balik ke 'pending').
         if (path === "/api/listings" && method === "POST") {
+          const authed = await getAuthedUser();
+          if (!authed) return unauthorized("Login dulu untuk memasang iklan");
+
           const body = await request.json();
           const idToSave = body.id || `item_${Date.now()}`;
-          const imagesJson = typeof body.images === "string" ? body.images : JSON.stringify(body.images || []);
+          const admin = isAdminUid(authed.uid);
 
+          const existing = await env.DB.prepare("SELECT ownerUid FROM listings WHERE id = ?")
+            .bind(idToSave)
+            .first();
+          if (existing && existing.ownerUid !== authed.uid && !admin) {
+            return forbidden("Bukan pemilik iklan ini");
+          }
+
+          if (!admin && (await tooManyRequests(`post-listing:${authed.uid}`, 20, 3600))) {
+            return json({ error: "Terlalu banyak posting, coba lagi nanti" }, 429);
+          }
+
+          const finalOwnerUid = admin ? body.ownerUid || body.seller_uid || authed.uid : authed.uid;
+          const finalStatus = admin ? body.status || "pending" : "pending";
+
+          const imagesJson = typeof body.images === "string" ? body.images : JSON.stringify(body.images || []);
           const toNumberOrNull = (v) => (v === undefined || v === null || v === "" ? null : Number(v));
 
           await env.DB.prepare(
@@ -549,12 +755,12 @@ export default {
               body.phone || null,
               body.seller_phone || body.phone || "",
               body.whatsapp || body.phone || null,
-              body.seller_uid || "",
-              body.ownerUid || body.seller_uid || "",
+              admin ? body.seller_uid || authed.uid : authed.uid,
+              finalOwnerUid,
               body.ownerName || null,
               body.ownerPhoto || null,
               imagesJson,
-              body.status || "pending",
+              finalStatus,
               body.materialPondasi || null,
               body.materialDinding || null,
               body.materialAtap || null,
@@ -571,18 +777,21 @@ export default {
       }
 
       // =============================================================
-      // 3. ENDPOINT SIMPAN/BOOKMARK LISTING (/api/saved)
+      // 3. ENDPOINT SIMPAN/BOOKMARK LISTING (/api/saved) -- semua wajib
+      // login, dan cuma boleh baca/tulis data simpanan DIRI SENDIRI.
       // =============================================================
       if (path.startsWith("/api/saved")) {
-        const savedParts = path.split("/").filter(Boolean); // ['api','saved'] atau ['api','saved','status']
+        const savedParts = path.split("/").filter(Boolean);
 
-        // GET /api/saved/status?uid=&listingId=  -> cek apakah 1 listing sudah disimpan user ini
         if (savedParts.length === 3 && savedParts[2] === "status" && method === "GET") {
+          const authed = await getAuthedUser();
+          if (!authed) return unauthorized();
           const uid = url.searchParams.get("uid");
           const listingId = url.searchParams.get("listingId");
           if (!uid || !listingId) {
             return json({ error: "Parameter uid & listingId wajib diisi" }, 400);
           }
+          if (uid !== authed.uid) return forbidden();
           const row = await env.DB.prepare(
             "SELECT 1 FROM saved_listings WHERE uid = ? AND listing_id = ?"
           )
@@ -591,12 +800,14 @@ export default {
           return json({ saved: !!row });
         }
 
-        // GET /api/saved?uid=  -> daftar listing yang disimpan user ini (data lengkap, join ke tabel listings)
         if (path === "/api/saved" && method === "GET") {
+          const authed = await getAuthedUser();
+          if (!authed) return unauthorized();
           const uid = url.searchParams.get("uid");
           if (!uid) {
             return json({ error: "Parameter uid wajib diisi" }, 400);
           }
+          if (uid !== authed.uid) return forbidden();
           const { results } = await env.DB.prepare(
             `SELECT listings.* FROM saved_listings
              JOIN listings ON saved_listings.listing_id = listings.id
@@ -608,12 +819,14 @@ export default {
           return json(results || []);
         }
 
-        // POST /api/saved { uid, listingId }  -> simpan listing
         if (path === "/api/saved" && method === "POST") {
+          const authed = await getAuthedUser();
+          if (!authed) return unauthorized();
           const body = await request.json();
           if (!body.uid || !body.listingId) {
             return json({ error: "uid & listingId wajib diisi" }, 400);
           }
+          if (body.uid !== authed.uid) return forbidden();
           const savedId = `${body.uid}_${body.listingId}`;
           await env.DB.prepare(
             "INSERT OR IGNORE INTO saved_listings (id, uid, listing_id) VALUES (?, ?, ?)"
@@ -623,12 +836,14 @@ export default {
           return json({ success: true });
         }
 
-        // DELETE /api/saved { uid, listingId }  -> batalkan simpan (unsave)
         if (path === "/api/saved" && method === "DELETE") {
+          const authed = await getAuthedUser();
+          if (!authed) return unauthorized();
           const body = await request.json();
           if (!body.uid || !body.listingId) {
             return json({ error: "uid & listingId wajib diisi" }, 400);
           }
+          if (body.uid !== authed.uid) return forbidden();
           await env.DB.prepare(
             "DELETE FROM saved_listings WHERE uid = ? AND listing_id = ?"
           )
