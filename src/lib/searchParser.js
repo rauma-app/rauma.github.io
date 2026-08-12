@@ -42,7 +42,7 @@ export function parseSearchQuery(rawText) {
   let priceLabel = '';
 
   // 1) Range eksplisit: "200-300jt" / "200 sampai 300 juta"
-  const rangeRe = new RegExp(`(\\d+(?:[.,]\\d+)?)\\s*(?:-|–|sampai|s\\.?d\\.?|hingga)\\s*(\\d+(?:[.,]\\d+)?)\\s*(${UNIT})\\b`);
+const rangeRe = new RegExp(`(\\d+(?:[.,]\\d+)?)\\s*(?:-|–|sampai|s\\.?d\\.?|hingga|\\s+)\\s*(\\d+(?:[.,]\\d+)?)\\s*(${UNIT})\\b`);
   const rangeMatch = working.match(rangeRe);
 
   const underRe = new RegExp(`(di\\s*bawah|maksimal|maks|kurang\\s*dari)\\s*(\\d+(?:[.,]\\d+)?)\\s*(${UNIT})\\b`);
@@ -108,7 +108,8 @@ export function slugifySearch(text) {
   return (text || '')
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/(\d),(\d)/g, '$1.$2')
+    .replace(/[^a-z0-9\s.-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-');
 }
