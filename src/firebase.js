@@ -29,8 +29,23 @@ export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 export const db = getFirestore(app);
 
-// Analytics only works in a real browser with a supported environment,
-// guard it so it never breaks local dev / SSR.
-isSupported().then((ok) => {
-  if (ok) getAnalytics(app);
-});
+// Analytics (Google Tag Manager) ditunda load-nya sampai halaman selesai
+// tampil ke user, bukan langsung pas situs dibuka. Ini gak bikin data
+// analytics hilang -- cuma nunda beberapa saat -- tapi bikin skor
+// performa (PageSpeed) naik karena JS analytics gak lagi "rebutan"
+// bandwidth sama konten utama situs.
+function loadAnalyticsWhenIdle() {
+  isSupported().then((ok) => {
+    if (!ok) return;
+    getAnalytics(app);
+  });
+}
+
+if (typeof window !== 'undefined') {
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(loadAnalyticsWhenIdle, { timeout: 4000 });
+  } else {
+    // Fallback untuk browser yang belum dukung requestIdleCallback (mis. Safari lama)
+    window.addEventListener('load', () => setTimeout(loadAnalyticsWhenIdle, 2000));
+  }
+}
