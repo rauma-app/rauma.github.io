@@ -11,7 +11,7 @@ async function getGoogleJWKS() {
   const ONE_HOUR = 3600 * 1000;
   if (cachedJWKS && Date.now() - cachedJWKSAt < ONE_HOUR) return cachedJWKS;
   const res = await fetch(
-    "https://www.googleapis.com/service_accounts/v1/jwk/[email protected]"
+    "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"
   );
   const data = await res.json();
   cachedJWKS = data.keys || [];
