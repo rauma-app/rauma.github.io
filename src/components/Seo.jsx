@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 const SITE_NAME = 'Rauma';
-const SITE_URL = 'https://rauma.github.io'; // ganti kalau sudah pakai domain sendiri, misal https://rauma.id
+const SITE_URL = 'https://rauma.id';
 
 function setMetaTag(attr, key, content) {
   if (!content) return;
@@ -74,4 +74,4 @@ export default function Seo({ title, description, path, jsonLd, image }) {
   }, [title, description, path, jsonLd, image]);
 
   return null;
-  }
+}
