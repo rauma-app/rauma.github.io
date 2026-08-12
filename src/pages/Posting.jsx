@@ -429,7 +429,7 @@ export default function Posting() {
       // sama seperti fitur Carikan Properti (sudah aktif ke rauma.contact@gmail.com).
       // Fire-and-forget: gagal kirim email TIDAK menggagalkan posting iklan.
       if (!isEditMode) {
-        fetch('https://formsubmit.co/ajax/rauma.contact@gmail.com', {
+        fetch('https://formsubmit.co/ajax/a517f14c1064ab24fcf316c6d1f9e7cb', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify({
