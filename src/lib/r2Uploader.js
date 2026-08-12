@@ -1,4 +1,5 @@
 import { compressImage } from './imageCompress';
+import { auth } from '../firebase';
 
 const WORKER_URL = 'https://rauma-uploader.abduloh-salam7.workers.dev';
 
@@ -10,16 +11,22 @@ export async function uploadToR2(file) {
     // file asli, jadi upload tetap lanjut.
     const compressedFile = await compressImage(file);
 
+    const user = auth.currentUser;
+    if (!user) throw new Error('Login dulu sebelum upload foto');
+    const token = await user.getIdToken();
+
     const formData = new FormData();
     formData.append('file', compressedFile);
 
     const response = await fetch(`${WORKER_URL}/upload`, {
       method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
       body: formData,
     });
 
     if (!response.ok) {
-      throw new Error('Gagal mengunggah gambar ke Cloudflare R2');
+      const errBody = await response.json().catch(() => ({}));
+      throw new Error(errBody.error || 'Gagal mengunggah gambar ke Cloudflare R2');
     }
 
     const data = await response.json();
