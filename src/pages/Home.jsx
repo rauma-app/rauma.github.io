@@ -215,8 +215,8 @@ export default function Home() {
   return (
     <div>
       <Seo
-        title="Jual Beli Rumah KPR Murah Seluruh Indonesia"
-        description="Rauma adalah platform jual beli rumah KPR gratis dan mudah — temukan rumah termurah, rumah subsidi, hingga rumah take over KPR sesuai lokasi dan budget kamu."
+        title="Platform Jual Beli Rumah"
+        description="Rauma adalah platform jual beli rumah Yang mudah digunakan — Temukan rumah subsidi, hingga rumah take over KPR sesuai lokasi dan budget kamu."
         path="/"
       />
       {/* Hero + search bar */}
