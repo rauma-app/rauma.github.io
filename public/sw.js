@@ -8,9 +8,18 @@
 // situs ini selalu berubah (harga baru, listing baru) -- kalau di-cache
 // agresif, orang bisa lihat data basi. Jadi selain app-shell, semua
 // request lain langsung tembus ke network seperti biasa (network-first).
-
-const CACHE_NAME = 'rauma-shell-v1';
-const APP_SHELL = ['/', '/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
+//
+// PENTING: "/" (halaman utama) SENGAJA TIDAK di-cache-first lagi.
+// Kenapa: halaman utama memuat file JS dengan nama unik yang berubah
+// tiap kali situs di-update (mis. index-1vORzV7q.js -> index-abc123.js).
+// Kalau "/" di-cache-first, browser bisa nyangkut pakai HTML versi lama
+// yang manggil file JS lama yang sudah tidak ada di server -> halaman
+// jadi blank sampai user clear cache manual. Makanya "/" sekarang
+// network-first: selalu coba ambil versi terbaru dulu, baru pakai
+// cache sebagai cadangan kalau lagi offline.
+const CACHE_NAME = 'rauma-shell-v2';
+const APP_SHELL = ['/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
+const NETWORK_FIRST_PATHS = ['/'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -30,12 +39,28 @@ self.addEventListener('activate', (event) => {
 
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-
-  // Cuma cache-first buat app-shell (GET, same-origin, ada di daftar).
   const url = new URL(request.url);
-  const isShellAsset = request.method === 'GET' && url.origin === self.location.origin && APP_SHELL.includes(url.pathname);
+  const isSameOrigin = url.origin === self.location.origin;
 
-  if (isShellAsset) {
+  if (request.method !== 'GET' || !isSameOrigin) return;
+
+  // Halaman utama: coba network dulu (biar selalu dapat versi
+  // terbaru), cache cuma dipakai kalau lagi offline.
+  if (NETWORK_FIRST_PATHS.includes(url.pathname)) {
+    event.respondWith(
+      fetch(request)
+        .then((res) => {
+          const resClone = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, resClone));
+          return res;
+        })
+        .catch(() => caches.match(request))
+    );
+    return;
+  }
+
+  // Ikon/manifest: cache-first (aman, jarang/gak pernah berubah).
+  if (APP_SHELL.includes(url.pathname)) {
     event.respondWith(
       caches.match(request).then((cached) => cached || fetch(request))
     );
