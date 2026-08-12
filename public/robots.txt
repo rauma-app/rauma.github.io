@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/statistik
+Disallow: /posting
+Disallow: /iklan-saya
+Disallow: /disimpan
+
+Sitemap: https://rauma.id/sitemap.xml
