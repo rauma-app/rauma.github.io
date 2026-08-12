@@ -3,7 +3,7 @@ import Seo from '../components/Seo';
 
 // FormSubmit.co: sama seperti formulir "Carikan Properti", tidak perlu
 // daftar/API key. Kirim ke email yang sama, cuma subjek & isinya beda.
-const CONTACT_EMAIL = 'rauma.contact@gmail.com';
+const CONTACT_EMAIL = 'a517f14c1064ab24fcf316c6d1f9e7cb';
 const MAX_LENGTH = 500;
 
 export default function SaranMasukan() {
