@@ -1,4 +1,3 @@
-
 name = "rauma-uploader"
 main = "src/index.js"
 compatibility_date = "2026-07-01"
@@ -13,8 +12,22 @@ bucket_name = "rauma-images"
 # Project ID Firebase kamu (sama seperti di src/firebase.js -> projectId)
 FIREBASE_PROJECT_ID = "rauma-e0aff"
 
+# UID Firebase Auth yang dianggap admin, dipisah koma (SAMA seperti isi
+# src/lib/admin.js -> ADMIN_UIDS di frontend). Ini yang benar-benar
+# menentukan akses admin di server -- yang di frontend cuma buat
+# nyembunyiin tombol di tampilan.
+ADMIN_UIDS = "Wo0FNtm65fRmzrt35IQ3cgxm3fp1"
+
 # --- TAMBAHKAN INI DI BARIS PALING BAWAH ---
 [[d1_databases]]
 binding = "DB"
 database_name = "rauma-db"
 database_id = "add0f90b-b35b-46b2-8551-f7c52573c5c5"
+
+# --- OPSIONAL tapi disarankan: rate limiting anti-spam ---
+# Buat dulu KV namespace-nya:
+#   npx wrangler kv namespace create RATE_LIMIT
+# Lalu copy "id" hasil perintah di atas ke sini dan hapus tanda pagar (#):
+# [[kv_namespaces]]
+# binding = "RATE_LIMIT"
+# id = "ISI_ID_DARI_HASIL_PERINTAH_DI_ATAS"
