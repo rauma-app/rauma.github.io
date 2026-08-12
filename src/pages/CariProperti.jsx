@@ -5,7 +5,7 @@ import Seo from '../components/Seo';
 // bawah aktif — submission PERTAMA akan mengirim email konfirmasi ke
 // rauma.contact@gmail.com, klik link "Activate Form" di email tersebut
 // sekali saja, setelah itu semua submission berikutnya otomatis terkirim.
-const CONTACT_EMAIL = 'rauma.contact@gmail.com';
+const CONTACT_EMAIL = 'a517f14c1064ab24fcf316c6d1f9e7cb';
 const MAX_LENGTH = 500;
 
 export default function CariProperti() {
