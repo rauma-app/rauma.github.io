@@ -369,7 +369,7 @@ export default function Posting() {
 
       // 2. Susun Payload Presisi Sesuai Listing.jsx
       const payload = {
-        id: isEditMode ? id : `item_${Date.now()}`,
+     id: isEditMode ? id : Date.now().toString(36),
         title: `${TYPE_LABELS[form.type] || 'Rumah'} di ${kecName || kabName || 'Indonesia'}`,
         type: form.type,
         category: TYPE_LABELS[form.type] || 'Rumah',
