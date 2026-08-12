@@ -106,9 +106,7 @@ export default function Posting() {
     ? ['perumahan']
     : userIsAdmin
       ? ['pribadi', 'take_over_kpr', 'perumahan', 'subsidi']
-      : userIsPremium
-        ? ['pribadi', 'take_over_kpr', 'subsidi']
-        : ['pribadi', 'take_over_kpr'];
+      : ['pribadi', 'take_over_kpr', 'subsidi'];
 
   // Admin Perumahan cuma punya 1 kategori -> paksa selalu 'perumahan'.
   // PENTING: hook ini harus dipanggil sebelum return apa pun di bawah
