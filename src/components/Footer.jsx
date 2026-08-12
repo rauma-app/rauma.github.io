@@ -53,9 +53,9 @@ export default function Footer() {
               />
             </span>
             <p className="mt-3 max-w-xs text-sm">
-              Platform jual beli rumah KPR yang mudah dan gratis untuk seluruh masyarakat
-              Indonesia. Temukan hunian impianmu, atau pasarkan propertimu ke ribuan calon
-              pembeli.
+              Rauma.id Adalah sebuah platform jual beli rumah Yang mudah dan gratis 
+              digunakan untuk semua kalangan, Temukan hunian menarik dari ratusan 
+              ribu Pengiklan di seluruh Indonesia.
             </p>
             <div className="mt-5 flex gap-3">
               {SOCIAL_LINKS.map(({ label, Icon, href }) => (
