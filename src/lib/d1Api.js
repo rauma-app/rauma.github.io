@@ -1,5 +1,23 @@
+import { auth } from '../firebase';
+
 // URL Worker API rauma-uploader
 const API_BASE_URL = 'https://rauma-uploader.abduloh-salam7.workers.dev/api';
+
+// Ambil ID Token Firebase user yang lagi login, buat dikirim di header
+// Authorization -- Worker sekarang WAJIB verifikasi ini buat aksi yang
+// sensitif (posting, hapus, ubah status, kelola premium, dst).
+// Kalau belum login, balikin {} (endpoint publik tetap jalan tanpa ini).
+async function authHeaders() {
+  const user = auth.currentUser;
+  if (!user) return {};
+  try {
+    const token = await user.getIdToken();
+    return { Authorization: `Bearer ${token}` };
+  } catch (err) {
+    console.error('Gagal mengambil ID token:', err);
+    return {};
+  }
+}
 
 // D1 menyimpan `images` sebagai string JSON. Supaya semua halaman yang
 // pakai d1Api tidak perlu parse manual berulang-ulang, kita normalisasi
@@ -21,8 +39,8 @@ function normalizeListing(raw) {
 export const d1Api = {
   // Ambil listing dengan filter opsional:
   //   { type, category, owner, status, minPrice, maxPrice, location }
-  // status='all' -> tanpa filter status (khusus admin)
-  // status tidak diisi -> default hanya yang 'approved' (aman utk publik)
+  // status='all'/'pending'/dll (selain 'approved') sekarang butuh login
+  // (dicek server), makanya query ini juga kirim token kalau user login.
   async getListings(params = {}) {
     try {
       const qs = new URLSearchParams();
@@ -37,7 +55,8 @@ export const d1Api = {
 
       const query = qs.toString();
       const url = `${API_BASE_URL}/listings${query ? `?${query}` : ''}`;
-      const res = await fetch(url);
+      const headers = params.status && params.status !== 'approved' ? await authHeaders() : {};
+      const res = await fetch(url, { headers });
       if (!res.ok) throw new Error('Gagal mengambil data properti');
       const data = await res.json();
       return Array.isArray(data) ? data.map(normalizeListing) : [];
@@ -79,29 +98,36 @@ export const d1Api = {
   },
 
   // Simpan properti baru / edit properti lama (upsert berdasarkan id) ke Cloudflare D1
+  // Wajib login -- Worker menolak kalau tidak ada token valid.
   async createListing(data) {
     try {
+      const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
       const res = await fetch(`${API_BASE_URL}/listings`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(data),
       });
-      return await res.json();
+      const result = await res.json();
+      if (!res.ok) throw new Error(result?.error || 'Gagal menyimpan properti');
+      return result;
     } catch (err) {
       console.error('Error d1Api.createListing:', err);
       throw err;
     }
   },
 
-  // Update status listing (approved / rejected / pending)
+  // Update status listing (approved / rejected / pending) -- ADMIN ONLY di server
   async updateListingStatus(id, status) {
     try {
+      const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
       const res = await fetch(`${API_BASE_URL}/listings/${id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ status }),
       });
-      return await res.json();
+      const result = await res.json();
+      if (!res.ok) throw new Error(result?.error || 'Gagal mengubah status');
+      return result;
     } catch (err) {
       console.error('Error d1Api.updateListingStatus:', err);
       throw err;
@@ -109,15 +135,18 @@ export const d1Api = {
   },
 
   // Tandai 1 listing (atau sejumlah `amount` unit dari listing perumahan)
-  // sebagai terjual. Otomatis nambah hitungan unit terjual di profil penjual.
+  // sebagai terjual. Cuma pemilik iklan atau admin yang bisa (dicek server).
   async markListingSold(id, amount = 1) {
     try {
+      const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
       const res = await fetch(`${API_BASE_URL}/listings/${id}/mark-sold`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ amount }),
       });
-      return await res.json();
+      const result = await res.json();
+      if (!res.ok) throw new Error(result?.error || 'Gagal menandai terjual');
+      return result;
     } catch (err) {
       console.error('Error d1Api.markListingSold:', err);
       throw err;
@@ -151,11 +180,12 @@ export const d1Api = {
     }
   },
 
-  // Ambil data buat dashboard statistik Admin.
+  // Ambil data buat dashboard statistik Admin. ADMIN ONLY di server.
   // period: 'today' | 'month' | 'lastmonth'
   async getAdminStats(period = 'today') {
     try {
-      const res = await fetch(`${API_BASE_URL}/admin/stats?period=${period}`);
+      const headers = await authHeaders();
+      const res = await fetch(`${API_BASE_URL}/admin/stats?period=${period}`, { headers });
       if (!res.ok) return null;
       return await res.json();
     } catch (err) {
@@ -164,7 +194,7 @@ export const d1Api = {
     }
   },
 
-  // Ambil semua akun Premium (buat dipakai di seluruh situs & halaman Admin)
+  // Ambil semua akun Premium (buat dipakai di seluruh situs & halaman Admin) -- publik
   async getPremiumAccounts() {
     try {
       const res = await fetch(`${API_BASE_URL}/premium`);
@@ -176,23 +206,29 @@ export const d1Api = {
     }
   },
 
-  // Tambah/update 1 akun jadi Premium. label = nama tampilan (misal nama perumahan)
+  // Tambah/update 1 akun jadi Premium. ADMIN ONLY di server.
   async addPremiumAccount(uid, label) {
+    const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
     const res = await fetch(`${API_BASE_URL}/premium`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ uid, label }),
     });
-    return await res.json();
+    const result = await res.json();
+    if (!res.ok) throw new Error(result?.error || 'Gagal menambah akun premium');
+    return result;
   },
 
-  // Cabut status Premium 1 akun
+  // Cabut status Premium 1 akun. ADMIN ONLY di server.
   async removePremiumAccount(uid) {
-    const res = await fetch(`${API_BASE_URL}/premium/${uid}`, { method: 'DELETE' });
-    return await res.json();
+    const headers = await authHeaders();
+    const res = await fetch(`${API_BASE_URL}/premium/${uid}`, { method: 'DELETE', headers });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result?.error || 'Gagal mencabut akun premium');
+    return result;
   },
 
-  // Ambil semua akun Admin Perumahan (centang kuning terbatas)
+  // Ambil semua akun Admin Perumahan (centang kuning terbatas) -- publik
   async getPerumahanAdmins() {
     try {
       const res = await fetch(`${API_BASE_URL}/perumahan-admins`);
@@ -204,29 +240,39 @@ export const d1Api = {
     }
   },
 
-  // Tambah/update 1 akun jadi Admin Perumahan. label = catatan internal (opsional)
+  // Tambah/update 1 akun jadi Admin Perumahan. ADMIN ONLY di server.
   async addPerumahanAdmin(uid, label) {
+    const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
     const res = await fetch(`${API_BASE_URL}/perumahan-admins`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ uid, label }),
     });
-    return await res.json();
+    const result = await res.json();
+    if (!res.ok) throw new Error(result?.error || 'Gagal menambah admin perumahan');
+    return result;
   },
 
-  // Cabut status Admin Perumahan 1 akun
+  // Cabut status Admin Perumahan 1 akun. ADMIN ONLY di server.
   async removePerumahanAdmin(uid) {
-    const res = await fetch(`${API_BASE_URL}/perumahan-admins/${uid}`, { method: 'DELETE' });
-    return await res.json();
+    const headers = await authHeaders();
+    const res = await fetch(`${API_BASE_URL}/perumahan-admins/${uid}`, { method: 'DELETE', headers });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result?.error || 'Gagal mencabut admin perumahan');
+    return result;
   },
 
-  // Hapus properti
+  // Hapus properti -- pemilik iklan ATAU admin (dicek server)
   async deleteListing(id) {
     try {
+      const headers = await authHeaders();
       const res = await fetch(`${API_BASE_URL}/listings/${id}`, {
         method: 'DELETE',
+        headers,
       });
-      return await res.json();
+      const result = await res.json();
+      if (!res.ok) throw new Error(result?.error || 'Gagal menghapus properti');
+      return result;
     } catch (err) {
       console.error('Error d1Api.deleteListing:', err);
       throw err;
@@ -237,7 +283,8 @@ export const d1Api = {
   async isListingSaved(uid, listingId) {
     try {
       const qs = new URLSearchParams({ uid, listingId });
-      const res = await fetch(`${API_BASE_URL}/saved/status?${qs.toString()}`);
+      const headers = await authHeaders();
+      const res = await fetch(`${API_BASE_URL}/saved/status?${qs.toString()}`, { headers });
       if (!res.ok) return false;
       const data = await res.json();
       return !!data.saved;
@@ -250,12 +297,15 @@ export const d1Api = {
   // Simpan listing ke daftar simpanan user
   async saveListing(uid, listingId) {
     try {
+      const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
       const res = await fetch(`${API_BASE_URL}/saved`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ uid, listingId }),
       });
-      return await res.json();
+      const result = await res.json();
+      if (!res.ok) throw new Error(result?.error || 'Gagal menyimpan listing');
+      return result;
     } catch (err) {
       console.error('Error d1Api.saveListing:', err);
       throw err;
@@ -265,12 +315,15 @@ export const d1Api = {
   // Batalkan simpan (unsave) listing dari daftar simpanan user
   async unsaveListing(uid, listingId) {
     try {
+      const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
       const res = await fetch(`${API_BASE_URL}/saved`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ uid, listingId }),
       });
-      return await res.json();
+      const result = await res.json();
+      if (!res.ok) throw new Error(result?.error || 'Gagal membatalkan simpan listing');
+      return result;
     } catch (err) {
       console.error('Error d1Api.unsaveListing:', err);
       throw err;
@@ -281,7 +334,8 @@ export const d1Api = {
   async getSavedListings(uid) {
     try {
       const qs = new URLSearchParams({ uid });
-      const res = await fetch(`${API_BASE_URL}/saved?${qs.toString()}`);
+      const headers = await authHeaders();
+      const res = await fetch(`${API_BASE_URL}/saved?${qs.toString()}`, { headers });
       if (!res.ok) throw new Error('Gagal mengambil listing tersimpan');
       const data = await res.json();
       return Array.isArray(data) ? data.map(normalizeListing) : [];
@@ -291,3 +345,4 @@ export const d1Api = {
     }
   },
 };
+        
