@@ -11,7 +11,7 @@ async function getGoogleJWKS() {
   const ONE_HOUR = 3600 * 1000;
   if (cachedJWKS && Date.now() - cachedJWKSAt < ONE_HOUR) return cachedJWKS;
   const res = await fetch(
-    "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"
+    "https://www.googleapis.com/service_accounts/v1/jwk/[email protected]"
   );
   const data = await res.json();
   cachedJWKS = data.keys || [];
@@ -686,6 +686,13 @@ export default {
           const body = await request.json();
           const idToSave = body.id || `item_${Date.now()}`;
           const admin = isAdminUid(authed.uid);
+          // Admin Perumahan (tabel perumahan_admins): iklan yang mereka
+          // posting langsung approved otomatis, gak perlu tinjauan Admin
+          // Utama -- soalnya mereka sendiri yang mengelola perumahannya.
+          const perumahanAdminRow = admin
+            ? null
+            : await env.DB.prepare("SELECT uid FROM perumahan_admins WHERE uid = ?").bind(authed.uid).first();
+          const isPerumahanAdmin = admin || Boolean(perumahanAdminRow);
 
           const existing = await env.DB.prepare("SELECT ownerUid FROM listings WHERE id = ?")
             .bind(idToSave)
@@ -699,7 +706,11 @@ export default {
           }
 
           const finalOwnerUid = admin ? body.ownerUid || body.seller_uid || authed.uid : authed.uid;
-          const finalStatus = admin ? body.status || "pending" : "pending";
+          const finalStatus = admin
+            ? body.status || "pending"
+            : isPerumahanAdmin
+              ? "approved"
+              : "pending";
 
           const imagesJson = typeof body.images === "string" ? body.images : JSON.stringify(body.images || []);
           const toNumberOrNull = (v) => (v === undefined || v === null || v === "" ? null : Number(v));
