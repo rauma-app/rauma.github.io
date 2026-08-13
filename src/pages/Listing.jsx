@@ -39,11 +39,13 @@ export default function Listing() {
   const [related, setRelated] = useState([]);
   const [materialOpen, setMaterialOpen] = useState(false);
   const [selectedTypeIndex, setSelectedTypeIndex] = useState(0);
+  const [descExpanded, setDescExpanded] = useState(false);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       setSelectedTypeIndex(0);
+      setDescExpanded(false);
       try {
         const data = await d1Api.getListingById(id);
         if (data) {
@@ -141,6 +143,11 @@ export default function Listing() {
   // sekali, pakai data listing seperti biasa (listing lama/kategori lain,
   // tampilannya persis sama seperti sebelum fitur ini ada).
   const hasMultipleTypes = Array.isArray(listing.unitTypes) && listing.unitTypes.length > 1;
+  // Deskripsi dianggap "panjang" kalau lumayan banyak karakter ATAU banyak
+  // baris (misal daftar poin-poin kayak "GRATIS: Kitchen Set, dst") --
+  // baru dipotong & dikasih tombol "Selengkapnya" kalau salah satu kepenuhi.
+  const isDescLong =
+    (listing.description || '').length > 280 || (listing.description || '').split('\n').length > 6;
   const activeType =
     Array.isArray(listing.unitTypes) && listing.unitTypes.length > 0
       ? listing.unitTypes[selectedTypeIndex] || listing.unitTypes[0]
@@ -154,6 +161,13 @@ export default function Listing() {
     bathrooms: activeType ? activeType.bathrooms : listing.bathrooms,
     electricity: activeType ? activeType.electricity : listing.electricity,
   };
+  // Foto khusus tipe yang lagi dipilih (kalau diisi penjual). Kalau tipe
+  // ini gak punya foto sendiri, tetap pakai foto rumah utama -- listing
+  // lama / kategori lain (yang gak punya konsep tipe) otomatis pakai ini juga.
+  const activeImages =
+    activeType && Array.isArray(activeType.images) && activeType.images.length > 0
+      ? activeType.images
+      : listing.images;
 
   // Format Angka & Teks dengan Proteksi Fallback
   const formattedPriceShort = formatRupiahShort ? formatRupiahShort(activeSpec.price) : `Rp ${activeSpec.price.toLocaleString('id-ID')}`;
@@ -201,16 +215,16 @@ export default function Listing() {
           title={seoTitle}
           description={seoDescription}
           path={`/id/${listing.id}`}
-          image={listing.images?.[0]}
+          image={activeImages?.[0]}
         />
       )}
 
       {/* Slider Gambar */}
       <div className="relative">
         {ImageSlider ? (
-          <ImageSlider images={listing.images} alt={listing.title || lokasiText} ratio="3 / 2" enableLightbox />
+          <ImageSlider key={selectedTypeIndex} images={activeImages} alt={listing.title || lokasiText} ratio="3 / 2" enableLightbox />
         ) : (
-          <img src={listing.images?.[0]} alt={listing.title} className="w-full h-64 object-cover rounded-2xl" />
+          <img src={activeImages?.[0]} alt={listing.title} className="w-full h-64 object-cover rounded-2xl" />
         )}
         <SaveButton listingId={listing.id} className="absolute bottom-3 right-3 z-10" />
       </div>
@@ -338,9 +352,27 @@ export default function Listing() {
         <section className="mt-8">
           <h2 className="font-display text-xl font-semibold text-navy mb-3">Deskripsi</h2>
           <div className="rounded-2xl border border-line bg-white p-4">
-            <p className="whitespace-pre-line text-sm leading-relaxed text-ink/80">
-              {listing.description}
-            </p>
+            <div className="relative">
+              <p
+                className={`whitespace-pre-line text-sm leading-relaxed text-ink/80 ${
+                  !descExpanded && isDescLong ? 'max-h-[7.5rem] overflow-hidden' : ''
+                }`}
+              >
+                {listing.description}
+              </p>
+              {!descExpanded && isDescLong && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" />
+              )}
+            </div>
+            {isDescLong && (
+              <button
+                type="button"
+                onClick={() => setDescExpanded((v) => !v)}
+                className="mt-2 text-sm font-semibold text-forest hover:underline"
+              >
+                {descExpanded ? 'Sembunyikan' : 'Selengkapnya'}
+              </button>
+            )}
           </div>
         </section>
       )}

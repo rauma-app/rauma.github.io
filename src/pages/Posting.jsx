@@ -77,6 +77,11 @@ function emptyUnitType() {
     bedrooms: '',
     bathrooms: '',
     electricity: '',
+    // Foto khusus tipe ini (opsional). Kalau kosong, halaman detail
+    // otomatis pakai foto rumah utama di atas.
+    files: [],
+    previews: [],
+    existingImages: [],
   };
 }
 
@@ -247,19 +252,25 @@ export default function Posting() {
         }
         if (Array.isArray(parsedUnitTypes) && parsedUnitTypes.length > 0) {
           setUnitTypes(
-            parsedUnitTypes.slice(0, MAX_UNIT_TYPES).map((t) => ({
-              key: `t${Date.now()}${Math.random().toString(36).slice(2)}`,
-              name: t.name || '',
-              priceRaw: t.price ? String(t.price) : '',
-              priceDisplay: t.price ? formatThousands(String(t.price)) : '',
-              cicilanRaw: t.cicilanPerBulan ? String(t.cicilanPerBulan) : '',
-              cicilanDisplay: t.cicilanPerBulan ? formatThousands(String(t.cicilanPerBulan)) : '',
-              luasTanah: t.luasTanah ?? '',
-              luasBangunan: t.luasBangunan ?? '',
-              bedrooms: t.bedrooms ?? '',
-              bathrooms: t.bathrooms ?? '',
-              electricity: t.electricity || '',
-            }))
+            parsedUnitTypes.slice(0, MAX_UNIT_TYPES).map((t) => {
+              const typeImages = Array.isArray(t.images) ? t.images : [];
+              return {
+                key: `t${Date.now()}${Math.random().toString(36).slice(2)}`,
+                name: t.name || '',
+                priceRaw: t.price ? String(t.price) : '',
+                priceDisplay: t.price ? formatThousands(String(t.price)) : '',
+                cicilanRaw: t.cicilanPerBulan ? String(t.cicilanPerBulan) : '',
+                cicilanDisplay: t.cicilanPerBulan ? formatThousands(String(t.cicilanPerBulan)) : '',
+                luasTanah: t.luasTanah ?? '',
+                luasBangunan: t.luasBangunan ?? '',
+                bedrooms: t.bedrooms ?? '',
+                bathrooms: t.bathrooms ?? '',
+                electricity: t.electricity || '',
+                files: [],
+                previews: typeImages,
+                existingImages: typeImages,
+              };
+            })
           );
         } else if (data.type === 'perumahan') {
           setUnitTypes([
@@ -343,6 +354,53 @@ export default function Posting() {
 
   function removeUnitType(index) {
     setUnitTypes((arr) => (arr.length <= 1 ? arr : arr.filter((_, i) => i !== index)));
+  }
+
+  function unitTypePhotoCount(index) {
+    const t = unitTypes[index];
+    return t.existingImages.length + t.files.length;
+  }
+
+  function handleUnitTypeFiles(index, e) {
+    const incoming = Array.from(e.target.files || []);
+    const t = unitTypes[index];
+    const room = MAX_PHOTOS - (t.existingImages.length + t.files.length);
+    const accepted = incoming.slice(0, Math.max(room, 0));
+    setUnitTypes((arr) =>
+      arr.map((ut, i) => {
+        if (i !== index) return ut;
+        const combinedFiles = [...ut.files, ...accepted];
+        return {
+          ...ut,
+          files: combinedFiles,
+          previews: [...ut.existingImages, ...combinedFiles.map((f) => URL.createObjectURL(f))],
+        };
+      })
+    );
+    e.target.value = '';
+  }
+
+  function removeUnitTypePhoto(index, photoIndex) {
+    setUnitTypes((arr) =>
+      arr.map((ut, i) => {
+        if (i !== index) return ut;
+        if (photoIndex < ut.existingImages.length) {
+          const updatedExisting = ut.existingImages.filter((_, pi) => pi !== photoIndex);
+          return {
+            ...ut,
+            existingImages: updatedExisting,
+            previews: [...updatedExisting, ...ut.files.map((f) => URL.createObjectURL(f))],
+          };
+        }
+        const fileIdx = photoIndex - ut.existingImages.length;
+        const updatedFiles = ut.files.filter((_, fi) => fi !== fileIdx);
+        return {
+          ...ut,
+          files: updatedFiles,
+          previews: [...ut.existingImages, ...updatedFiles.map((f) => URL.createObjectURL(f))],
+        };
+      })
+    );
   }
 
   function handleWhatsappChange(e) {
@@ -480,18 +538,36 @@ export default function Posting() {
       // Tipe unit (khusus kategori Perumahan): kolom harga/luas/kamar/listrik
       // di level listing diisi dari tipe TERMURAH, biar tetap ketemu normal
       // di pencarian & filter harga yang sudah ada.
-      const cleanUnitTypes = isMultiType
-        ? unitTypes.map((t) => ({
-            name: t.name.trim() || null,
-            price: Number(t.priceRaw) || 0,
-            cicilanPerBulan: t.cicilanRaw ? Number(t.cicilanRaw) : null,
-            luasTanah: t.luasTanah ? Number(t.luasTanah) : null,
-            luasBangunan: t.luasBangunan ? Number(t.luasBangunan) : null,
-            bedrooms: t.bedrooms ? Number(t.bedrooms) : null,
-            bathrooms: t.bathrooms ? Number(t.bathrooms) : null,
-            electricity: t.electricity || null,
-          }))
-        : [];
+      let cleanUnitTypes = [];
+      if (isMultiType) {
+        cleanUnitTypes = await Promise.all(
+          unitTypes.map(async (t) => {
+            // Upload foto khusus tipe ini kalau ada yang baru dipilih.
+            let typeNewUrls = [];
+            if (t.files.length > 0) {
+              if (typeof r2Uploader?.uploadMany === 'function') {
+                typeNewUrls = await r2Uploader.uploadMany(t.files);
+              } else if (typeof r2Uploader?.uploadFile === 'function') {
+                typeNewUrls = await Promise.all(t.files.map((f) => r2Uploader.uploadFile(f)));
+              }
+            }
+            const typeImages = [...t.existingImages, ...typeNewUrls];
+            return {
+              name: t.name.trim() || null,
+              price: Number(t.priceRaw) || 0,
+              cicilanPerBulan: t.cicilanRaw ? Number(t.cicilanRaw) : null,
+              luasTanah: t.luasTanah ? Number(t.luasTanah) : null,
+              luasBangunan: t.luasBangunan ? Number(t.luasBangunan) : null,
+              bedrooms: t.bedrooms ? Number(t.bedrooms) : null,
+              bathrooms: t.bathrooms ? Number(t.bathrooms) : null,
+              electricity: t.electricity || null,
+              // Foto khusus tipe ini. Kosong berarti pakai foto rumah
+              // utama (fallback ditangani di halaman detail/Listing.jsx).
+              images: typeImages,
+            };
+          })
+        );
+      }
       const cheapestType = isMultiType
         ? [...cleanUnitTypes].sort((a, b) => a.price - b.price)[0]
         : null;
@@ -919,6 +995,50 @@ export default function Posting() {
                     className="input"
                   />
                 </Field>
+
+                <div>
+                  <label className="mb-1.5 block text-sm font-semibold text-ink">
+                    Foto Tipe Ini{' '}
+                    <span className="font-normal text-ink/40">(opsional, maks. {MAX_PHOTOS})</span>
+                  </label>
+                  <p className="mb-2 text-xs text-ink/40">
+                    Kalau diisi, ini yang ditampilkan waktu calon pembeli pilih tipe ini. Kalau
+                    dikosongkan, dipakai foto rumah utama di atas.
+                  </p>
+                  {unitTypePhotoCount(idx) < MAX_PHOTOS && (
+                    <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-xl bg-ink/70 text-2xl text-white hover:bg-ink/80">
+                      +
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={(e) => handleUnitTypeFiles(idx, e)}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                  {t.previews.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {t.previews.map((src, pi) => (
+                        <div key={pi} className="relative h-16 w-16">
+                          <img
+                            src={src}
+                            alt={`preview tipe ${idx + 1} - ${pi + 1}`}
+                            className="h-16 w-16 rounded-lg object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeUnitTypePhoto(idx, pi)}
+                            aria-label="Hapus foto"
+                            className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink text-xs text-white"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
             <p className="text-xs text-ink/40">
