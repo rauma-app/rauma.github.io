@@ -90,6 +90,9 @@ export default function Posting() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = Boolean(id);
+  // Dipakai di banyak tempat (validasi submit + tampilan form), jadi
+  // didefinisikan di level atas komponen, bukan di dalam handleSubmit.
+  const isMultiType = form.type === 'perumahan';
 
   const [form, setForm] = useState(emptyForm);
   const [priceDisplay, setPriceDisplay] = useState('');
@@ -378,8 +381,6 @@ export default function Posting() {
     async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-
-    const isMultiType = form.type === 'perumahan';
 
     if (isMultiType) {
       if (!form.location || totalPhotoCount() === 0) {
