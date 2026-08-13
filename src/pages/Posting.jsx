@@ -90,11 +90,12 @@ export default function Posting() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = Boolean(id);
-  // Dipakai di banyak tempat (validasi submit + tampilan form), jadi
-  // didefinisikan di level atas komponen, bukan di dalam handleSubmit.
-  const isMultiType = form.type === 'perumahan';
 
   const [form, setForm] = useState(emptyForm);
+  // Dipakai di banyak tempat (validasi submit + tampilan form), jadi
+  // didefinisikan di level atas komponen (setelah state `form` ada),
+  // bukan di dalam handleSubmit.
+  const isMultiType = form.type === 'perumahan';
   const [priceDisplay, setPriceDisplay] = useState('');
   const [cicilanDisplay, setCicilanDisplay] = useState('');
   const [files, setFiles] = useState([]);
