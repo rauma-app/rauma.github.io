@@ -228,6 +228,34 @@ export const d1Api = {
     return result;
   },
 
+  // Ambil profil (nama/foto/deskripsi) yang bisa diedit milik 1 user -- publik.
+  // Kalau user belum pernah isi profil, name/photo/description balik null,
+  // pemanggil (Posting.jsx / SellerProfile.jsx) yang urus fallback-nya.
+  async getProfile(uid) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/profile/${uid}`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      console.error('Error d1Api.getProfile:', err);
+      return null;
+    }
+  },
+
+  // Simpan/update profil MILIK SENDIRI. Server ambil uid dari token,
+  // jadi tidak mungkin dipakai untuk ubah profil orang lain.
+  async updateProfile({ name, photo, description }) {
+    const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
+    const res = await fetch(`${API_BASE_URL}/profile`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify({ name, photo, description }),
+    });
+    const result = await res.json();
+    if (!res.ok) throw new Error(result?.error || 'Gagal menyimpan profil');
+    return result;
+  },
+
   // Ambil semua akun Admin Perumahan (centang kuning terbatas) -- publik
   async getPerumahanAdmins() {
     try {
@@ -345,4 +373,4 @@ export const d1Api = {
     }
   },
 };
-        
+
