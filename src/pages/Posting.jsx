@@ -478,13 +478,12 @@ export default function Posting() {
           </p>
 
           <ul className="mt-4 space-y-1.5 text-left text-sm text-ink/80">
-            <li>✅ Posting iklan maksimal {PREMIUM_LISTING_LIMIT}</li>
+            <li>✅ Posting iklan lebih banyak</li>
             <li>✅ Dapat ceklis biru</li>
             <li>✅ Profil bisa dibuka publik</li>
-            <li>✅ Klaim Wilayah listing (tidak ada 2 agent di lokasi sama)</li>
-            <li>✅ Buka fitur Perumahan &amp; Subsidi</li>
             <li>✅ Gratis kartu nama resmi dari Rauma ID</li>
             <li>✅ Gratis posting 1x promo Video rumah di akun TT/IG/FB/YT Rauma.id</li>
+            <li>✅ Dapatkan calon pembeli potensial dari kami</li>
           </ul>
 
           <a
