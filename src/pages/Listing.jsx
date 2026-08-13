@@ -400,7 +400,10 @@ export default function Listing() {
               </span>
             </span>
           </div>
-        ) : isOwnerVerified ? (
+        ) : (
+          // Nama & foto SEMUA penjual (bukan cuma premium/admin) sekarang
+          // bisa diklik untuk masuk ke halaman profil publiknya. Badge
+          // centang tetap eksklusif buat admin (emas) & premium (biru).
           <Link to={`/penjual/${listing.ownerUid}`} className="flex min-w-0 items-center gap-3 hover:opacity-80">
             {listing.ownerPhoto && (
               <img
@@ -412,21 +415,9 @@ export default function Listing() {
             )}
             <span className="flex min-w-0 items-center gap-1 truncate font-semibold text-ink">
               <span className="truncate">{listing.ownerName}</span>
-              {VerifiedBadge && <VerifiedBadge color={isOwnerAdmin ? 'gold' : 'blue'} />}
+              {isOwnerVerified && <VerifiedBadge color={isOwnerAdmin ? 'gold' : 'blue'} />}
             </span>
           </Link>
-        ) : (
-          <div className="flex min-w-0 items-center gap-3">
-            {listing.ownerPhoto && (
-              <img
-                src={listing.ownerPhoto}
-                alt={listing.ownerName}
-                referrerPolicy="no-referrer"
-                className="h-11 w-11 shrink-0 rounded-full object-cover"
-              />
-            )}
-            <span className="truncate font-semibold text-ink">{listing.ownerName}</span>
-          </div>
         )}
 
         {waLink && (

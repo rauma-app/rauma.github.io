@@ -531,9 +531,13 @@ export default function Posting() {
       const kabName = locObj.kabupaten || (typeof form.location === 'string' ? form.location : '') || '';
       const kecName = locObj.kecamatan || '';
 
-      // Penanganan Nama & Foto Google Penjual
-      const resolvedOwnerName = user?.displayName || (user?.email ? user.email.split('@')[0] : 'Penjual');
-      const resolvedOwnerPhoto = user?.photoURL || '';
+      // Penanganan Nama & Foto Penjual: utamakan profil yang sudah diisi
+      // sendiri di menu "Profil Saya", kalau belum pernah isi -> fallback
+      // ke data bawaan akun Google.
+      const savedProfile = await d1Api.getProfile(user.uid).catch(() => null);
+      const resolvedOwnerName =
+        savedProfile?.name || user?.displayName || (user?.email ? user.email.split('@')[0] : 'Penjual');
+      const resolvedOwnerPhoto = savedProfile?.photo || user?.photoURL || '';
 
       // Tipe unit (khusus kategori Perumahan): kolom harga/luas/kamar/listrik
       // di level listing diisi dari tipe TERMURAH, biar tetap ketemu normal

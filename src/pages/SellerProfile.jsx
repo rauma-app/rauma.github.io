@@ -11,6 +11,7 @@ import { usePremium } from '../context/PremiumContext';
 export default function SellerProfile() {
   const { uid } = useParams();
   const { premiumMap, loading: premiumLoading } = usePremium();
+  const [profile, setProfile] = useState(null);
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [soldUnits, setSoldUnits] = useState(0);
@@ -20,10 +21,12 @@ export default function SellerProfile() {
       setLoading(true);
       try {
         // Tanpa ?status -> otomatis hanya yang 'approved' (halaman publik)
-        const [data, stats] = await Promise.all([
+        const [profileData, data, stats] = await Promise.all([
+          d1Api.getProfile(uid),
           d1Api.getListings({ owner: uid }),
           d1Api.getSellerStats(uid),
         ]);
+        setProfile(profileData);
         setListings(data);
         setSoldUnits(stats?.sold_units || 0);
       } catch (err) {
@@ -35,11 +38,21 @@ export default function SellerProfile() {
     load();
   }, [uid]);
 
-  const owner = listings[0];
-  const isOwnerPremium = Boolean(uid && premiumMap && premiumMap[uid] !== undefined);
-  const isOwnerVerified = ADMIN_UIDS.includes(uid) || isOwnerPremium;
+  // Sumber nama/foto: profil yang sudah diisi sendiri > data dari iklan
+  // terakhir (jaga-jaga user belum pernah buka menu Profil Saya).
+  const fallbackOwner = listings[0];
+  const displayName = profile?.name || fallbackOwner?.ownerName || 'Profil Pengiklan';
+  const displayPhoto = profile?.photo || fallbackOwner?.ownerPhoto || '';
+  const description = profile?.description || '';
 
-  if (!loading && !premiumLoading && !isOwnerVerified) {
+  const isOwnerPremium = Boolean(uid && premiumMap && premiumMap[uid] !== undefined);
+  const isOwnerAdmin = ADMIN_UIDS.includes(uid);
+
+  // Halaman profil ini sekarang terbuka untuk SEMUA pengguna (bukan cuma
+  // premium/admin) -- hanya badge centang yang tetap eksklusif.
+  const notFound = !loading && !premiumLoading && !profile && listings.length === 0;
+
+  if (notFound) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-16 text-center">
         <p className="text-ink/60">Halaman profil ini tidak tersedia.</p>
@@ -50,33 +63,37 @@ export default function SellerProfile() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <Seo
-        title={owner ? `Iklan dari ${owner.ownerName}` : 'Profil Pengiklan'}
+        title={`Iklan dari ${displayName}`}
         description="Lihat semua iklan rumah lain dari pengiklan ini di Rauma."
         path={`/penjual/${uid}`}
       />
 
       <div className="flex items-center gap-3">
-        {owner?.ownerPhoto && (
+        {displayPhoto && (
           <ProfilePhotoViewer
-            src={owner.ownerPhoto}
-            alt={owner.ownerName}
-            clickable={isOwnerVerified}
+            src={displayPhoto}
+            alt={displayName}
+            clickable
             className="h-14 w-14 rounded-full object-cover"
           />
         )}
         <div>
           <h1 className="flex items-center gap-1.5 font-display text-2xl font-semibold text-navy">
-            {owner ? owner.ownerName : 'Profil Pengiklan'}
-            {owner && ADMIN_UIDS.includes(owner.ownerUid) && <VerifiedBadge size={20} color="gold" />}
-            {owner && isOwnerPremium && !ADMIN_UIDS.includes(owner.ownerUid) && (
-              <VerifiedBadge size={20} color="blue" />
-            )}
+            {displayName}
+            {isOwnerAdmin && <VerifiedBadge size={20} color="gold" />}
+            {isOwnerPremium && !isOwnerAdmin && <VerifiedBadge size={20} color="blue" />}
           </h1>
           <p className="text-sm text-ink/50">
             {listings.length} iklan tayang{soldUnits > 0 ? ` · ${soldUnits} unit terjual` : ''}
           </p>
         </div>
       </div>
+
+      {description && (
+        <p className="mt-4 max-w-2xl whitespace-pre-line text-sm leading-relaxed text-ink/70">
+          {description}
+        </p>
+      )}
 
       {loading && <p className="mt-6 text-sm text-ink/50">Memuat...</p>}
 
