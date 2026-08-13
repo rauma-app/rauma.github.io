@@ -715,6 +715,19 @@ export default {
           const imagesJson = typeof body.images === "string" ? body.images : JSON.stringify(body.images || []);
           const toNumberOrNull = (v) => (v === undefined || v === null || v === "" ? null : Number(v));
 
+          // Multi-tipe (khusus kategori Perumahan, maks 4 tipe per listing,
+          // misal "Tipe 36/72" / "Tipe 45/90"). Kolom harga/cicilan/luas/
+          // kamar/listrik di level listing tetap diisi dari TIPE TERMURAH,
+          // supaya listing ini tetap ketemu normal di pencarian & filter
+          // harga yang sudah ada -- gak perlu ubah logic pencarian sama
+          // sekali. Detail semua tipe disimpan lengkap di kolom unitTypes.
+          const unitTypesArr = Array.isArray(body.unitTypes) ? body.unitTypes.slice(0, 4) : [];
+          const cheapestType = unitTypesArr.length
+            ? [...unitTypesArr].sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0))[0]
+            : null;
+          const unitTypesJson = unitTypesArr.length ? JSON.stringify(unitTypesArr) : null;
+          const src = cheapestType || body;
+
           await env.DB.prepare(
             `INSERT INTO listings (
               id, title, type, category, price, cicilanPerBulan,
@@ -724,8 +737,8 @@ export default {
               phone, seller_phone, whatsapp, seller_uid, ownerUid, ownerName, ownerPhoto,
               images, status,
               materialPondasi, materialDinding, materialAtap, materialKusen, materialLantai, materialKloset,
-              perumahanName, perumahanPhoto
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              perumahanName, perumahanPhoto, unitTypes
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               title=excluded.title, type=excluded.type, category=excluded.category, price=excluded.price,
               cicilanPerBulan=excluded.cicilanPerBulan, location=excluded.location, kabupaten=excluded.kabupaten,
@@ -739,26 +752,27 @@ export default {
               materialPondasi=excluded.materialPondasi, materialDinding=excluded.materialDinding,
               materialAtap=excluded.materialAtap, materialKusen=excluded.materialKusen,
               materialLantai=excluded.materialLantai, materialKloset=excluded.materialKloset,
-              perumahanName=excluded.perumahanName, perumahanPhoto=excluded.perumahanPhoto`
+              perumahanName=excluded.perumahanName, perumahanPhoto=excluded.perumahanPhoto,
+              unitTypes=excluded.unitTypes`
           )
             .bind(
               idToSave,
               body.title || "",
               body.type || null,
               body.category || null,
-              toNumberOrNull(body.price) || 0,
-              toNumberOrNull(body.cicilanPerBulan),
+              toNumberOrNull(src.price) || 0,
+              toNumberOrNull(src.cicilanPerBulan),
               body.location || null,
               body.kabupaten || null,
               body.kecamatan || null,
               toNumberOrNull(body.lat),
               toNumberOrNull(body.lon),
-              toNumberOrNull(body.luasTanah),
-              toNumberOrNull(body.luasBangunan),
+              toNumberOrNull(src.luasTanah),
+              toNumberOrNull(src.luasBangunan),
               toNumberOrNull(body.unitTersedia),
-              toNumberOrNull(body.bedrooms),
-              toNumberOrNull(body.bathrooms),
-              body.electricity || null,
+              toNumberOrNull(src.bedrooms),
+              toNumberOrNull(src.bathrooms),
+              src.electricity || null,
               body.air || null,
               body.sertifikat || null,
               body.videoUrl || null,
@@ -779,7 +793,8 @@ export default {
               body.materialLantai || null,
               body.materialKloset || null,
               body.perumahanName || null,
-              body.perumahanPhoto || null
+              body.perumahanPhoto || null,
+              unitTypesJson
             )
             .run();
 
