@@ -28,6 +28,6 @@ database_id = "add0f90b-b35b-46b2-8551-f7c52573c5c5"
 # Buat dulu KV namespace-nya:
 #   npx wrangler kv namespace create RATE_LIMIT
 # Lalu copy "id" hasil perintah di atas ke sini dan hapus tanda pagar (#):
-# [[kv_namespaces]]
-# binding = "RATE_LIMIT"
-# id = "ISI_ID_DARI_HASIL_PERINTAH_DI_ATAS"
+ [[kv_namespaces]]
+ binding = "RATE_LIMIT"
+ id = "cda2b1478e4d4cf18bd8c9ac3b5f77c7"
