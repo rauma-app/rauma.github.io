@@ -96,6 +96,15 @@ export default function Header() {
                     Disimpan
                   </Link>
                 )}
+                {!userIsPerumahanAdmin && (
+                  <Link
+                    to="/profil-saya"
+                    onClick={() => setOpen(false)}
+                    className="block px-4 py-3 text-sm text-ink hover:bg-cream"
+                  >
+                    Profil Saya
+                  </Link>
+                )}
                 {isAdmin(user) && !userIsPerumahanAdmin && (
                   <Link
                     to="/admin"
