@@ -122,7 +122,7 @@ export default {
     // --- CORS: cuma refleksikan origin yang ada di whitelist, bukan "*" ---
     const origin = request.headers.get("Origin") || "";
     const corsHeaders = {
-      "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
       Vary: "Origin",
     };
