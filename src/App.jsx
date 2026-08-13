@@ -24,6 +24,7 @@ const SavedListings = lazy(() => import('./pages/SavedListings'));
 const AdminPending = lazy(() => import('./pages/AdminPending'));
 const AdminStats = lazy(() => import('./pages/AdminStats'));
 const SellerProfile = lazy(() => import('./pages/SellerProfile'));
+const ProfileSettings = lazy(() => import('./pages/ProfileSettings'));
 const TentangKami = lazy(() => import('./pages/TentangKami'));
 const KebijakanPrivasi = lazy(() => import('./pages/KebijakanPrivasi'));
 const SyaratKetentuan = lazy(() => import('./pages/SyaratKetentuan'));
@@ -115,6 +116,14 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <SavedListings />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profil-saya"
+              element={
+                <ProtectedRoute>
+                  <ProfileSettings />
                 </ProtectedRoute>
               }
             />
