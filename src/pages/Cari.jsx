@@ -43,20 +43,25 @@ export default function Cari() {
       setResults(data);
       setLoading(false);
 
-      // Kalau kosong dan ada lokasi + harga minimum, coba cariin alternatif:
-      // properti di lokasi yang SAMA tapi dengan harga di BAWAH rentang yang
-      // dicari (misal cari 300-399jt kosong -> tawarin yang di bawah 300jt).
-      // Biar halaman gak kosong-kosong amat.
-      if (data.length === 0 && parsed.location && parsed.minPrice) {
+      // Kalau kosong dan ada lokasi + harga yang dicari, tawarin listing lain
+      // di area yang SAMA tapi masih di rentang harga yang masuk akal (target
+      // +/- 200jt) -- biar gak nampilin misal rumah 1M pas orang nyari
+      // budget 300jt (jelas gak akan kebeli, cuma buang-buang baca data).
+      const BAND = 200_000_000;
+      if (data.length === 0 && parsed.location) {
+        const target = parsed.minPrice ?? parsed.maxPrice;
+        const bandMin = target ? Math.max(0, target - BAND) : undefined;
+        const bandMax = target ? target + BAND : undefined;
         const alt = await d1Api.getListings({
           location: parsed.location,
-          maxPrice: parsed.minPrice - 1,
+          minPrice: bandMin,
+          maxPrice: bandMax,
         });
         if (!cancelled) {
-          // Urutkan dari yang harganya paling mendekati budget (termahal dulu),
-          // ambil beberapa saja biar gak kepanjangan.
-          const sorted = [...alt].sort((a, b) => (b.price || 0) - (a.price || 0)).slice(0, 8);
-          setFallbackResults(sorted);
+          const sorted = target
+            ? [...alt].sort((a, b) => Math.abs((a.price || 0) - target) - Math.abs((b.price || 0) - target))
+            : alt;
+          setFallbackResults(sorted.slice(0, 8));
         }
       }
     }
@@ -104,9 +109,11 @@ export default function Cari() {
       {!loading && results.length === 0 && fallbackResults.length > 0 && (
         <div className="mt-8">
           <h2 className="font-display text-lg font-semibold text-navy">
-            Rumah {parsed.locationLabel ? `di ${parsed.locationLabel} ` : ''}dengan harga lebih rendah
+            Rumah lain {parsed.locationLabel ? `di ${parsed.locationLabel}` : 'di area ini'}
           </h2>
-          <p className="mt-1 text-sm text-ink/50">Mungkin ini cocok, harganya di bawah budget yang kamu cari.</p>
+          <p className="mt-1 text-sm text-ink/50">
+            Belum ada yang pas harganya, tapi ini rumah lain yang ada di area yang kamu cari.
+          </p>
           <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
             {fallbackResults.map((item) => (
               <ListingCard key={item.id} listing={item} />
