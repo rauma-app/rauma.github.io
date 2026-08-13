@@ -425,6 +425,61 @@ export default {
       }
 
       // =============================================================
+      // 2b. ENDPOINT PROFIL PENGGUNA (nama, foto, deskripsi yang bisa
+      // diedit) -- GET publik (dipakai di halaman profil penjual), PUT
+      // WAJIB LOGIN dan cuma boleh ubah profil MILIK SENDIRI (uid diambil
+      // dari token yang sudah diverifikasi, BUKAN dari body request, biar
+      // gak bisa dipakai buat ubah profil orang lain).
+      // =============================================================
+      if (path.startsWith("/api/profile")) {
+        const profileParts = path.split("/").filter(Boolean); // ["api", "profile", uid?]
+
+        if (profileParts.length === 3 && method === "GET") {
+          const uid = profileParts[2];
+          const row = await env.DB.prepare(
+            "SELECT uid, name, photo, description, updated_at FROM user_profiles WHERE uid = ?"
+          )
+            .bind(uid)
+            .first();
+          return json(row || { uid, name: null, photo: null, description: null });
+        }
+
+        if (path === "/api/profile" && method === "PUT") {
+          const authed = await getAuthedUser();
+          if (!authed) return unauthorized("Login dulu untuk mengubah profil");
+
+          if (await tooManyRequests(`profile:${authed.uid}`, 20, 3600)) {
+            return json({ error: "Terlalu banyak percobaan, coba lagi nanti" }, 429);
+          }
+
+          const body = await request.json().catch(() => ({}));
+          const name = String(body.name || "").trim().slice(0, 80);
+          const photo = String(body.photo || "").trim().slice(0, 500);
+          const description = String(body.description || "").trim().slice(0, 500);
+
+          if (!name) return json({ error: "Nama tidak boleh kosong" }, 400);
+
+          await env.DB.prepare(
+            `INSERT INTO user_profiles (uid, name, photo, description, updated_at)
+             VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+             ON CONFLICT(uid) DO UPDATE SET
+               name=excluded.name, photo=excluded.photo,
+               description=excluded.description, updated_at=CURRENT_TIMESTAMP`
+          )
+            .bind(authed.uid, name, photo, description)
+            .run();
+
+          // Ikut update nama & foto di SEMUA iklan aktif milik user ini,
+          // biar konsisten (iklan lama gak nampilin nama/foto usang).
+          await env.DB.prepare("UPDATE listings SET ownerName = ?, ownerPhoto = ? WHERE ownerUid = ?")
+            .bind(name, photo, authed.uid)
+            .run();
+
+          return json({ uid: authed.uid, name, photo, description });
+        }
+      }
+
+      // =============================================================
       // 2. ENDPOINT DATABASE D1 (/api/listings)
       // =============================================================
       if (path.startsWith("/api/listings")) {
