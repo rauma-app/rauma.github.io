@@ -38,10 +38,12 @@ export default function Listing() {
   const { premiumMap } = usePremium();
   const [related, setRelated] = useState([]);
   const [materialOpen, setMaterialOpen] = useState(false);
+  const [selectedTypeIndex, setSelectedTypeIndex] = useState(0);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
+      setSelectedTypeIndex(0);
       try {
         const data = await d1Api.getListingById(id);
         if (data) {
@@ -57,10 +59,22 @@ export default function Listing() {
             parsedImages = ['/placeholder-house.jpg'];
           }
 
+          // Tipe unit (khusus kategori Perumahan, misal "Tipe 36/72" /
+          // "Tipe 45/90"). Kalau ada lebih dari 1 tipe, calon pembeli bisa
+          // pilih-pilih -- harga/cicilan/luas/kamar/listrik ikut berubah.
+          let parsedUnitTypes = [];
+          try {
+            parsedUnitTypes = typeof data.unitTypes === 'string' ? JSON.parse(data.unitTypes) : data.unitTypes;
+          } catch (e) {
+            parsedUnitTypes = [];
+          }
+          if (!Array.isArray(parsedUnitTypes)) parsedUnitTypes = [];
+
           setListing({
             ...data,
             images: parsedImages,
             price: Number(data.price) || 0,
+            unitTypes: parsedUnitTypes,
             ownerUid: data.ownerUid || data.seller_uid || '',
             ownerName: data.ownerName || data.seller_name || 'Penjual',
             ownerPhoto: data.ownerPhoto || data.seller_photo || '',
@@ -122,14 +136,33 @@ export default function Listing() {
     );
   }
 
+  // Kalau listing ini punya lebih dari 1 tipe unit (kategori Perumahan),
+  // pakai data tipe yang lagi dipilih. Kalau cuma 1 tipe / gak ada sama
+  // sekali, pakai data listing seperti biasa (listing lama/kategori lain,
+  // tampilannya persis sama seperti sebelum fitur ini ada).
+  const hasMultipleTypes = Array.isArray(listing.unitTypes) && listing.unitTypes.length > 1;
+  const activeType =
+    Array.isArray(listing.unitTypes) && listing.unitTypes.length > 0
+      ? listing.unitTypes[selectedTypeIndex] || listing.unitTypes[0]
+      : null;
+  const activeSpec = {
+    price: activeType ? Number(activeType.price) || 0 : listing.price,
+    cicilanPerBulan: activeType ? activeType.cicilanPerBulan : listing.cicilanPerBulan,
+    luasTanah: activeType ? activeType.luasTanah : listing.luasTanah,
+    luasBangunan: activeType ? activeType.luasBangunan : listing.luasBangunan,
+    bedrooms: activeType ? activeType.bedrooms : listing.bedrooms,
+    bathrooms: activeType ? activeType.bathrooms : listing.bathrooms,
+    electricity: activeType ? activeType.electricity : listing.electricity,
+  };
+
   // Format Angka & Teks dengan Proteksi Fallback
-  const formattedPriceShort = formatRupiahShort ? formatRupiahShort(listing.price) : `Rp ${listing.price.toLocaleString('id-ID')}`;
-  const formattedPriceFull = formatRupiah ? formatRupiah(listing.price) : `Rp ${listing.price.toLocaleString('id-ID')}`;
+  const formattedPriceShort = formatRupiahShort ? formatRupiahShort(activeSpec.price) : `Rp ${activeSpec.price.toLocaleString('id-ID')}`;
+  const formattedPriceFull = formatRupiah ? formatRupiah(activeSpec.price) : `Rp ${activeSpec.price.toLocaleString('id-ID')}`;
 
   // Harga versi ringkas khusus buat pesan WhatsApp, contoh: "Rp 900jt" / "Rp 1,2M"
   // (beda dari formattedPriceShort yang pakai "900 Jt" dengan spasi & huruf besar)
   const formattedPriceWA = (() => {
-    const value = listing.price;
+    const value = activeSpec.price;
     if (value == null || Number.isNaN(value)) return '-';
     if (value >= 1_000_000_000) {
       return `Rp ${(value / 1_000_000_000).toFixed(2).replace(/\.?0+$/, '').replace('.', ',')}M`;
@@ -146,7 +179,9 @@ export default function Listing() {
   const waNumber = (listing.whatsapp || '').replace(/[^0-9]/g, '');
   const waLink = waNumber
     ? `https://wa.me/${waNumber.startsWith('0') ? '62' + waNumber.slice(1) : waNumber}?text=${encodeURIComponent(
-        `Halo, saya tertarik dengan rumah di ${listing.kecamatan ? listing.kecamatan + ' - ' : ''}${listing.kabupaten} (${formattedPriceWA}).\n\n${listingUrl}`
+        `Halo, saya tertarik dengan rumah di ${listing.kecamatan ? listing.kecamatan + ' - ' : ''}${listing.kabupaten}${
+          activeType?.name ? ` (${activeType.name})` : ''
+        } (${formattedPriceWA}).\n\n${listingUrl}`
       )}`
     : null;
 
@@ -182,11 +217,14 @@ export default function Listing() {
 
       {/* Informasi Utama */}
       <div className="mt-6">
+        {hasMultipleTypes && activeType?.name && (
+          <p className="text-xs font-medium uppercase tracking-wide text-ink/40">{activeType.name}</p>
+        )}
         <div className="flex flex-wrap items-baseline gap-x-2">
           <p className="font-display text-3xl font-bold text-navy">{formattedPriceShort}</p>
-          {listing.cicilanPerBulan && formatMonthlyShort && (
+          {activeSpec.cicilanPerBulan && formatMonthlyShort && (
             <p className="text-sm text-ink/50">
-              Mulai {formatMonthlyShort(listing.cicilanPerBulan)}
+              Mulai {formatMonthlyShort(activeSpec.cicilanPerBulan)}
             </p>
           )}
         </div>
@@ -196,37 +234,57 @@ export default function Listing() {
         </div>
       </div>
 
+      {/* Pilihan Tipe Unit (cuma muncul kalau listing ini punya >1 tipe) */}
+      {hasMultipleTypes && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {listing.unitTypes.map((t, idx) => (
+            <button
+              key={idx}
+              type="button"
+              onClick={() => setSelectedTypeIndex(idx)}
+              className={`rounded-full border px-4 py-2 text-sm font-semibold transition-colors ${
+                selectedTypeIndex === idx
+                  ? 'border-navy bg-navy text-white'
+                  : 'border-line bg-white text-ink/60'
+              }`}
+            >
+              {t.name || `Tipe ${idx + 1}`}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Tabel Spesifikasi */}
       <section className="mt-8">
         <h2 className="font-display text-xl font-semibold text-navy mb-3">Spesifikasi</h2>
         <dl className="divide-y divide-line rounded-2xl border border-line bg-white">
-          {listing.luasBangunan && listing.luasTanah && (
+          {activeSpec.luasBangunan && activeSpec.luasTanah && (
             <div className="flex items-center justify-between px-4 py-3">
               <dt className="flex items-center gap-2 text-sm text-ink/60">
                 <span>📐</span> Luas Bangunan &amp; Tanah
               </dt>
               <dd className="text-sm font-medium text-ink">
-                {listing.luasBangunan}m² / {listing.luasTanah}m²
+                {activeSpec.luasBangunan}m² / {activeSpec.luasTanah}m²
               </dd>
             </div>
           )}
-          {listing.bedrooms && listing.bathrooms && (
+          {activeSpec.bedrooms && activeSpec.bathrooms && (
             <div className="flex items-center justify-between px-4 py-3">
               <dt className="flex items-center gap-2 text-sm text-ink/60">
                 <span>🛏️</span> Kamar Tidur &amp; Mandi
               </dt>
               <dd className="text-sm font-medium text-ink">
-                {listing.bedrooms} / {listing.bathrooms}
+                {activeSpec.bedrooms} / {activeSpec.bathrooms}
               </dd>
             </div>
           )}
-          {SPEC_ROWS.filter((row) => listing[row.key]).map((row) => (
+          {SPEC_ROWS.filter((row) => (row.key === 'electricity' ? activeSpec.electricity : listing[row.key])).map((row) => (
             <div key={row.key} className="flex items-center justify-between px-4 py-3">
               <dt className="flex items-center gap-2 text-sm text-ink/60">
                 <span>{row.icon}</span> {row.label}
               </dt>
               <dd className="text-sm font-medium text-ink">
-                {listing[row.key]}{row.suffix}
+                {row.key === 'electricity' ? activeSpec.electricity : listing[row.key]}{row.suffix}
               </dd>
             </div>
           ))}

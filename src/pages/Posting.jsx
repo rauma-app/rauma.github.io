@@ -62,6 +62,23 @@ const emptyForm = {
 };
 
 const MAX_PHOTOS = 8;
+const MAX_UNIT_TYPES = 4;
+
+function emptyUnitType() {
+  return {
+    key: `t${Date.now()}${Math.random().toString(36).slice(2)}`,
+    name: '',
+    priceRaw: '',
+    priceDisplay: '',
+    cicilanRaw: '',
+    cicilanDisplay: '',
+    luasTanah: '',
+    luasBangunan: '',
+    bedrooms: '',
+    bathrooms: '',
+    electricity: '',
+  };
+}
 
 function formatThousands(digits) {
   if (!digits) return '';
@@ -88,6 +105,11 @@ export default function Posting() {
   const [materialOpen, setMaterialOpen] = useState(false);
   const [perumahanPhotoFile, setPerumahanPhotoFile] = useState(null);
   const [perumahanPhotoPreview, setPerumahanPhotoPreview] = useState('');
+  // Tipe unit (khusus kategori Perumahan, misal "Tipe 36/72" / "Tipe 45/90"),
+  // maks MAX_UNIT_TYPES tipe per listing. Field lain (foto, lokasi, deskripsi,
+  // dll) tetap 1 untuk semua tipe -- cuma harga/cicilan/luas/kamar/listrik
+  // yang beda per tipe.
+  const [unitTypes, setUnitTypes] = useState([emptyUnitType()]);
 
   const userIsAdmin = isAdmin(user);
   const { premiumMap, perumahanAdminMap } = usePremium();
@@ -106,7 +128,9 @@ export default function Posting() {
     ? ['perumahan']
     : userIsAdmin
       ? ['pribadi', 'take_over_kpr', 'perumahan', 'subsidi']
-      : ['pribadi', 'take_over_kpr', 'subsidi'];
+      : userIsPremium
+        ? ['pribadi', 'take_over_kpr', 'subsidi']
+        : ['pribadi', 'take_over_kpr'];
 
   // Admin Perumahan cuma punya 1 kategori -> paksa selalu 'perumahan'.
   // PENTING: hook ini harus dipanggil sebelum return apa pun di bawah
@@ -207,6 +231,50 @@ export default function Posting() {
           setPerumahanPhotoPreview(data.perumahanPhoto);
         }
 
+        // Tipe unit: kalau listing lama sudah punya unitTypes tersimpan,
+        // pakai itu. Kalau belum ada (listing perumahan lama sebelum fitur
+        // ini) tapi kategorinya 'perumahan', bikinkan 1 tipe dari data
+        // harga/luas/kamar yang sudah ada -- biar gak hilang pas diedit.
+        let parsedUnitTypes = [];
+        try {
+          parsedUnitTypes = typeof data.unitTypes === 'string' ? JSON.parse(data.unitTypes) : data.unitTypes;
+        } catch (e) {
+          parsedUnitTypes = [];
+        }
+        if (Array.isArray(parsedUnitTypes) && parsedUnitTypes.length > 0) {
+          setUnitTypes(
+            parsedUnitTypes.slice(0, MAX_UNIT_TYPES).map((t) => ({
+              key: `t${Date.now()}${Math.random().toString(36).slice(2)}`,
+              name: t.name || '',
+              priceRaw: t.price ? String(t.price) : '',
+              priceDisplay: t.price ? formatThousands(String(t.price)) : '',
+              cicilanRaw: t.cicilanPerBulan ? String(t.cicilanPerBulan) : '',
+              cicilanDisplay: t.cicilanPerBulan ? formatThousands(String(t.cicilanPerBulan)) : '',
+              luasTanah: t.luasTanah ?? '',
+              luasBangunan: t.luasBangunan ?? '',
+              bedrooms: t.bedrooms ?? '',
+              bathrooms: t.bathrooms ?? '',
+              electricity: t.electricity || '',
+            }))
+          );
+        } else if (data.type === 'perumahan') {
+          setUnitTypes([
+            {
+              key: `t${Date.now()}`,
+              name: '',
+              priceRaw: String(data.price || ''),
+              priceDisplay: formatThousands(String(data.price || '')),
+              cicilanRaw: data.cicilanPerBulan ? String(data.cicilanPerBulan) : '',
+              cicilanDisplay: data.cicilanPerBulan ? formatThousands(String(data.cicilanPerBulan)) : '',
+              luasTanah: data.luasTanah ?? '',
+              luasBangunan: data.luasBangunan ?? '',
+              bedrooms: data.bedrooms ?? '',
+              bathrooms: data.bathrooms ?? '',
+              electricity: data.electricity || '',
+            },
+          ]);
+        }
+
         // Kalau ada material yang sudah keisi (edit iklan lama), buka
         // section-nya otomatis biar user langsung lihat & bisa ubah.
         if (data.materialPondasi || data.materialDinding || data.materialAtap || data.materialKusen || data.materialLantai || data.materialKloset) {
@@ -247,6 +315,32 @@ export default function Posting() {
     setCicilanDisplay(formatThousands(digits));
   }
 
+  function updateUnitType(index, field, value) {
+    setUnitTypes((arr) => arr.map((t, i) => (i === index ? { ...t, [field]: value } : t)));
+  }
+
+  function handleUnitTypePriceChange(index, e) {
+    const digits = e.target.value.replace(/\D/g, '');
+    setUnitTypes((arr) =>
+      arr.map((t, i) => (i === index ? { ...t, priceRaw: digits, priceDisplay: formatThousands(digits) } : t))
+    );
+  }
+
+  function handleUnitTypeCicilanChange(index, e) {
+    const digits = e.target.value.replace(/\D/g, '');
+    setUnitTypes((arr) =>
+      arr.map((t, i) => (i === index ? { ...t, cicilanRaw: digits, cicilanDisplay: formatThousands(digits) } : t))
+    );
+  }
+
+  function addUnitType() {
+    setUnitTypes((arr) => (arr.length >= MAX_UNIT_TYPES ? arr : [...arr, emptyUnitType()]));
+  }
+
+  function removeUnitType(index) {
+    setUnitTypes((arr) => (arr.length <= 1 ? arr : arr.filter((_, i) => i !== index)));
+  }
+
   function handleWhatsappChange(e) {
     const digits = e.target.value.replace(/\D/g, '').slice(0, 13);
     update('whatsapp', digits);
@@ -285,19 +379,35 @@ export default function Posting() {
     e.preventDefault();
     setError('');
 
-    if (!form.priceRaw || !form.location || totalPhotoCount() === 0) {
-      setError('Harga, lokasi, dan minimal 1 foto wajib diisi.');
-      return;
-    }
+    const isMultiType = form.type === 'perumahan';
 
-    if (!form.luasBangunan || !form.luasTanah) {
-      setError('Luas Bangunan dan Luas Tanah wajib diisi.');
-      return;
-    }
+    if (isMultiType) {
+      if (!form.location || totalPhotoCount() === 0) {
+        setError('Lokasi dan minimal 1 foto wajib diisi.');
+        return;
+      }
+      const incomplete = unitTypes.some(
+        (t) => !t.priceRaw || !t.luasBangunan || !t.luasTanah || !t.bedrooms || !t.bathrooms
+      );
+      if (incomplete) {
+        setError('Harga, Luas Bangunan, Luas Tanah, Kamar Tidur, dan Kamar Mandi wajib diisi untuk setiap tipe unit.');
+        return;
+      }
+    } else {
+      if (!form.priceRaw || !form.location || totalPhotoCount() === 0) {
+        setError('Harga, lokasi, dan minimal 1 foto wajib diisi.');
+        return;
+      }
 
-    if (!form.bedrooms || !form.bathrooms) {
-      setError('Kamar Tidur dan Kamar Mandi wajib diisi.');
-      return;
+      if (!form.luasBangunan || !form.luasTanah) {
+        setError('Luas Bangunan dan Luas Tanah wajib diisi.');
+        return;
+      }
+
+      if (!form.bedrooms || !form.bathrooms) {
+        setError('Kamar Tidur dan Kamar Mandi wajib diisi.');
+        return;
+      }
     }
 
     if (form.whatsapp.length < 10 || form.whatsapp.length > 13) {
@@ -365,15 +475,38 @@ export default function Posting() {
       const resolvedOwnerName = user?.displayName || (user?.email ? user.email.split('@')[0] : 'Penjual');
       const resolvedOwnerPhoto = user?.photoURL || '';
 
+      // Tipe unit (khusus kategori Perumahan): kolom harga/luas/kamar/listrik
+      // di level listing diisi dari tipe TERMURAH, biar tetap ketemu normal
+      // di pencarian & filter harga yang sudah ada.
+      const cleanUnitTypes = isMultiType
+        ? unitTypes.map((t) => ({
+            name: t.name.trim() || null,
+            price: Number(t.priceRaw) || 0,
+            cicilanPerBulan: t.cicilanRaw ? Number(t.cicilanRaw) : null,
+            luasTanah: t.luasTanah ? Number(t.luasTanah) : null,
+            luasBangunan: t.luasBangunan ? Number(t.luasBangunan) : null,
+            bedrooms: t.bedrooms ? Number(t.bedrooms) : null,
+            bathrooms: t.bathrooms ? Number(t.bathrooms) : null,
+            electricity: t.electricity || null,
+          }))
+        : [];
+      const cheapestType = isMultiType
+        ? [...cleanUnitTypes].sort((a, b) => a.price - b.price)[0]
+        : null;
+
       // 2. Susun Payload Presisi Sesuai Listing.jsx
       const payload = {
-     id: isEditMode ? id : Date.now().toString(36),
+        id: isEditMode ? id : `item_${Date.now()}`,
         title: `${TYPE_LABELS[form.type] || 'Rumah'} di ${kecName || kabName || 'Indonesia'}`,
         type: form.type,
         category: TYPE_LABELS[form.type] || 'Rumah',
-        price: Number(form.priceRaw),
-        cicilanPerBulan: CICILAN_TYPES.includes(form.type) && form.cicilanRaw ? Number(form.cicilanRaw) : null,
-        
+        price: isMultiType ? cheapestType?.price || 0 : Number(form.priceRaw),
+        cicilanPerBulan: isMultiType
+          ? cheapestType?.cicilanPerBulan ?? null
+          : CICILAN_TYPES.includes(form.type) && form.cicilanRaw
+            ? Number(form.cicilanRaw)
+            : null,
+
         // Lokasi
         location: kabName,
         kabupaten: kabName,
@@ -382,14 +515,21 @@ export default function Posting() {
         lon: locObj.lon || null,
 
         // Spesifikasi (Sesuai dengan SPEC_ROWS di Listing.jsx)
-        luasTanah: form.luasTanah ? Number(form.luasTanah) : null,
-        luasBangunan: form.luasBangunan ? Number(form.luasBangunan) : null,
+        luasTanah: isMultiType ? cheapestType?.luasTanah ?? null : form.luasTanah ? Number(form.luasTanah) : null,
+        luasBangunan: isMultiType
+          ? cheapestType?.luasBangunan ?? null
+          : form.luasBangunan
+            ? Number(form.luasBangunan)
+            : null,
         unitTersedia: form.type === 'perumahan' && form.unitTersedia ? Number(form.unitTersedia) : null,
-        bedrooms: form.bedrooms ? Number(form.bedrooms) : null,
-        bathrooms: form.bathrooms ? Number(form.bathrooms) : null,
-        electricity: form.electricity || null,
+        bedrooms: isMultiType ? cheapestType?.bedrooms ?? null : form.bedrooms ? Number(form.bedrooms) : null,
+        bathrooms: isMultiType ? cheapestType?.bathrooms ?? null : form.bathrooms ? Number(form.bathrooms) : null,
+        electricity: isMultiType ? cheapestType?.electricity ?? null : form.electricity || null,
         air: form.air || null,
         sertifikat: form.sertifikat || null,
+
+        // Tipe unit (array, khusus kategori Perumahan)
+        unitTypes: isMultiType ? cleanUnitTypes : undefined,
 
         // Material Bangunan (opsional)
         materialPondasi: form.materialPondasi || null,
@@ -429,7 +569,7 @@ export default function Posting() {
       // sama seperti fitur Carikan Properti (sudah aktif ke rauma.contact@gmail.com).
       // Fire-and-forget: gagal kirim email TIDAK menggagalkan posting iklan.
       if (!isEditMode) {
-        fetch('https://formsubmit.co/ajax/a517f14c1064ab24fcf316c6d1f9e7cb', {
+        fetch('https://formsubmit.co/ajax/rauma.contact@gmail.com', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify({
@@ -478,12 +618,13 @@ export default function Posting() {
           </p>
 
           <ul className="mt-4 space-y-1.5 text-left text-sm text-ink/80">
-            <li>✅ Posting iklan lebih banyak</li>
+            <li>✅ Posting iklan maksimal {PREMIUM_LISTING_LIMIT}</li>
             <li>✅ Dapat ceklis biru</li>
             <li>✅ Profil bisa dibuka publik</li>
+            <li>✅ Klaim Wilayah listing (tidak ada 2 agent di lokasi sama)</li>
+            <li>✅ Buka fitur Perumahan &amp; Subsidi</li>
             <li>✅ Gratis kartu nama resmi dari Rauma ID</li>
             <li>✅ Gratis posting 1x promo Video rumah di akun TT/IG/FB/YT Rauma.id</li>
-            <li>✅ Dapatkan calon pembeli potensial dari kami</li>
           </ul>
 
           <a
@@ -610,38 +751,40 @@ export default function Posting() {
           )}
         </div>
 
-        <div className={CICILAN_TYPES.includes(form.type) ? 'grid grid-cols-2 gap-4' : ''}>
-          <Field label="Harga">
-            <div className="relative">
-              <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink/50">Rp</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                placeholder="100.000.000"
-                value={priceDisplay}
-                onChange={handlePriceChange}
-                className="w-full rounded-xl border border-line bg-white py-3 pl-10 pr-4 text-ink placeholder:text-ink/40 outline-none focus:border-forest"
-              />
-            </div>
-          </Field>
-
-          {CICILAN_TYPES.includes(form.type) && (
-            <Field label="Cicilan Mulai dari">
+        {!isMultiType && (
+          <div className={CICILAN_TYPES.includes(form.type) ? 'grid grid-cols-2 gap-4' : ''}>
+            <Field label="Harga">
               <div className="relative">
                 <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink/50">Rp</span>
                 <input
                   type="text"
                   inputMode="numeric"
-                  placeholder="2.500.000"
-                  value={cicilanDisplay}
-                  onChange={handleCicilanChange}
+                  placeholder="100.000.000"
+                  value={priceDisplay}
+                  onChange={handlePriceChange}
                   className="w-full rounded-xl border border-line bg-white py-3 pl-10 pr-4 text-ink placeholder:text-ink/40 outline-none focus:border-forest"
                 />
               </div>
-              <p className="mt-1.5 text-xs text-ink/40">Opsional. Cicilan per bulan, tampil berdampingan dengan harga jual.</p>
             </Field>
-          )}
-        </div>
+
+            {CICILAN_TYPES.includes(form.type) && (
+              <Field label="Cicilan Mulai dari">
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink/50">Rp</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="2.500.000"
+                    value={cicilanDisplay}
+                    onChange={handleCicilanChange}
+                    className="w-full rounded-xl border border-line bg-white py-3 pl-10 pr-4 text-ink placeholder:text-ink/40 outline-none focus:border-forest"
+                  />
+                </div>
+                <p className="mt-1.5 text-xs text-ink/40">Opsional. Cicilan per bulan, tampil berdampingan dengan harga jual.</p>
+              </Field>
+            )}
+          </div>
+        )}
 
         <Field label="Lokasi" info="Jika lokasi tidak ada, tulis alamat lengkap di deskripsi">
           <LocationAutocomplete
@@ -651,57 +794,190 @@ export default function Posting() {
           />
         </Field>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Luas Bangunan (m²)">
-            <input
-              type="number"
-              value={form.luasBangunan}
-              onChange={(e) => update('luasBangunan', e.target.value)}
-              placeholder="Masukkan luas bangunan"
-              className="input"
-            />
-          </Field>
-          <Field label="Luas Tanah (m²)">
-            <input
-              type="number"
-              value={form.luasTanah}
-              onChange={(e) => update('luasTanah', e.target.value)}
-              placeholder="Masukkan luas tanah"
-              className="input"
-            />
-          </Field>
-        </div>
+        {isMultiType && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-semibold text-ink">
+                Tipe Unit <span className="font-normal text-ink/40">(maks. {MAX_UNIT_TYPES})</span>
+              </label>
+              {unitTypes.length < MAX_UNIT_TYPES && (
+                <button
+                  type="button"
+                  onClick={addUnitType}
+                  className="text-xs font-semibold text-forest hover:underline"
+                >
+                  + Tambah Tipe
+                </button>
+              )}
+            </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Kamar Tidur">
-            <input
-              type="number"
-              value={form.bedrooms}
-              onChange={(e) => update('bedrooms', e.target.value)}
-              placeholder="Masukkan jumlah"
-              className="input"
-            />
-          </Field>
-          <Field label="Kamar Mandi">
-            <input
-              type="number"
-              value={form.bathrooms}
-              onChange={(e) => update('bathrooms', e.target.value)}
-              placeholder="Masukkan jumlah"
-              className="input"
-            />
-          </Field>
-        </div>
+            {unitTypes.map((t, idx) => (
+              <div key={t.key} className="rounded-xl border border-line bg-white p-4 space-y-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={t.name}
+                    onChange={(e) => updateUnitType(idx, 'name', e.target.value)}
+                    placeholder="Nama Tipe (misal: Tipe 36/72)"
+                    className="input flex-1"
+                  />
+                  {unitTypes.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeUnitType(idx)}
+                      aria-label="Hapus tipe ini"
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink/40 hover:bg-ink/10 hover:text-red-600"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
 
-        <Field label="Daya Listrik">
-          <input
-            type="text"
-            value={form.electricity}
-            onChange={(e) => update('electricity', e.target.value)}
-            placeholder="Masukkan daya listrik (contoh: 2200 VA)"
-            className="input"
-          />
-        </Field>
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Harga">
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink/50">Rp</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="100.000.000"
+                        value={t.priceDisplay}
+                        onChange={(e) => handleUnitTypePriceChange(idx, e)}
+                        className="w-full rounded-xl border border-line bg-white py-3 pl-10 pr-4 text-ink placeholder:text-ink/40 outline-none focus:border-forest"
+                      />
+                    </div>
+                  </Field>
+                  <Field label="Cicilan Mulai dari">
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-ink/50">Rp</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        placeholder="2.500.000"
+                        value={t.cicilanDisplay}
+                        onChange={(e) => handleUnitTypeCicilanChange(idx, e)}
+                        className="w-full rounded-xl border border-line bg-white py-3 pl-10 pr-4 text-ink placeholder:text-ink/40 outline-none focus:border-forest"
+                      />
+                    </div>
+                  </Field>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Luas Bangunan (m²)">
+                    <input
+                      type="number"
+                      value={t.luasBangunan}
+                      onChange={(e) => updateUnitType(idx, 'luasBangunan', e.target.value)}
+                      placeholder="Masukkan luas bangunan"
+                      className="input"
+                    />
+                  </Field>
+                  <Field label="Luas Tanah (m²)">
+                    <input
+                      type="number"
+                      value={t.luasTanah}
+                      onChange={(e) => updateUnitType(idx, 'luasTanah', e.target.value)}
+                      placeholder="Masukkan luas tanah"
+                      className="input"
+                    />
+                  </Field>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <Field label="Kamar Tidur">
+                    <input
+                      type="number"
+                      value={t.bedrooms}
+                      onChange={(e) => updateUnitType(idx, 'bedrooms', e.target.value)}
+                      placeholder="Masukkan jumlah"
+                      className="input"
+                    />
+                  </Field>
+                  <Field label="Kamar Mandi">
+                    <input
+                      type="number"
+                      value={t.bathrooms}
+                      onChange={(e) => updateUnitType(idx, 'bathrooms', e.target.value)}
+                      placeholder="Masukkan jumlah"
+                      className="input"
+                    />
+                  </Field>
+                </div>
+
+                <Field label="Daya Listrik">
+                  <input
+                    type="text"
+                    value={t.electricity}
+                    onChange={(e) => updateUnitType(idx, 'electricity', e.target.value)}
+                    placeholder="Masukkan daya listrik (contoh: 2200 VA)"
+                    className="input"
+                  />
+                </Field>
+              </div>
+            ))}
+            <p className="text-xs text-ink/40">
+              Kalau ada lebih dari 1 tipe, calon pembeli bisa pilih-pilih tipe di halaman detail iklan.
+            </p>
+          </div>
+        )}
+
+        {!isMultiType && (
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Luas Bangunan (m²)">
+              <input
+                type="number"
+                value={form.luasBangunan}
+                onChange={(e) => update('luasBangunan', e.target.value)}
+                placeholder="Masukkan luas bangunan"
+                className="input"
+              />
+            </Field>
+            <Field label="Luas Tanah (m²)">
+              <input
+                type="number"
+                value={form.luasTanah}
+                onChange={(e) => update('luasTanah', e.target.value)}
+                placeholder="Masukkan luas tanah"
+                className="input"
+              />
+            </Field>
+          </div>
+        )}
+
+        {!isMultiType && (
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Kamar Tidur">
+              <input
+                type="number"
+                value={form.bedrooms}
+                onChange={(e) => update('bedrooms', e.target.value)}
+                placeholder="Masukkan jumlah"
+                className="input"
+              />
+            </Field>
+            <Field label="Kamar Mandi">
+              <input
+                type="number"
+                value={form.bathrooms}
+                onChange={(e) => update('bathrooms', e.target.value)}
+                placeholder="Masukkan jumlah"
+                className="input"
+              />
+            </Field>
+          </div>
+        )}
+
+        {!isMultiType && (
+          <Field label="Daya Listrik">
+            <input
+              type="text"
+              value={form.electricity}
+              onChange={(e) => update('electricity', e.target.value)}
+              placeholder="Masukkan daya listrik (contoh: 2200 VA)"
+              className="input"
+            />
+          </Field>
+        )}
 
         <Field label="Air">
           <select value={form.air} onChange={(e) => update('air', e.target.value)} className="input">
