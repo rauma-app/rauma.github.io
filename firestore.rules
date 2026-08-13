@@ -26,12 +26,13 @@ service cloud.firestore {
                   || isAdmin();
 
       // User biasa bikin listing baru -> otomatis masuk status 'pending'.
-      // Kategori 'perumahan', 'subsidi' dan 'jual_cepat' cuma boleh dibuat
-      // oleh admin ATAU akun premium.
+      // Kategori 'perumahan' dan 'jual_cepat' cuma boleh dibuat oleh admin
+      // ATAU akun premium. 'subsidi' boleh dibuat siapa saja (termasuk
+      // user biasa).
       allow create: if request.auth != null
                     && request.resource.data.ownerUid == request.auth.uid
                     && (
-                      request.resource.data.type in ['pribadi', 'take_over_kpr']
+                      request.resource.data.type in ['pribadi', 'take_over_kpr', 'subsidi']
                       || isAdmin()
                       || isPremium()
                     )
