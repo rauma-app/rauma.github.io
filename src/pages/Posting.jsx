@@ -131,15 +131,15 @@ export default function Posting() {
   // Kategori yang boleh dipilih, beda-beda tergantung role:
   //  - Admin Perumahan : cuma 'perumahan' (dikunci, gak ada pilihan lain)
   //  - Admin utama     : semua kategori (gak berubah)
-  //  - Premium         : pribadi, take_over_kpr, subsidi (perumahan DICABUT)
-  //  - User biasa      : pribadi, take_over_kpr
+  //  - Premium         : pribadi, take_over_kpr, subsidi
+  //  - User biasa      : pribadi, take_over_kpr, subsidi (dikembalikan)
   const typeOptions = userIsPerumahanAdmin
     ? ['perumahan']
     : userIsAdmin
       ? ['pribadi', 'take_over_kpr', 'perumahan', 'subsidi']
       : userIsPremium
         ? ['pribadi', 'take_over_kpr', 'subsidi']
-        : ['pribadi', 'take_over_kpr'];
+        : ['pribadi', 'take_over_kpr', 'subsidi'];
 
   // Admin Perumahan cuma punya 1 kategori -> paksa selalu 'perumahan'.
   // PENTING: hook ini harus dipanggil sebelum return apa pun di bawah
