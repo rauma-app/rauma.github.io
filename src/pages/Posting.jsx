@@ -498,7 +498,11 @@ export default function Posting() {
 
       // 2. Susun Payload Presisi Sesuai Listing.jsx
       const payload = {
-        id: isEditMode ? id : `item_${Date.now()}`,
+        // ID pendek (base36 dari timestamp), misal "lz3k9f2a" -- lebih
+        // enak dibagikan lewat WhatsApp/link daripada "item_1786601927173".
+        // Listing LAMA yang masih format "item_..." tetap jalan normal,
+        // ini cuma berlaku buat listing baru mulai dari sekarang.
+        id: isEditMode ? id : Date.now().toString(36),
         title: `${TYPE_LABELS[form.type] || 'Rumah'} di ${kecName || kabName || 'Indonesia'}`,
         type: form.type,
         category: TYPE_LABELS[form.type] || 'Rumah',
