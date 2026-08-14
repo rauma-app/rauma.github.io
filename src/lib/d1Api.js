@@ -97,6 +97,20 @@ export const d1Api = {
     }
   },
 
+  // Ambil listing perumahan lewat slug SEO-nya, misal
+  // "green-residen-parahyangan" -> rauma.id/perumahan/green-residen-parahyangan
+  async getListingBySlug(slug) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/listings/slug/${encodeURIComponent(slug)}`);
+      if (!res.ok) throw new Error('Properti tidak ditemukan');
+      const data = await res.json();
+      return normalizeListing(data);
+    } catch (err) {
+      console.error('Error d1Api.getListingBySlug:', err);
+      return null;
+    }
+  },
+
   // Simpan properti baru / edit properti lama (upsert berdasarkan id) ke Cloudflare D1
   // Wajib login -- Worker menolak kalau tidak ada token valid.
   async createListing(data) {
