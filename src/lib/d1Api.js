@@ -242,14 +242,28 @@ export const d1Api = {
     }
   },
 
+  // Cari profil berdasarkan username (dipakai halaman /u/:username).
+  // Balik null kalau username gak ketemu (bukan throw), biar gampang
+  // dicek pemanggilnya.
+  async getProfileByUsername(username) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/profile/username/${encodeURIComponent(username)}`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch (err) {
+      console.error('Error d1Api.getProfileByUsername:', err);
+      return null;
+    }
+  },
+
   // Simpan/update profil MILIK SENDIRI. Server ambil uid dari token,
   // jadi tidak mungkin dipakai untuk ubah profil orang lain.
-  async updateProfile({ name, photo, description }) {
+  async updateProfile({ name, photo, description, username }) {
     const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
     const res = await fetch(`${API_BASE_URL}/profile`, {
       method: 'PUT',
       headers,
-      body: JSON.stringify({ name, photo, description }),
+      body: JSON.stringify({ name, photo, description, username }),
     });
     const result = await res.json();
     if (!res.ok) throw new Error(result?.error || 'Gagal menyimpan profil');
@@ -373,4 +387,4 @@ export const d1Api = {
     }
   },
 };
-
+        
