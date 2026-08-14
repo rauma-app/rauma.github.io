@@ -885,7 +885,7 @@ export default {
           // bawah, biar walau kolom lain ke-update, URL-nya tetap sama
           // persis walau nama perumahannya diedit nanti.
           let perumahanSlug = null;
-          if (body.category === "perumahan" && body.perumahanName) {
+          if (body.type === "perumahan" && body.perumahanName) {
             if (existing) {
               const existingRow = await env.DB.prepare("SELECT perumahanSlug FROM listings WHERE id = ?")
                 .bind(idToSave)
