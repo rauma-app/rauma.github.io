@@ -141,7 +141,10 @@ export default function MyListings() {
           const isSold = listing.status === 'sold';
           return (
             <div key={listing.id} className="overflow-hidden rounded-2xl border border-line bg-paper">
-              <Link to={`/id/${listing.id}`} className="relative block">
+              <Link
+                to={listing.perumahanSlug ? `/perumahan/${listing.perumahanSlug}` : `/id/${listing.id}`}
+                className="relative block"
+              >
                 <ImageSlider images={listing.images} alt={listing.kecamatan} rounded="rounded-none" />
                 <span
                   className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusInfo.className}`}
@@ -150,7 +153,10 @@ export default function MyListings() {
                 </span>
               </Link>
               <div className="p-3 sm:p-4">
-                <Link to={`/id/${listing.id}`} className="block">
+                <Link
+                  to={listing.perumahanSlug ? `/perumahan/${listing.perumahanSlug}` : `/id/${listing.id}`}
+                  className="block"
+                >
                   <div className="flex flex-wrap items-baseline gap-x-1.5">
                     <span className="font-display text-base font-semibold text-navy sm:text-xl">
                       {formatRupiahShort(listing.price)}

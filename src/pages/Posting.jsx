@@ -648,7 +648,14 @@ export default function Posting() {
       };
 
       // 3. Simpan ke Cloudflare D1
-      await d1Api.createListing(payload);
+      const saveResult = await d1Api.createListing(payload);
+
+      // URL final: kalau ini listing perumahan dan sudah dapat slug SEO
+      // dari server, pakai /perumahan/slug -- kalau tidak, fallback ke
+      // /id/id seperti biasa.
+      const finalUrl = saveResult?.perumahanSlug
+        ? `/perumahan/${saveResult.perumahanSlug}`
+        : `/id/${payload.id}`;
 
       // 4. Kirim notifikasi email ke admin tiap ada listing BARU (bukan edit)
       // biar gak perlu bolak-balik cek Tinjau Iklan. Pakai FormSubmit yang
@@ -665,13 +672,13 @@ export default function Posting() {
             Lokasi: `${payload.kecamatan ? payload.kecamatan + ', ' : ''}${payload.kabupaten || payload.location || ''}`,
             Tipe: payload.type || '-',
             Status: payload.status,
-            Link: `${window.location.origin}/id/${payload.id}`,
+            Link: `${window.location.origin}${finalUrl}`,
           }),
         }).catch((err) => console.error('Gagal kirim notifikasi email listing baru:', err));
       }
 
       // Redirect ke detail iklan
-      navigate(`/id/${payload.id}`);
+      navigate(finalUrl);
     } catch (err) {
       console.error('Gagal menyimpan iklan:', err);
       setError(`Gagal menyimpan iklan (${err.message || 'Error'}). Coba lagi ya.`);
