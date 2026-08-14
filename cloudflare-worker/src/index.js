@@ -582,7 +582,17 @@ export default {
         // GET /api/listings/:id -- publik (detail 1 properti)
         if (pathParts.length === 3 && method === "GET") {
           const id = pathParts[2];
-          const result = await env.DB.prepare("SELECT * FROM listings WHERE id = ?").bind(id).first();
+          // LEFT JOIN user_profiles biar ikut bawa ownerUsername (kalau
+          // pemiliknya sudah set username) -- dipakai frontend buat link
+          // /u/username ke profil penjual, bukan cuma /penjual/uid.
+          const result = await env.DB.prepare(
+            `SELECT listings.*, user_profiles.username AS ownerUsername
+             FROM listings
+             LEFT JOIN user_profiles ON user_profiles.uid = listings.ownerUid
+             WHERE listings.id = ?`
+          )
+            .bind(id)
+            .first();
 
           if (!result) {
             return json({ error: "Properti tidak ditemukan" }, 404);
