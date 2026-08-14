@@ -87,6 +87,7 @@ export default function App() {
             <Route path="/kerjasama" element={<Kerjasama />} />
             <Route path="/id/:id" element={<Listing />} />
             <Route path="/penjual/:uid" element={<SellerProfile />} />
+            <Route path="/u/:username" element={<SellerProfile />} />
             <Route
               path="/posting"
               element={
