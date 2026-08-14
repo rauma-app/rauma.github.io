@@ -186,6 +186,34 @@ export default {
       return request.headers.get("CF-Connecting-IP") || "unknown";
     }
 
+    // --- Slug URL SEO buat listing perumahan, misal "Green Residen
+    // Parahyangan" -> "green-residen-parahyangan". Dibuat SEKALI waktu
+    // listing perumahan pertama kali dibuat, lalu dikunci selamanya
+    // (lihat catatan di endpoint POST /api/listings).
+    function slugify(str) {
+      return String(str || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // buang aksen
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 80);
+    }
+
+    async function generateUniqueSlug(base) {
+      const cleanBase = slugify(base) || "perumahan";
+      let slug = cleanBase;
+      let n = 2;
+      // Coba maks 50x biar gak infinite loop kalau ada hal aneh
+      for (let i = 0; i < 50; i++) {
+        const row = await env.DB.prepare("SELECT id FROM listings WHERE perumahanSlug = ?").bind(slug).first();
+        if (!row) return slug;
+        slug = `${cleanBase}-${n}`;
+        n++;
+      }
+      return `${cleanBase}-${Date.now()}`; // fallback super jarang kepake
+    }
+
     try {
       // =============================================================
       // 1. ENDPOINT UPLOAD & TAMPIL GAMBAR R2
@@ -579,6 +607,19 @@ export default {
           return json(withDistance.slice(0, limit));
         }
 
+        // GET /api/listings/slug/:slug -- publik. Buat URL SEO listing
+        // perumahan, misal rauma.id/perumahan/green-residen-parahyangan.
+        if (pathParts.length === 4 && pathParts[2] === "slug" && method === "GET") {
+          const slug = pathParts[3];
+          const result = await env.DB.prepare("SELECT * FROM listings WHERE perumahanSlug = ?")
+            .bind(slug)
+            .first();
+          if (!result) {
+            return json({ error: "Properti tidak ditemukan" }, 404);
+          }
+          return json(result);
+        }
+
         // GET /api/listings/:id -- publik (detail 1 properti)
         if (pathParts.length === 3 && method === "GET") {
           const id = pathParts[2];
@@ -835,6 +876,26 @@ export default {
           const unitTypesJson = unitTypesArr.length ? JSON.stringify(unitTypesArr) : null;
           const src = cheapestType || body;
 
+          // Slug URL SEO ("green-residen-parahyangan") -- CUMA dibuat &
+          // dikunci untuk listing kategori 'perumahan'. Kalau ini listing
+          // BARU (belum ada di DB), generate slug unik dari perumahanName.
+          // Kalau ini EDIT listing yang sudah ada, pertahankan slug lama
+          // apa adanya (TIDAK dibuat ulang) -- makanya perumahanSlug juga
+          // sengaja TIDAK ada di klausa "ON CONFLICT DO UPDATE SET" di
+          // bawah, biar walau kolom lain ke-update, URL-nya tetap sama
+          // persis walau nama perumahannya diedit nanti.
+          let perumahanSlug = null;
+          if (body.category === "perumahan" && body.perumahanName) {
+            if (existing) {
+              const existingRow = await env.DB.prepare("SELECT perumahanSlug FROM listings WHERE id = ?")
+                .bind(idToSave)
+                .first();
+              perumahanSlug = existingRow?.perumahanSlug || (await generateUniqueSlug(body.perumahanName));
+            } else {
+              perumahanSlug = await generateUniqueSlug(body.perumahanName);
+            }
+          }
+
           await env.DB.prepare(
             `INSERT INTO listings (
               id, title, type, category, price, cicilanPerBulan,
@@ -844,8 +905,8 @@ export default {
               phone, seller_phone, whatsapp, seller_uid, ownerUid, ownerName, ownerPhoto,
               images, status,
               materialPondasi, materialDinding, materialAtap, materialKusen, materialLantai, materialKloset,
-              perumahanName, perumahanPhoto, unitTypes
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              perumahanName, perumahanPhoto, unitTypes, perumahanSlug
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               title=excluded.title, type=excluded.type, category=excluded.category, price=excluded.price,
               cicilanPerBulan=excluded.cicilanPerBulan, location=excluded.location, kabupaten=excluded.kabupaten,
@@ -901,11 +962,12 @@ export default {
               body.materialKloset || null,
               body.perumahanName || null,
               body.perumahanPhoto || null,
-              unitTypesJson
+              unitTypesJson,
+              perumahanSlug
             )
             .run();
 
-          return json({ success: true, id: idToSave }, 201);
+          return json({ success: true, id: idToSave, perumahanSlug }, 201);
         }
       }
 
