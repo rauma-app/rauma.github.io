@@ -31,7 +31,7 @@ const MATERIAL_ROWS = [
 ];
 
 export default function Listing() {
-  const { id } = useParams();
+  const { id, slug } = useParams();
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -47,7 +47,7 @@ export default function Listing() {
       setSelectedTypeIndex(0);
       setDescExpanded(false);
       try {
-        const data = await d1Api.getListingById(id);
+        const data = slug ? await d1Api.getListingBySlug(slug) : await d1Api.getListingById(id);
         if (data) {
           // Parse gambar dengan aman
           let parsedImages = [];
@@ -94,7 +94,7 @@ export default function Listing() {
       }
     }
     load();
-  }, [id]);
+  }, [id, slug]);
 
   useEffect(() => {
     if (!listing?.kabupaten) return;
@@ -214,7 +214,7 @@ export default function Listing() {
         <Seo
           title={seoTitle}
           description={seoDescription}
-          path={`/id/${listing.id}`}
+          path={listing.perumahanSlug ? `/perumahan/${listing.perumahanSlug}` : `/id/${listing.id}`}
           image={activeImages?.[0]}
         />
       )}
