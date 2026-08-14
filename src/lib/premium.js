@@ -23,7 +23,7 @@ export function isPremium(user, premiumMap) {
 }
 
 // Batas jumlah iklan untuk user biasa (non-admin, non-premium).
-export const FREE_LISTING_LIMIT = 2;
+export const FREE_LISTING_LIMIT = 10;
 
 // Batas jumlah iklan untuk akun premium.
 export const PREMIUM_LISTING_LIMIT = 50;
