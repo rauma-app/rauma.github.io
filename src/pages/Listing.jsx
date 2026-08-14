@@ -404,7 +404,12 @@ export default function Listing() {
           // Nama & foto SEMUA penjual (bukan cuma premium/admin) sekarang
           // bisa diklik untuk masuk ke halaman profil publiknya. Badge
           // centang tetap eksklusif buat admin (emas) & premium (biru).
-          <Link to={`/penjual/${listing.ownerUid}`} className="flex min-w-0 items-center gap-3 hover:opacity-80">
+          // Kalau pemiliknya sudah set username -> link ke /u/username
+          // (lebih pendek). Kalau belum -> fallback ke /penjual/uid.
+          <Link
+            to={listing.ownerUsername ? `/u/${listing.ownerUsername}` : `/penjual/${listing.ownerUid}`}
+            className="flex min-w-0 items-center gap-3 hover:opacity-80"
+          >
             {listing.ownerPhoto && (
               <img
                 src={listing.ownerPhoto}
