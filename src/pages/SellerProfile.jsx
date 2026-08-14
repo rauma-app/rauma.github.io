@@ -9,20 +9,49 @@ import { ADMIN_UIDS } from '../lib/admin';
 import { usePremium } from '../context/PremiumContext';
 
 export default function SellerProfile() {
-  const { uid } = useParams();
+  // Halaman ini dipasang di 2 route: /penjual/:uid (link lama, selalu
+  // jalan) dan /u/:username (link pendek, cuma jalan kalau user itu
+  // sudah pernah isi username di menu Profil Saya).
+  const { uid: uidParam, username: usernameParam } = useParams();
   const { premiumMap, loading: premiumLoading } = usePremium();
+
+  const [uid, setUid] = useState(uidParam || null);
   const [profile, setProfile] = useState(null);
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [soldUnits, setSoldUnits] = useState(0);
+  const [usernameNotFound, setUsernameNotFound] = useState(false);
 
+  // Tahap 1: kalau diakses lewat /u/:username, resolve dulu jadi uid.
+  useEffect(() => {
+    async function resolveUsername() {
+      if (!usernameParam) {
+        setUid(uidParam);
+        return;
+      }
+      setLoading(true);
+      const data = await d1Api.getProfileByUsername(usernameParam);
+      if (!data) {
+        setUsernameNotFound(true);
+        setLoading(false);
+        return;
+      }
+      setProfile(data);
+      setUid(data.uid);
+    }
+    resolveUsername();
+  }, [uidParam, usernameParam]);
+
+  // Tahap 2: begitu uid diketahui, ambil profil (kalau belum ada dari
+  // tahap 1), listing, dan statistik terjual.
   useEffect(() => {
     async function load() {
+      if (!uid) return;
       setLoading(true);
       try {
-        // Tanpa ?status -> otomatis hanya yang 'approved' (halaman publik)
         const [profileData, data, stats] = await Promise.all([
-          d1Api.getProfile(uid),
+          profile ? Promise.resolve(profile) : d1Api.getProfile(uid),
+          // Tanpa ?status -> otomatis hanya yang 'approved' (halaman publik)
           d1Api.getListings({ owner: uid }),
           d1Api.getSellerStats(uid),
         ]);
@@ -36,7 +65,16 @@ export default function SellerProfile() {
       }
     }
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid]);
+
+  if (usernameNotFound) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
+        <p className="text-ink/60">Halaman profil ini tidak tersedia.</p>
+      </div>
+    );
+  }
 
   // Sumber nama/foto: profil yang sudah diisi sendiri > data dari iklan
   // terakhir (jaga-jaga user belum pernah buka menu Profil Saya).
@@ -48,7 +86,7 @@ export default function SellerProfile() {
   const isOwnerPremium = Boolean(uid && premiumMap && premiumMap[uid] !== undefined);
   const isOwnerAdmin = ADMIN_UIDS.includes(uid);
 
-  // Halaman profil ini sekarang terbuka untuk SEMUA pengguna (bukan cuma
+  // Halaman profil ini terbuka untuk SEMUA pengguna (bukan cuma
   // premium/admin) -- hanya badge centang yang tetap eksklusif.
   const notFound = !loading && !premiumLoading && !profile && listings.length === 0;
 
@@ -65,19 +103,22 @@ export default function SellerProfile() {
       <Seo
         title={`Iklan dari ${displayName}`}
         description="Lihat semua iklan rumah lain dari pengiklan ini di Rauma."
-        path={`/penjual/${uid}`}
+        path={usernameParam ? `/u/${usernameParam}` : `/penjual/${uid}`}
       />
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-start gap-3">
         {displayPhoto && (
           <ProfilePhotoViewer
             src={displayPhoto}
             alt={displayName}
             clickable
-            className="h-14 w-14 rounded-full object-cover"
+            className="h-14 w-14 shrink-0 rounded-full object-cover"
           />
         )}
-        <div>
+        {/* Nama, jumlah iklan, dan deskripsi sengaja disatukan di kolom
+            yang sama biar sejajar rapi (bukan deskripsi full-width
+            terpisah di bawah foto). */}
+        <div className="min-w-0">
           <h1 className="flex items-center gap-1.5 font-display text-2xl font-semibold text-navy">
             {displayName}
             {isOwnerAdmin && <VerifiedBadge size={20} color="gold" />}
@@ -86,14 +127,17 @@ export default function SellerProfile() {
           <p className="text-sm text-ink/50">
             {listings.length} iklan tayang{soldUnits > 0 ? ` · ${soldUnits} unit terjual` : ''}
           </p>
+          {description && (
+            <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-ink/70">
+              {description}
+            </p>
+          )}
         </div>
       </div>
 
-      {description && (
-        <p className="mt-4 max-w-2xl whitespace-pre-line text-sm leading-relaxed text-ink/70">
-          {description}
-        </p>
-      )}
+      {/* Garis pembatas antara data penjual dan grid iklan (navy solid,
+          sama seperti warna footer) */}
+      <hr className="mt-6 border-t-2 border-navy" />
 
       {loading && <p className="mt-6 text-sm text-ink/50">Memuat...</p>}
 

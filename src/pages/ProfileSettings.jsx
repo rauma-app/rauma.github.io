@@ -19,6 +19,7 @@ export default function ProfileSettings() {
   const [name, setName] = useState('');
   const [photo, setPhoto] = useState('');
   const [description, setDescription] = useState('');
+  const [username, setUsername] = useState('');
 
   // Kalau belum login, tendang ke beranda (menu ini dibuka lewat link yang
   // sudah dijaga ProtectedRoute juga, tapi jaga-jaga akses URL langsung).
@@ -36,6 +37,7 @@ export default function ProfileSettings() {
         setName(profile?.name || user.displayName || '');
         setPhoto(profile?.photo || user.photoURL || '');
         setDescription(profile?.description || '');
+        setUsername(profile?.username || '');
       } finally {
         setLoading(false);
       }
@@ -71,7 +73,12 @@ export default function ProfileSettings() {
 
     setSaving(true);
     try {
-      await d1Api.updateProfile({ name: name.trim(), photo, description: description.trim() });
+      await d1Api.updateProfile({
+        name: name.trim(),
+        photo,
+        description: description.trim(),
+        username: username.trim(),
+      });
       setSuccess(true);
     } catch (err) {
       setError(err.message || 'Gagal menyimpan profil');
@@ -134,6 +141,27 @@ export default function ProfileSettings() {
           />
         </div>
 
+        {/* Username (opsional) */}
+        <div>
+          <label className="block text-sm font-medium text-ink">Username (opsional)</label>
+          <div className="mt-1 flex items-center overflow-hidden rounded-xl border border-line focus-within:border-forest">
+            <span className="whitespace-nowrap bg-cream px-3 py-2.5 text-sm text-ink/50">rauma.id/u/</span>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) =>
+                setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))
+              }
+              maxLength={20}
+              className="w-full min-w-0 px-2 py-2.5 text-sm focus:outline-none"
+              placeholder="namakamu"
+            />
+          </div>
+          <p className="mt-1 text-xs text-ink/40">
+            3-20 karakter, huruf kecil/angka/underscore. Kosongkan kalau tidak perlu link pendek.
+          </p>
+        </div>
+
         {/* Deskripsi */}
         <div>
           <label className="block text-sm font-medium text-ink">Deskripsi</label>
@@ -162,4 +190,3 @@ export default function ProfileSettings() {
     </div>
   );
 }
-
