@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { d1Api } from '../lib/d1Api';
 import { useAuth } from '../context/AuthContext';
+import { usePremium } from '../context/PremiumContext';
+import { isAdmin } from '../lib/admin';
+import { isPerumahanAdmin } from '../lib/perumahanAdmin';
 import ImageSlider from '../components/ImageSlider';
 import { formatMonthlyShort, formatRupiahShort } from '../lib/kpr';
 
@@ -14,6 +17,15 @@ const STATUS_LABELS = {
 
 export default function MyListings() {
   const { user } = useAuth();
+  const { perumahanAdminMap } = usePremium();
+
+  // Badge status ("Menunggu Persetujuan" / "Tayang" dst) cuma berguna
+  // buat user biasa & premium, karena iklan mereka DITINJAU dulu sebelum
+  // tayang. Admin Perumahan & Admin utama iklannya auto-approve begitu
+  // posting, jadi badge-nya cuma bakal langsung "Tayang" terus -- gak ada
+  // gunanya ditampilin, malah bikin ramai gak perlu.
+  const showStatusBadge = !isAdmin(user) && !isPerumahanAdmin(user, perumahanAdminMap);
+
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
@@ -146,11 +158,13 @@ export default function MyListings() {
                 className="relative block"
               >
                 <ImageSlider images={listing.images} alt={listing.kecamatan} rounded="rounded-none" />
-                <span
-                  className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusInfo.className}`}
-                >
-                  {statusInfo.text}
-                </span>
+                {showStatusBadge && (
+                  <span
+                    className={`absolute left-2 top-2 z-20 rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${statusInfo.className}`}
+                  >
+                    {statusInfo.text}
+                  </span>
+                )}
               </Link>
               <div className="p-3 sm:p-4">
                 <Link
