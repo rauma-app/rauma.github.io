@@ -200,8 +200,24 @@ export default function Listing() {
     : null;
 
   const lokasiText = listing.kecamatan ? `${listing.kecamatan}, ${listing.kabupaten}` : listing.kabupaten;
-  const seoTitle = `Rumah Dijual di ${lokasiText} - ${formattedPriceShort}`;
-  const seoDescription = `Rumah dijual di ${lokasiText} harga ${formattedPriceFull}. Lihat detail & hubungi penjual di Rauma.`;
+
+  // Judul & deskripsi buat Google. Khusus listing PERUMAHAN (punya
+  // perumahanName), nama proyeknya ditaruh PALING DEPAN -- ini yang bikin
+  // halaman ini relevan waktu orang cari nama proyeknya langsung di
+  // Google, bukan cuma kata generik "rumah dijual di [lokasi]".
+  const daftarTipe = Array.isArray(listing.unitTypes)
+    ? listing.unitTypes.map((t) => t.name).filter(Boolean).join(', ')
+    : '';
+
+  const seoTitle = listing.perumahanName
+    ? `${listing.perumahanName} - Rumah Dijual di ${lokasiText}`
+    : `Rumah Dijual di ${lokasiText} - ${formattedPriceShort}`;
+
+  const seoDescription = listing.perumahanName
+    ? `${listing.perumahanName} - hunian di ${lokasiText} mulai ${formattedPriceShort}.${
+        daftarTipe ? ` Tersedia tipe ${daftarTipe}.` : ''
+      } Lihat detail lengkap & hubungi penjual di Rauma.`
+    : `Rumah dijual di ${lokasiText} harga ${formattedPriceFull}. Lihat detail & hubungi penjual di Rauma.`;
 
   const adminList = Array.isArray(ADMIN_UIDS) ? ADMIN_UIDS : [];
   const isOwnerAdmin = adminList.includes(listing.ownerUid);
