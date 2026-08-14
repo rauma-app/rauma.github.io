@@ -130,15 +130,18 @@ export default function Posting() {
 
   // Kategori yang boleh dipilih, beda-beda tergantung role:
   //  - Admin Perumahan : cuma 'perumahan' (dikunci, gak ada pilihan lain)
-  //  - Admin utama     : semua kategori (gak berubah)
-  //  - Premium         : pribadi, take_over_kpr, subsidi
-  //  - User biasa      : pribadi, take_over_kpr, subsidi (dikembalikan)
+  //  - Admin utama     : semua kategori
+  //  - Premium         : pribadi, take_over_kpr, subsidi, DAN perumahan
+  //    (premium sekarang bisa posting perumahan juga kayak admin utama --
+  //    bedanya sama Admin Perumahan: premium TETAP ditinjau dulu sebelum
+  //    tayang, gak auto-approve, dan gak dikunci cuma boleh 1 tipe doang)
+  //  - User biasa      : pribadi, take_over_kpr, subsidi
   const typeOptions = userIsPerumahanAdmin
     ? ['perumahan']
     : userIsAdmin
       ? ['pribadi', 'take_over_kpr', 'perumahan', 'subsidi']
       : userIsPremium
-        ? ['pribadi', 'take_over_kpr', 'subsidi']
+        ? ['pribadi', 'take_over_kpr', 'perumahan', 'subsidi']
         : ['pribadi', 'take_over_kpr', 'subsidi'];
 
   // Admin Perumahan cuma punya 1 kategori -> paksa selalu 'perumahan'.
@@ -475,6 +478,9 @@ export default function Posting() {
       return;
     }
 
+    // Nama & Foto Perumahan cuma wajib buat Admin Perumahan (identitas
+    // proyek). Premium/Admin Utama yang posting tipe 'perumahan' pakai
+    // nama & foto akun sendiri, jadi gak perlu validasi ini.
     if (userIsPerumahanAdmin) {
       if (!form.perumahanName.trim()) {
         setError('Nama Perumahan wajib diisi.');
@@ -520,7 +526,8 @@ export default function Posting() {
 
       const imageUrls = [...existingImages, ...newImageUrls];
 
-      // 1b. Upload Foto Profil Perumahan (kalau ada file baru)
+      // 1b. Upload Foto Profil Perumahan (kalau ada file baru) -- KHUSUS
+      // Admin Perumahan.
       let perumahanPhotoUrl = form.perumahanPhoto || '';
       if (userIsPerumahanAdmin && perumahanPhotoFile) {
         perumahanPhotoUrl = await r2Uploader.uploadFile(perumahanPhotoFile);
@@ -638,7 +645,9 @@ export default function Posting() {
         ownerName: resolvedOwnerName,
         ownerPhoto: resolvedOwnerPhoto,
 
-        // Perumahan (khusus role Admin Perumahan)
+        // Perumahan (khusus role Admin Perumahan -- identitas proyek).
+        // Premium/Admin Utama yang posting tipe 'perumahan' tetap pakai
+        // ownerName/ownerPhoto dari akun sendiri, bukan field ini.
         perumahanName: userIsPerumahanAdmin ? form.perumahanName.trim() : null,
         perumahanPhoto: userIsPerumahanAdmin ? perumahanPhotoUrl || null : null,
 
@@ -772,6 +781,10 @@ export default function Posting() {
           </p>
         )}
 
+        {/* Nama & Foto Perumahan: KHUSUS Admin Perumahan (identitas 1
+            proyek tetap). Premium/Admin Utama yang posting tipe
+            'perumahan' TETAP pakai nama & foto akun sendiri (dari menu
+            Profil Saya), bukan identitas proyek terpisah. */}
         {userIsPerumahanAdmin && (
           <div className="rounded-xl border border-line bg-white p-4 space-y-4">
             <div>
