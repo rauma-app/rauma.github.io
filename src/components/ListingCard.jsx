@@ -10,7 +10,7 @@ export default function ListingCard({ listing }) {
 
   return (
     <Link
-      to={`/id/${listing.id}`}
+      to={listing.perumahanSlug ? `/perumahan/${listing.perumahanSlug}` : `/id/${listing.id}`}
       className="group block overflow-hidden rounded-2xl border border-line bg-paper transition-shadow hover:shadow-lg"
     >
       <ImageSlider
