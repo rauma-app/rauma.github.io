@@ -86,6 +86,7 @@ export default function App() {
             <Route path="/peta-situs" element={<PetaSitus />} />
             <Route path="/kerjasama" element={<Kerjasama />} />
             <Route path="/id/:id" element={<Listing />} />
+            <Route path="/perumahan/:slug" element={<Listing />} />
             <Route path="/penjual/:uid" element={<SellerProfile />} />
             <Route path="/u/:username" element={<SellerProfile />} />
             <Route
