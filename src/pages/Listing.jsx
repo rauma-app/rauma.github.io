@@ -435,12 +435,14 @@ export default function Listing() {
               />
             )}
             <span className="flex min-w-0 flex-1 items-baseline gap-1.5 font-semibold text-ink">
-              <span className="leading-tight">{listing.ownerName}</span>
-              {isOwnerVerified && (
-                <span className="inline-block align-middle">
-                  <VerifiedBadge color={isOwnerAdmin ? 'gold' : 'blue'} />
-                </span>
-              )}
+              <span className="leading-tight">
+                {listing.ownerName}
+                {isOwnerVerified && (
+                  <span className="ml-1 inline-block align-middle">
+                    <VerifiedBadge color={isOwnerAdmin ? 'gold' : 'blue'} />
+                  </span>
+                )}
+              </span>
             </span>
           </Link>
         )}
