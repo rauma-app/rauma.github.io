@@ -424,7 +424,7 @@ export default function Listing() {
           // (lebih pendek). Kalau belum -> fallback ke /penjual/uid.
           <Link
             to={listing.ownerUsername ? `/u/${listing.ownerUsername}` : `/penjual/${listing.ownerUid}`}
-            className="flex min-w-0 items-center gap-3 hover:opacity-80"
+            className="flex min-w-0 flex-1 items-center gap-3 hover:opacity-80"
           >
             {listing.ownerPhoto && (
               <img
@@ -434,9 +434,13 @@ export default function Listing() {
                 className="h-11 w-11 shrink-0 rounded-full object-cover"
               />
             )}
-            <span className="flex min-w-0 items-center gap-1 truncate font-semibold text-ink">
-              <span className="truncate">{listing.ownerName}</span>
-              {isOwnerVerified && <VerifiedBadge color={isOwnerAdmin ? 'gold' : 'blue'} />}
+            <span className="flex min-w-0 flex-1 items-baseline gap-1.5 font-semibold text-ink">
+              <span className="leading-tight">{listing.ownerName}</span>
+              {isOwnerVerified && (
+                <span className="inline-block align-middle">
+                  <VerifiedBadge color={isOwnerAdmin ? 'gold' : 'blue'} />
+                </span>
+              )}
             </span>
           </Link>
         )}
