@@ -46,8 +46,18 @@ export async function compressImage(file) {
     // Jika masih gagal juga, kembalikan file asli
     if (!blob) return file;
 
-    // Jika hasil kompresi lebih besar dari file asli, pakai file asli
-    if (blob.size >= file.size) return file;
+    // PENTING: kalau foto aslinya lebih besar dari MAX_DIMENSION, kita
+    // WAJIB pakai hasil kompresi -- walau ukuran filenya (byte) kebetulan
+    // sedikit lebih besar dari aslinya. Dimensi yang kepangkas ini yang
+    // penting (biar gak "kepotong" aneh di galeri yang rasio tetap 3:2),
+    // bukan cuma soal ukuran file doang.
+    //
+    // "scale < 1" artinya tadi memang di-resize (foto asli > MAX_DIMENSION).
+    // Kalau resize TIDAK terjadi (scale === 1, foto asli udah kecil) DAN
+    // hasil kompresi malah lebih besar -- baru boleh pakai file asli,
+    // karena di kondisi itu convert ke WebP emang gak ada untungnya sama
+    // sekali.
+    if (scale === 1 && blob.size >= file.size) return file;
 
     const safeName = file.name ? file.name.replace(/\.[^.]+$/, '') : 'compressed';
     const newName = `${safeName}.${ext}`;
