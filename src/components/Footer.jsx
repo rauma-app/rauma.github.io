@@ -40,7 +40,7 @@ export default function Footer() {
   return (
     <footer className="mt-16 bg-navy text-cream/80">
       <div className="mx-auto max-w-6xl px-4 py-12">
-        <div className="grid gap-10 sm:grid-cols-3">
+        <div className="grid gap-10 sm:grid-cols-[1.4fr_1fr_1fr]">
           {/* Kolom 1: Logo, deskripsi, social media */}
           <div>
             <span className="flex select-none items-center gap-2">
