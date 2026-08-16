@@ -1,7 +1,7 @@
 import { auth } from '../firebase';
 
 // URL Worker API rauma-uploader
-const API_BASE_URL = 'https://rauma-uploader.abduloh-salam7.workers.dev/api';
+const API_BASE_URL = 'https://cdn.rauma.id/api';
 
 // Ambil ID Token Firebase user yang lagi login, buat dikirim di header
 // Authorization -- Worker sekarang WAJIB verifikasi ini buat aksi yang

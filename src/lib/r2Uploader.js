@@ -1,7 +1,7 @@
 import { compressImage } from './imageCompress';
 import { auth } from '../firebase';
 
-const WORKER_URL = 'https://rauma-uploader.abduloh-salam7.workers.dev';
+const WORKER_URL = 'https://cdn.rauma.id';
 
 export async function uploadToR2(file) {
   try {
