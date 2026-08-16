@@ -61,7 +61,7 @@ const emptyForm = {
   perumahanPhoto: '', // URL foto lama (mode edit); file barunya di state perumahanPhotoFile
 };
 
-const MAX_PHOTOS = 10;
+const MAX_PHOTOS = 8;
 const MAX_UNIT_TYPES = 4;
 
 function emptyUnitType() {
@@ -919,15 +919,19 @@ export default function Posting() {
 
             {unitTypes.map((t, idx) => (
               <div key={t.key} className="rounded-xl border border-line bg-white p-4 space-y-4">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={t.name}
-                    onChange={(e) => updateUnitType(idx, 'name', e.target.value)}
-                    placeholder="Nama Tipe (misal: Tipe 36/72)"
-                    className="input flex-1"
-                  />
-                  {unitTypes.length > 1 && (
+                {/* Nama Tipe: disembunyikan kalau cuma 1 tipe doang (gak
+                    perlu dibedain namanya). Begitu ada 2+ tipe, field ini
+                    muncul di SEMUA card -- termasuk card pertama -- biar
+                    tiap tipe bisa dibedain. */}
+                {unitTypes.length > 1 && (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={t.name}
+                      onChange={(e) => updateUnitType(idx, 'name', e.target.value)}
+                      placeholder="Nama Tipe (misal: Tipe 36/72)"
+                      className="input flex-1"
+                    />
                     <button
                       type="button"
                       onClick={() => removeUnitType(idx)}
@@ -936,8 +940,8 @@ export default function Posting() {
                     >
                       ×
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Harga">
@@ -1020,34 +1024,40 @@ export default function Posting() {
                   />
                 </Field>
 
-                <div>
-                  <label className="mb-1.5 block text-sm font-semibold text-ink">
-                    Foto Tipe Ini{' '}
-                    <span className="font-normal text-ink/40">(opsional, maks. {MAX_PHOTOS})</span>
-                  </label>
-                  <p className="mb-2 text-xs text-ink/40">
-                    Kalau diisi, ini yang ditampilkan waktu calon pembeli pilih tipe ini. Kalau
-                    dikosongkan, dipakai foto rumah utama di atas.
-                  </p>
-                  {unitTypePhotoCount(idx) < MAX_PHOTOS && (
-                    <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-xl bg-ink/70 text-2xl text-white hover:bg-ink/80">
-                      +
-                      <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={(e) => handleUnitTypeFiles(idx, e)}
-                        className="hidden"
-                      />
+                {/* Foto Tipe Ini: card PERTAMA (idx 0) SELALU pakai foto
+                    "Foto Rumah" utama di atas, jadi field override ini
+                    disembunyikan permanen di card pertama -- gak perlu
+                    ditanya dobel. Baru muncul mulai card ke-2 dst, biar
+                    tiap tipe tambahan bisa punya foto beda. */}
+                {idx > 0 && (
+                  <div>
+                    <label className="mb-1.5 block text-sm font-semibold text-ink">
+                      Foto Tipe Ini{' '}
+                      <span className="font-normal text-ink/40">(opsional, maks. {MAX_PHOTOS})</span>
                     </label>
-                  )}
-                  {t.previews.length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {t.previews.map((src, pi) => (
-                        <div key={pi} className="relative h-16 w-16">
-                          <img
-                            src={src}
-                            alt={`preview tipe ${idx + 1} - ${pi + 1}`}
+                    <p className="mb-2 text-xs text-ink/40">
+                      Kalau diisi, ini yang ditampilkan waktu calon pembeli pilih tipe ini. Kalau
+                      dikosongkan, dipakai foto rumah utama di atas.
+                    </p>
+                    {unitTypePhotoCount(idx) < MAX_PHOTOS && (
+                      <label className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-xl bg-ink/70 text-2xl text-white hover:bg-ink/80">
+                        +
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={(e) => handleUnitTypeFiles(idx, e)}
+                          className="hidden"
+                        />
+                      </label>
+                    )}
+                    {t.previews.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {t.previews.map((src, pi) => (
+                          <div key={pi} className="relative h-16 w-16">
+                            <img
+                              src={src}
+                              alt={`preview tipe ${idx + 1} - ${pi + 1}`}
                             className="h-16 w-16 rounded-lg object-cover"
                           />
                           <button
@@ -1061,8 +1071,9 @@ export default function Posting() {
                         </div>
                       ))}
                     </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
             <p className="text-xs text-ink/40">
