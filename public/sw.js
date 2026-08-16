@@ -44,18 +44,14 @@ self.addEventListener('fetch', (event) => {
 
   if (request.method !== 'GET' || !isSameOrigin) return;
 
-  // Halaman utama: coba network dulu (biar selalu dapat versi
-  // terbaru), cache cuma dipakai kalau lagi offline.
+  // Halaman utama: SELALU coba network. Kalau gagal (offline), SENGAJA
+  // TIDAK di-fallback ke cache lagi -- biar browser nunjukin halaman
+  // "Tidak dapat dijangkau" bawaan yang jelas, bukan HTML shell lama yang
+  // manggil file JS/CSS ter-hash (misal ImageSlider-xxxx.css) yang gak
+  // ikut ke-cache -> ujung-ujungnya malah nyangkut di ErrorBoundary
+  // dengan pesan teknis yang bikin bingung dikira situsnya rusak.
   if (NETWORK_FIRST_PATHS.includes(url.pathname)) {
-    event.respondWith(
-      fetch(request)
-        .then((res) => {
-          const resClone = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, resClone));
-          return res;
-        })
-        .catch(() => caches.match(request))
-    );
+    event.respondWith(fetch(request));
     return;
   }
 
