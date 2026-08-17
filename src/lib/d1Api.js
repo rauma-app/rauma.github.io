@@ -1,4 +1,5 @@
 import { auth } from '../firebase';
+import { getAnonId } from './anon';
 
 // URL Worker API rauma-uploader
 const API_BASE_URL = 'https://cdn.rauma.id/api';
@@ -108,6 +109,21 @@ export const d1Api = {
     } catch (err) {
       console.error('Error d1Api.getListingBySlug:', err);
       return null;
+    }
+  },
+
+  // Catat 1 "dilihat" buat listing ini (dedup per hari, lihat Worker).
+  // Sengaja gak "throw" kalau gagal -- fitur ini cuma pelengkap, gak
+  // boleh sampai bikin halaman iklan gagal tampil gara-gara ini error.
+  async recordListingView(listingId) {
+    try {
+      await fetch(`${API_BASE_URL}/listings/${listingId}/view`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ anon_id: getAnonId() }),
+      });
+    } catch (err) {
+      console.error('Error d1Api.recordListingView:', err);
     }
   },
 
