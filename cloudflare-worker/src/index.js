@@ -641,6 +641,41 @@ export default {
           return json(result);
         }
 
+        // POST /api/listings/:id/view -- publik. Catat 1 "dilihat" buat
+        // listing ini. Di-dedup per hari pakai anon_id (ID acak dari
+        // localStorage browser pengunjung, BUKAN dari IP -- 1 IP bisa
+        // dipakai banyak orang beda, 1 HP juga bisa gonta-ganti IP).
+        // Refresh berkali-kali di hari yang sama TIDAK nambah hitungan;
+        // besok baru boleh nambah 1 lagi.
+        if (pathParts.length === 4 && pathParts[3] === "view" && method === "POST") {
+          const id = pathParts[2];
+          const body = await request.json().catch(() => ({}));
+          const anonId = String(body.anon_id || "").slice(0, 100);
+          if (!anonId) return json({ error: "anon_id wajib diisi" }, 400);
+
+          const today = new Date().toISOString().slice(0, 10); // 'YYYY-MM-DD'
+
+          try {
+            // INSERT ke tabel dedup -- kalau kombinasi listing+anon+tanggal
+            // ini SUDAH ada (primary key bentrok), otomatis gagal & masuk
+            // catch -> artinya sudah kehitung hari ini, gak usah nambah lagi.
+            await env.DB.prepare(
+              "INSERT INTO listing_views (listing_id, anon_id, view_date) VALUES (?, ?, ?)"
+            )
+              .bind(id, anonId, today)
+              .run();
+
+            await env.DB.prepare("UPDATE listings SET viewCount = viewCount + 1 WHERE id = ?")
+              .bind(id)
+              .run();
+
+            return json({ counted: true });
+          } catch (err) {
+            // Sudah pernah kehitung hari ini -- bukan error, cuma gak nambah lagi.
+            return json({ counted: false });
+          }
+        }
+
         // PATCH /api/listings/:id (approve/reject) -- ADMIN ONLY.
         // Tadinya siapa aja bisa approve iklan sendiri lewat sini.
         if (pathParts.length === 3 && method === "PATCH") {
