@@ -7,6 +7,7 @@ import { isAdmin } from '../lib/admin';
 import { isPerumahanAdmin } from '../lib/perumahanAdmin';
 import ImageSlider from '../components/ImageSlider';
 import { formatMonthlyShort, formatRupiahShort } from '../lib/kpr';
+import { FaEye } from 'react-icons/fa';
 
 const STATUS_LABELS = {
   pending: { text: 'Menunggu Persetujuan', className: 'bg-amber-100 text-amber-700' },
@@ -158,13 +159,20 @@ export default function MyListings() {
                 className="relative block"
               >
                 <ImageSlider images={listing.images} alt={listing.kecamatan} rounded="rounded-none" />
-                {showStatusBadge && (
-                  <span
-                    className={`absolute left-2 top-2 z-20 rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${statusInfo.className}`}
-                  >
-                    {statusInfo.text}
+                <div className="absolute left-2 top-2 z-20 flex items-center gap-1">
+                  {showStatusBadge && (
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold shadow-sm ${statusInfo.className}`}
+                    >
+                      {statusInfo.text}
+                    </span>
+                  )}
+                  {/* Jumlah dilihat -- PRIVAT, cuma keliatan di sini
+                      (halaman "Listing Saya"), gak ditampilin ke publik. */}
+                  <span className="flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+                    <FaEye size={9} /> {listing.viewCount || 0}
                   </span>
-                )}
+                </div>
               </Link>
               <div className="p-3 sm:p-4">
                 <Link

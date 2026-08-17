@@ -5,6 +5,7 @@ import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
 import VerifiedBadge from '../components/VerifiedBadge';
 import ProfilePhotoViewer from '../components/ProfilePhotoViewer';
+import ShareButton from '../components/ShareButton';
 import { ADMIN_UIDS } from '../lib/admin';
 import { usePremium } from '../context/PremiumContext';
 
@@ -118,7 +119,7 @@ export default function SellerProfile() {
         {/* Nama, jumlah iklan, dan deskripsi sengaja disatukan di kolom
             yang sama biar sejajar rapi (bukan deskripsi full-width
             terpisah di bawah foto). */}
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="flex items-center gap-1.5 font-display text-2xl font-semibold text-navy">
             {displayName}
             {isOwnerAdmin && <VerifiedBadge size={20} color="gold" />}
@@ -133,6 +134,11 @@ export default function SellerProfile() {
             </p>
           )}
         </div>
+        <ShareButton
+          title={`Iklan dari ${displayName}`}
+          text={`Lihat semua iklan dari ${displayName} di Rauma`}
+          className="shrink-0 shadow-none ring-1 ring-line"
+        />
       </div>
 
       {/* Garis pembatas antara data penjual dan grid iklan (navy solid,

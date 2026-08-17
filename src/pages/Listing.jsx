@@ -6,8 +6,10 @@ import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
 import VerifiedBadge from '../components/VerifiedBadge';
 import SaveButton from '../components/SaveButton';
+import ShareButton from '../components/ShareButton';
 import { ADMIN_UIDS } from '../lib/admin';
 import { usePremium } from '../context/PremiumContext';
+import { useAuth } from '../context/AuthContext';
 import { getAnonId } from '../lib/anon';
 import { formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
 import { FaChevronDown, FaChevronUp, FaWhatsapp } from 'react-icons/fa';
@@ -36,6 +38,7 @@ export default function Listing() {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const { premiumMap } = usePremium();
+  const { user } = useAuth();
   const [related, setRelated] = useState([]);
   const [materialOpen, setMaterialOpen] = useState(false);
   const [selectedTypeIndex, setSelectedTypeIndex] = useState(0);
@@ -83,6 +86,14 @@ export default function Listing() {
             whatsapp: data.whatsapp || data.seller_phone || '',
             kabupaten: data.kabupaten || data.location || 'Lokasi',
           });
+
+          // Catat "dilihat" -- KECUALI kalau yang buka adalah pemilik
+          // iklan itu sendiri (biar angkanya jujur, gak numpuk gara-gara
+          // pemilik bolak-balik ngecek/ngedit iklannya sendiri).
+          const ownerUid = data.ownerUid || data.seller_uid || '';
+          if (!user || user.uid !== ownerUid) {
+            d1Api.recordListingView(data.id);
+          }
         } else {
           setNotFound(true);
         }
@@ -242,7 +253,13 @@ export default function Listing() {
         ) : (
           <img src={activeImages?.[0]} alt={listing.title} className="w-full h-64 object-cover rounded-2xl" />
         )}
-        <SaveButton listingId={listing.id} className="absolute bottom-3 right-3 z-10" />
+        <div className="absolute bottom-3 right-3 z-10 flex items-center gap-2">
+          <ShareButton
+            title={listing.perumahanName || listing.title}
+            text={`${listing.perumahanName || listing.title} - ${formattedPriceShort}`}
+          />
+          <SaveButton listingId={listing.id} />
+        </div>
       </div>
 
       {/* Informasi Utama */}
