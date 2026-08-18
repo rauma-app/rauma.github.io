@@ -90,7 +90,7 @@ export default function ImageSlider({
 
       {enableLightbox && lightboxOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/95"
+          className="fixed inset-0 z-50 bg-black/95"
           onClick={(e) => {
             if (e.target === e.currentTarget) setLightboxOpen(false);
           }}
@@ -107,15 +107,21 @@ export default function ImageSlider({
             </svg>
           </button>
 
+          {/* "absolute inset-0" dipakai langsung di Swiper (bukan cuma
+              "h-full" + flex-center dari parent) -- ini biar dimensi
+              slide-nya PASTI ngikutin ukuran layar penuh, gak tergantung
+              rambatan tinggi dari elemen di atasnya yang kadang meleset
+              (itu penyebab foto nempel ke atas/kiri, sisanya jadi hitam
+              kosong). */}
           <Swiper
             modules={[Navigation, Keyboard]}
             navigation
             keyboard={{ enabled: true }}
             initialSlide={lightboxIndex}
-            className="h-full w-full"
+            className="absolute inset-0"
           >
             {list.map((src, i) => (
-              <SwiperSlide key={i} className="flex items-center justify-center">
+              <SwiperSlide key={i} className="flex h-full w-full items-center justify-center p-4">
                 <img
                   src={src}
                   alt={`${alt} - foto ${i + 1}`}
@@ -128,5 +134,4 @@ export default function ImageSlider({
       )}
     </>
   );
-                }
-              
+}
