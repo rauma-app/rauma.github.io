@@ -1,9 +1,10 @@
                   import React, { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../lib/admin';
 import { isPerumahanAdmin } from '../lib/perumahanAdmin';
 import { usePremium } from '../context/PremiumContext';
+import { d1Api } from '../lib/d1Api';
 import rauLogo from '../assets/logo/rauma-logo.svg';
 
 export default function Header() {
@@ -13,6 +14,38 @@ export default function Header() {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Foto & nama yang tampil di header: utamakan profil custom yang udah
+  // diisi di menu "Profil Saya", kalau belum pernah isi -> fallback ke
+  // data bawaan akun Google. Sebelumnya header cuma pakai user.photoURL
+  // langsung, jadi gak ikut kebaruan pas foto profil custom diganti.
+  const [profilePhoto, setProfilePhoto] = useState(null);
+  const [profileName, setProfileName] = useState(null);
+
+  useEffect(() => {
+    let active = true;
+    if (!user) {
+      setProfilePhoto(null);
+      setProfileName(null);
+      return;
+    }
+    d1Api.getProfile(user.uid).then((profile) => {
+      if (!active) return;
+      setProfilePhoto(profile?.photo || null);
+      setProfileName(profile?.name || null);
+    });
+    return () => {
+      active = false;
+    };
+    // Sengaja ikut re-fetch tiap pindah halaman (location.pathname) --
+    // biar begitu user simpan foto baru di "Profil Saya" lalu navigasi ke
+    // halaman lain, foto di header ikut kebaruan otomatis tanpa perlu
+    // refresh manual.
+  }, [user, location.pathname]);
+
+  const displayPhoto = profilePhoto || user?.photoURL;
+  const displayName = profileName || user?.displayName;
 
   useEffect(() => {
     function onClickOutside(e) {
@@ -61,13 +94,13 @@ export default function Header() {
               className="flex items-center gap-2 rounded-full border border-line bg-white p-1 pr-3 hover:border-forest"
             >
               <img
-                src={user.photoURL}
-                alt={user.displayName}
+                src={displayPhoto}
+                alt={displayName}
                 referrerPolicy="no-referrer"
                 className="h-8 w-8 rounded-full object-cover"
               />
               <span className="hidden text-sm font-medium text-ink sm:inline">
-                {user.displayName?.split(' ')[0]}
+                {displayName?.split(' ')[0]}
               </span>
             </button>
 
