@@ -290,12 +290,33 @@ export const d1Api = {
   // jadi tidak mungkin dipakai untuk ubah profil orang lain.
   async updateProfile({ name, photo, description, username }) {
     const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
-    const res = await fetch(`${API_BASE_URL}/profile`, {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify({ name, photo, description, username }),
-    });
-    const result = await res.json();
+    let res;
+    try {
+      res = await fetch(`${API_BASE_URL}/profile`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ name, photo, description, username }),
+      });
+    } catch (err) {
+      // Ini kegagalan jaringan BENERAN (offline, DNS gagal, dsb) --
+      // bukan error dari server. Kasih pesan yang jelas, bukan pesan
+      // teknis browser ("Failed to fetch") yang bikin bingung.
+      throw new Error('Tidak bisa terhubung ke server. Cek koneksi internet kamu dan coba lagi.');
+    }
+
+    // 409 = username udah dipakai orang lain -- kasih pesan yang jelas
+    // & spesifik, jangan sampai jatuh ke pesan generik.
+    if (res.status === 409) {
+      throw new Error('Username telah digunakan, coba username lain.');
+    }
+
+    let result;
+    try {
+      result = await res.json();
+    } catch (err) {
+      throw new Error('Gagal menyimpan profil, coba lagi.');
+    }
+
     if (!res.ok) throw new Error(result?.error || 'Gagal menyimpan profil');
     return result;
   },
@@ -417,4 +438,5 @@ export const d1Api = {
     }
   },
 };
-        
+
+    
