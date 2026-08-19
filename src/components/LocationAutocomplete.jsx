@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { searchWilayah, geocodeWilayah } from '../lib/wilayahIndonesia';
+import { searchWilayah, geocodeWilayah, ensureBackgroundPrefetch } from '../lib/wilayahIndonesia';
 
 /**
  * Input teks biasa dengan autocomplete lokasi (Kota/Kabupaten - Kecamatan).
@@ -20,6 +20,13 @@ export default function LocationAutocomplete({ value, onSelect, placeholder }) {
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Mulai load daftar wilayah di background begitu form ini dibuka --
+  // biar udah siap/lebih lengkap saat user mulai ngetik, bukan baru mulai
+  // fetch pas user selesai ngetik 3 huruf.
+  useEffect(() => {
+    ensureBackgroundPrefetch();
   }, []);
 
   function handleChange(e) {
