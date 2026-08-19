@@ -1,26 +1,31 @@
 // Pencarian wilayah (kabupaten/kota + kecamatan) pakai data resmi
-// BPS/Kemendagri (via emsifa/api-wilayah-indonesia, di-hosting gratis di
-// GitHub Pages) -- BUKAN Nominatim/OpenStreetMap lagi.
+// Kemendagri, dilayani oleh wilayah.id -- BUKAN Nominatim/OpenStreetMap,
+// dan BUKAN emsifa.github.io lagi.
 //
-// Kenapa ganti dari Nominatim:
-// - Nominatim itu crowd-sourced (OSM), jadi kelengkapan kecamatan di
-//   Indonesia suka bolong -- kadang bahkan nama kabupatennya sendiri
-//   nggak ketemu (misal Purwakarta).
-// - Dataset ini dari BPS/Kemendagri lewat GitHub Pages punya SEMUA
-//   38 provinsi, 514 kab/kota, dan ~7.300 kecamatan -- dijamin lengkap.
+// Riwayat singkat kenapa sumbernya berpindah dua kali:
+// 1. Nominatim (OSM, awal): crowd-sourced, kelengkapan kecamatan di
+//    Indonesia suka bolong -- bahkan nama kabupatennya sendiri kadang
+//    nggak ketemu (misal Purwakarta).
+// 2. emsifa.github.io: datanya lengkap (resmi BPS/Kemendagri), TAPI
+//    domain GitHub Pages-nya redirect ke domain lama berprotokol HTTP
+//    (bukan HTTPS). Browser di situs HTTPS otomatis memblokir itu
+//    (mixed content) -- jadi semua fetch gagal diam-diam.
+// 3. wilayah.id (sekarang): domain sendiri, HTTPS bersih, data resmi
+//    Kemendagri, nggak ada masalah redirect.
 //
 // Koordinat (lat/lon) tetap dicari lewat Nominatim, TAPI cuma sekali per
 // pemilihan lokasi (bukan tiap ketikan), dan query-nya sudah nama resmi
 // yang rapi (bukan input mentah user) -- jauh lebih besar peluang berhasil.
 
-const API_BASE = 'https://emsifa.github.io/api-wilayah-indonesia/api';
-const REGENCIES_CACHE_KEY = 'rauma_wilayah_regencies_v1';
+const API_BASE = 'https://wilayah.id/api';
+const REGENCIES_CACHE_KEY = 'rauma_wilayah_regencies_v2';
 const CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 hari -- data wilayah jarang berubah
 
 async function fetchJson(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`Gagal fetch ${url}: ${res.status}`);
-  return res.json();
+  const json = await res.json();
+  return json.data || []; // wilayah.id selalu bungkus hasil dalam { data, meta }
 }
 
 function titleCase(s) {
@@ -48,7 +53,7 @@ async function loadRegencies() {
       const provinces = await fetchJson(`${API_BASE}/provinces.json`);
       const perProvince = await Promise.all(
         provinces.map((p) =>
-          fetchJson(`${API_BASE}/regencies/${p.id}.json`)
+          fetchJson(`${API_BASE}/regencies/${p.code}.json`)
             .then((list) => list.map((r) => ({ ...r, province_name: p.name })))
             .catch(() => []) // 1 provinsi gagal fetch -- skip, jangan gagalin semua
         )
@@ -80,22 +85,22 @@ async function loadRegencies() {
 // --- Daftar kecamatan per kabupaten, di-fetch on-demand & di-cache. ---
 const districtsMemCache = new Map();
 
-async function loadDistricts(regencyId) {
-  if (districtsMemCache.has(regencyId)) return districtsMemCache.get(regencyId);
+async function loadDistricts(regencyCode) {
+  if (districtsMemCache.has(regencyCode)) return districtsMemCache.get(regencyCode);
 
-  const cacheKey = `rauma_wilayah_districts_${regencyId}`;
+  const cacheKey = `rauma_wilayah_districts_${regencyCode}`;
   try {
     const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
     if (Array.isArray(cached)) {
-      districtsMemCache.set(regencyId, cached);
+      districtsMemCache.set(regencyCode, cached);
       return cached;
     }
   } catch {
     // ignore
   }
 
-  const data = await fetchJson(`${API_BASE}/districts/${regencyId}.json`).catch(() => []);
-  districtsMemCache.set(regencyId, data);
+  const data = await fetchJson(`${API_BASE}/districts/${regencyCode}.json`).catch(() => []);
+  districtsMemCache.set(regencyCode, data);
   try {
     localStorage.setItem(cacheKey, JSON.stringify(data));
   } catch {
@@ -106,9 +111,9 @@ async function loadDistricts(regencyId) {
 
 /**
  * Cari kandidat lokasi (kabupaten/kota + kecamatan) di Indonesia, dari data
- * resmi BPS/Kemendagri -- dijamin lengkap (beda dari Nominatim yang crowd-sourced).
+ * resmi Kemendagri -- dijamin lengkap (beda dari Nominatim yang crowd-sourced).
  * @param {string} query
- * @returns {Promise<Array<{label, kabupaten, kecamatan, regencyId, provinceName}>>}
+ * @returns {Promise<Array<{label, kabupaten, kecamatan, regencyCode, provinceName}>>}
  */
 export async function searchWilayah(query) {
   if (!query || query.trim().length < 3) return [];
@@ -125,18 +130,18 @@ export async function searchWilayah(query) {
     // ke-514 kabupaten sekaligus, kita cuma cek kecamatan dari: kabupaten yang
     // cocok query di atas, ditambah kabupaten yang datanya udah pernah
     // di-fetch sebelumnya (dari pencarian2 lain di sesi ini).
-    const regencyIdsToCheck = new Set(matchedRegencies.map((r) => r.id));
-    for (const id of districtsMemCache.keys()) regencyIdsToCheck.add(id);
+    const regencyCodesToCheck = new Set(matchedRegencies.map((r) => r.code));
+    for (const code of districtsMemCache.keys()) regencyCodesToCheck.add(code);
 
     const districtLists = await Promise.all(
-      [...regencyIdsToCheck].map((id) => loadDistricts(id).then((d) => ({ id, d })))
+      [...regencyCodesToCheck].map((code) => loadDistricts(code).then((d) => ({ code, d })))
     );
 
     const results = [];
     const seen = new Set();
 
-    for (const { id, d } of districtLists) {
-      const regency = regencies.find((r) => r.id === id);
+    for (const { code, d } of districtLists) {
+      const regency = regencies.find((r) => r.code === code);
       if (!regency) continue;
       for (const dist of d) {
         if (!dist.name.toLowerCase().includes(q)) continue;
@@ -148,7 +153,7 @@ export async function searchWilayah(query) {
           label,
           kabupaten: titleCase(regency.name),
           kecamatan: titleCase(dist.name),
-          regencyId: regency.id,
+          regencyCode: regency.code,
           provinceName: regency.province_name,
         });
       }
@@ -163,7 +168,7 @@ export async function searchWilayah(query) {
         label,
         kabupaten: titleCase(r.name),
         kecamatan: '',
-        regencyId: r.id,
+        regencyCode: r.code,
         provinceName: r.province_name,
       });
     }
@@ -227,4 +232,4 @@ export function distanceKm(lat1, lon1, lat2, lon2) {
       Math.sin(dLon / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
-                           }
+}
