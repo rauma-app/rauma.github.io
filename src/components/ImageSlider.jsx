@@ -107,21 +107,33 @@ export default function ImageSlider({
             </svg>
           </button>
 
-          {/* "absolute inset-0" dipakai langsung di Swiper (bukan cuma
-              "h-full" + flex-center dari parent) -- ini biar dimensi
-              slide-nya PASTI ngikutin ukuran layar penuh, gak tergantung
-              rambatan tinggi dari elemen di atasnya yang kadang meleset
-              (itu penyebab foto nempel ke atas/kiri, sisanya jadi hitam
-              kosong). */}
+          {/* Swiper container dikasih inline style (bukan class Tailwind
+              "absolute inset-0") supaya PASTI menang dari CSS bawaan
+              Swiper sendiri (.swiper{position:relative}) -- soalnya
+              class Tailwind vs class Swiper punya specificity yang
+              sama, jadi siapa menang tergantung urutan CSS ke-load,
+              dan urutan itu bisa beda antara mode dev & hasil build
+              production. Inline style selalu menang, jadi ini aman
+              dari masalah "kadang jalan kadang nggak" itu. */}
           <Swiper
             modules={[Navigation, Keyboard]}
             navigation
             keyboard={{ enabled: true }}
             initialSlide={lightboxIndex}
-            className="absolute inset-0"
+            style={{ position: 'absolute', inset: 0 }}
           >
             {list.map((src, i) => (
-              <SwiperSlide key={i} className="flex h-full w-full items-center justify-center p-4">
+              <SwiperSlide
+                key={i}
+                style={{
+                  display: 'flex',
+                  height: '100%',
+                  width: '100%',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                className="p-4"
+              >
                 <img
                   src={src}
                   alt={`${alt} - foto ${i + 1}`}
