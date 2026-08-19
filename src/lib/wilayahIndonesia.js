@@ -1,4 +1,4 @@
-// Pencarian wilayah (kabupaten/kota + kecamatan) pakai data resmi
+        // Pencarian wilayah (kabupaten/kota + kecamatan) pakai data resmi
 // Kemendagri, dilayani oleh wilayah.id -- BUKAN Nominatim/OpenStreetMap,
 // dan BUKAN emsifa.github.io lagi.
 //
@@ -51,14 +51,35 @@ async function loadRegencies() {
   if (!regenciesPromise) {
     regenciesPromise = (async () => {
       const provinces = await fetchJson(`${API_BASE}/provinces.json`);
-      const perProvince = await Promise.all(
-        provinces.map((p) =>
-          fetchJson(`${API_BASE}/regencies/${p.code}.json`)
-            .then((list) => list.map((r) => ({ ...r, province_name: p.name })))
-            .catch(() => []) // 1 provinsi gagal fetch -- skip, jangan gagalin semua
-        )
-      );
-      const all = perProvince.flat();
+
+      // Ambil kabupaten per provinsi SECARA BERTAHAP (5 provinsi sekaligus),
+      // bukan 38 request paralel sekaligus -- server kecil kayak wilayah.id
+      // gampang nolak/gagal kalau digempur puluhan request bersamaan.
+      const BATCH_SIZE = 5;
+      const all = [];
+      for (let i = 0; i < provinces.length; i += BATCH_SIZE) {
+        const batch = provinces.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(
+          batch.map((p) =>
+            fetchJson(`${API_BASE}/regencies/${p.code}.json`)
+              .then((list) => list.map((r) => ({ ...r, province_name: p.name })))
+              .catch((err) => {
+                console.warn(`Gagal ambil kabupaten provinsi ${p.name}:`, err);
+                return [];
+              })
+          )
+        );
+        all.push(...batchResults.flat());
+      }
+
+      // Kalau hasil akhirnya kosong padahal ada 38 provinsi (tandanya semua
+      // request kabupaten gagal, bukan memang gak ada datanya), JANGAN
+      // di-cache sebagai "sukses" -- biar percobaan berikutnya coba fetch
+      // ulang, bukan nyangkut kosong terus selama 30 hari.
+      if (all.length === 0) {
+        throw new Error('Semua request daftar kabupaten gagal (hasil kosong)');
+      }
+
       try {
         localStorage.setItem(
           REGENCIES_CACHE_KEY,
@@ -122,6 +143,13 @@ export async function searchWilayah(query) {
   try {
     const regencies = await loadRegencies();
 
+    // Kalau daftar kabupaten gagal dimuat total (network/CORS/dll), jangan
+    // langsung nyerah -- coba fallback pencarian sederhana ke Nominatim,
+    // supaya fitur tetap jalan walau kurang lengkap, daripada mati total.
+    if (regencies.length === 0) {
+      return fallbackNominatimSearch(q);
+    }
+
     const matchedRegencies = regencies
       .filter((r) => r.name.toLowerCase().includes(q))
       .slice(0, 8);
@@ -179,6 +207,41 @@ export async function searchWilayah(query) {
     // error ini nyangkut sampai ke pemanggil tanpa ke-handle -- itu yang
     // bikin spinner "Mencari lokasi..." nyangkut selamanya di UI.
     console.warn('searchWilayah gagal:', err);
+    return [];
+  }
+}
+
+// --- Fallback kalau wilayah.id benar2 tidak bisa diakses (network/CORS) ---
+// Bukan sebagai sumber utama lagi, cuma jaring pengaman terakhir supaya
+// input lokasi tetap bisa dipakai (walau hasilnya gak selengkap data resmi).
+async function fallbackNominatimSearch(q) {
+  try {
+    const params = new URLSearchParams({
+      q,
+      format: 'jsonv2',
+      addressdetails: '1',
+      countrycodes: 'id',
+      'accept-language': 'id',
+      limit: '8',
+    });
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+      headers: { 'Accept-Language': 'id' },
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data
+      .map((item) => {
+        const addr = item.address || {};
+        const kabupaten = addr.city || addr.regency || addr.county || addr.municipality || '';
+        if (!kabupaten) return null;
+        const kecamatan = addr.suburb || addr.city_district || addr.district || '';
+        const label = kecamatan ? `${kecamatan} - ${kabupaten}` : kabupaten;
+        return { label, kabupaten, kecamatan, provinceName: addr.state || '' };
+      })
+      .filter(Boolean)
+      .slice(0, 8);
+  } catch (err) {
+    console.warn('Fallback Nominatim juga gagal:', err);
     return [];
   }
 }
