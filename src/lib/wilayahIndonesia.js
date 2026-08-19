@@ -109,12 +109,14 @@ async function loadRegencies() {
 const DISTRICTS_CACHE_KEY = 'rauma_wilayah_districts_all_v1';
 let districtsPromise = null;
 let districtsMemCache = null; // array flat, diisi setelah loadAllDistricts() selesai
+let districtsPrefetchDone = false;
 
 async function loadAllDistricts(regencies) {
   try {
     const cached = JSON.parse(localStorage.getItem(DISTRICTS_CACHE_KEY) || 'null');
     if (cached && Date.now() - cached.savedAt < CACHE_TTL_MS && Array.isArray(cached.data)) {
       districtsMemCache = cached.data;
+      districtsPrefetchDone = true;
       return cached.data;
     }
   } catch {
@@ -123,10 +125,11 @@ async function loadAllDistricts(regencies) {
 
   if (!districtsPromise) {
     districtsPromise = (async () => {
-      // Ambil kecamatan per kabupaten SECARA BERTAHAP (8 kabupaten
-      // sekaligus dari total ~514) -- kalau digempur semua sekaligus,
-      // server kecil kayak wilayah.id gampang nolak/gagal.
-      const BATCH_SIZE = 8;
+      // Ambil kecamatan per kabupaten SECARA BERTAHAP, 25 kabupaten
+      // sekaligus per batch (dari total ~514) -- cukup besar buat cepat
+      // kelar (~20 batch), tapi tetap dibatasi biar gak sekaligus semua
+      // 514 dalam 1 hantaman ke server kecil kayak wilayah.id.
+      const BATCH_SIZE = 25;
       const all = [];
       for (let i = 0; i < regencies.length; i += BATCH_SIZE) {
         const batch = regencies.slice(i, i + BATCH_SIZE);
@@ -155,6 +158,7 @@ async function loadAllDistricts(regencies) {
         districtsMemCache = all.slice();
       }
 
+      districtsPrefetchDone = true;
       if (all.length === 0) {
         throw new Error('Semua request daftar kecamatan gagal (hasil kosong)');
       }
@@ -167,11 +171,17 @@ async function loadAllDistricts(regencies) {
       return all;
     })().catch((err) => {
       districtsPromise = null;
+      districtsPrefetchDone = true;
       console.warn('Gagal memuat daftar kecamatan:', err);
       return districtsMemCache || [];
     });
   }
   return districtsPromise;
+}
+
+/** Apakah proses load SEMUA kecamatan sudah kelar (dari cache atau fetch baru). */
+export function isDistrictsFullyLoaded() {
+  return districtsPrefetchDone;
 }
 
 // Mulai load di background begitu module ini dipakai pertama kali (misal
