@@ -29,9 +29,12 @@ export default function LocationAutocomplete({ value, onSelect, placeholder }) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
-      const results = await searchWilayah(q);
-      setOptions(results);
-      setLoading(false);
+      try {
+        const results = await searchWilayah(q);
+        setOptions(results);
+      } finally {
+        setLoading(false);
+      }
     }, 400);
   }
 
@@ -41,8 +44,12 @@ export default function LocationAutocomplete({ value, onSelect, placeholder }) {
     setResolving(true);
     // Cari koordinat baru SEKARANG (sekali saja), setelah lokasi resmi
     // dipilih -- bukan di setiap ketikan seperti sebelumnya.
-    const coords = await geocodeWilayah(opt);
-    setResolving(false);
+    let coords = null;
+    try {
+      coords = await geocodeWilayah(opt);
+    } finally {
+      setResolving(false);
+    }
     onSelect?.({ ...opt, lat: coords?.lat ?? null, lon: coords?.lon ?? null });
   }
 
