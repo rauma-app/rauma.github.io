@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { d1Api } from '../lib/d1Api';
 import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
-import { distanceKm } from '../lib/wilayahIndonesia';
+import { distanceKm } from '../lib/nominatim';
 
 const NEARBY_RADIUS_KM = 30;
 
