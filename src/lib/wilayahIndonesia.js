@@ -63,7 +63,16 @@ async function loadRegencies() {
         // Diamkan kalau localStorage penuh -- tetap jalan, cuma gak ke-cache.
       }
       return all;
-    })();
+    })().catch((err) => {
+      // Kalau gagal total (misal provinces.json aja gak bisa diambil --
+      // jaringan lagi bermasalah), JANGAN nyimpen promise yang reject ini
+      // selamanya di variable module-level, soalnya bakal bikin SEMUA
+      // pencarian berikutnya ikut gagal instan tanpa nyoba fetch ulang.
+      // Reset supaya percobaan berikutnya fetch dari awal lagi.
+      regenciesPromise = null;
+      console.warn('Gagal memuat daftar kabupaten/kota:', err);
+      return [];
+    });
   }
   return regenciesPromise;
 }
@@ -105,58 +114,68 @@ export async function searchWilayah(query) {
   if (!query || query.trim().length < 3) return [];
   const q = query.toLowerCase().trim();
 
-  const regencies = await loadRegencies();
+  try {
+    const regencies = await loadRegencies();
 
-  const matchedRegencies = regencies.filter((r) => r.name.toLowerCase().includes(q)).slice(0, 8);
+    const matchedRegencies = regencies
+      .filter((r) => r.name.toLowerCase().includes(q))
+      .slice(0, 8);
 
-  // Supaya kecamatan juga bisa ke-search tanpa harus fetch kecamatan dari
-  // ke-514 kabupaten sekaligus, kita cuma cek kecamatan dari: kabupaten yang
-  // cocok query di atas, ditambah kabupaten yang datanya udah pernah
-  // di-fetch sebelumnya (dari pencarian2 lain di sesi ini).
-  const regencyIdsToCheck = new Set(matchedRegencies.map((r) => r.id));
-  for (const id of districtsMemCache.keys()) regencyIdsToCheck.add(id);
+    // Supaya kecamatan juga bisa ke-search tanpa harus fetch kecamatan dari
+    // ke-514 kabupaten sekaligus, kita cuma cek kecamatan dari: kabupaten yang
+    // cocok query di atas, ditambah kabupaten yang datanya udah pernah
+    // di-fetch sebelumnya (dari pencarian2 lain di sesi ini).
+    const regencyIdsToCheck = new Set(matchedRegencies.map((r) => r.id));
+    for (const id of districtsMemCache.keys()) regencyIdsToCheck.add(id);
 
-  const districtLists = await Promise.all(
-    [...regencyIdsToCheck].map((id) => loadDistricts(id).then((d) => ({ id, d })))
-  );
+    const districtLists = await Promise.all(
+      [...regencyIdsToCheck].map((id) => loadDistricts(id).then((d) => ({ id, d })))
+    );
 
-  const results = [];
-  const seen = new Set();
+    const results = [];
+    const seen = new Set();
 
-  for (const { id, d } of districtLists) {
-    const regency = regencies.find((r) => r.id === id);
-    if (!regency) continue;
-    for (const dist of d) {
-      if (!dist.name.toLowerCase().includes(q)) continue;
-      const label = `${titleCase(dist.name)} - ${titleCase(regency.name)}`;
+    for (const { id, d } of districtLists) {
+      const regency = regencies.find((r) => r.id === id);
+      if (!regency) continue;
+      for (const dist of d) {
+        if (!dist.name.toLowerCase().includes(q)) continue;
+        const label = `${titleCase(dist.name)} - ${titleCase(regency.name)}`;
+        const key = label.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        results.push({
+          label,
+          kabupaten: titleCase(regency.name),
+          kecamatan: titleCase(dist.name),
+          regencyId: regency.id,
+          provinceName: regency.province_name,
+        });
+      }
+    }
+
+    for (const r of matchedRegencies) {
+      const label = titleCase(r.name);
       const key = label.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
       results.push({
         label,
-        kabupaten: titleCase(regency.name),
-        kecamatan: titleCase(dist.name),
-        regencyId: regency.id,
-        provinceName: regency.province_name,
+        kabupaten: titleCase(r.name),
+        kecamatan: '',
+        regencyId: r.id,
+        provinceName: r.province_name,
       });
     }
-  }
 
-  for (const r of matchedRegencies) {
-    const label = titleCase(r.name);
-    const key = label.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    results.push({
-      label,
-      kabupaten: titleCase(r.name),
-      kecamatan: '',
-      regencyId: r.id,
-      provinceName: r.province_name,
-    });
+    return results.slice(0, 10);
+  } catch (err) {
+    // Apapun yang gagal di atas (network, parsing, dll), JANGAN sampai
+    // error ini nyangkut sampai ke pemanggil tanpa ke-handle -- itu yang
+    // bikin spinner "Mencari lokasi..." nyangkut selamanya di UI.
+    console.warn('searchWilayah gagal:', err);
+    return [];
   }
-
-  return results.slice(0, 10);
 }
 
 /**
@@ -208,4 +227,4 @@ export function distanceKm(lat1, lon1, lat2, lon2) {
       Math.sin(dLon / 2) ** 2;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
-}
+                           }
