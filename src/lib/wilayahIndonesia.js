@@ -28,6 +28,29 @@ async function fetchJson(url) {
   return json.data || []; // wilayah.id selalu bungkus hasil dalam { data, meta }
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// PENTING: kalau 1 request gagal (server lagi sibuk/telat -- wajar buat
+// API gratisan kayak wilayah.id), JANGAN langsung nyerah dan anggap
+// datanya "kosong" -- itu yang bikin kecamatan di 1 kabupaten random
+// hilang tiap kunjungan (kadang Purwakarta, kadang Bandung Barat,
+// tergantung request mana yang kebetulan gagal). Coba ulang dulu 2x
+// dengan jeda sebentar sebelum bener-bener nyerah.
+async function fetchJsonWithRetry(url, retries = 2, delayMs = 600) {
+  let lastErr;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fetchJson(url);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries) await sleep(delayMs);
+    }
+  }
+  throw lastErr;
+}
+
 function titleCase(s) {
   return (s || '')
     .toLowerCase()
@@ -50,21 +73,23 @@ async function loadRegencies() {
 
   if (!regenciesPromise) {
     regenciesPromise = (async () => {
-      const provinces = await fetchJson(`${API_BASE}/provinces.json`);
+      const provinces = await fetchJsonWithRetry(`${API_BASE}/provinces.json`);
 
       // Ambil kabupaten per provinsi SECARA BERTAHAP (5 provinsi sekaligus),
       // bukan 38 request paralel sekaligus -- server kecil kayak wilayah.id
       // gampang nolak/gagal kalau digempur puluhan request bersamaan.
       const BATCH_SIZE = 5;
       const all = [];
+      let anyBatchFailed = false;
       for (let i = 0; i < provinces.length; i += BATCH_SIZE) {
         const batch = provinces.slice(i, i + BATCH_SIZE);
         const batchResults = await Promise.all(
           batch.map((p) =>
-            fetchJson(`${API_BASE}/regencies/${p.code}.json`)
+            fetchJsonWithRetry(`${API_BASE}/regencies/${p.code}.json`)
               .then((list) => list.map((r) => ({ ...r, province_name: p.name })))
               .catch((err) => {
-                console.warn(`Gagal ambil kabupaten provinsi ${p.name}:`, err);
+                console.warn(`Gagal ambil kabupaten provinsi ${p.name} (udah dicoba ulang):`, err);
+                anyBatchFailed = true;
                 return [];
               })
           )
@@ -80,13 +105,19 @@ async function loadRegencies() {
         throw new Error('Semua request daftar kabupaten gagal (hasil kosong)');
       }
 
-      try {
-        localStorage.setItem(
-          REGENCIES_CACHE_KEY,
-          JSON.stringify({ savedAt: Date.now(), data: all })
-        );
-      } catch {
-        // Diamkan kalau localStorage penuh -- tetap jalan, cuma gak ke-cache.
+      // PENTING: kalau ADA SEBAGIAN provinsi yang gagal (walau sudah
+      // dicoba ulang), JANGAN simpan ke cache 30 hari -- biar kabupaten
+      // yang kelewat itu ke-ambil lagi di kunjungan berikutnya, bukan
+      // "hilang permanen" sampai cache expired.
+      if (!anyBatchFailed) {
+        try {
+          localStorage.setItem(
+            REGENCIES_CACHE_KEY,
+            JSON.stringify({ savedAt: Date.now(), data: all })
+          );
+        } catch {
+          // Diamkan kalau localStorage penuh -- tetap jalan, cuma gak ke-cache.
+        }
       }
       return all;
     })().catch((err) => {
@@ -131,11 +162,12 @@ async function loadAllDistricts(regencies) {
       // 514 dalam 1 hantaman ke server kecil kayak wilayah.id.
       const BATCH_SIZE = 25;
       const all = [];
+      const failedRegencies = [];
       for (let i = 0; i < regencies.length; i += BATCH_SIZE) {
         const batch = regencies.slice(i, i + BATCH_SIZE);
         const batchResults = await Promise.all(
           batch.map((r) =>
-            fetchJson(`${API_BASE}/districts/${r.code}.json`)
+            fetchJsonWithRetry(`${API_BASE}/districts/${r.code}.json`)
               .then((list) =>
                 list.map((d) => ({
                   ...d,
@@ -145,7 +177,13 @@ async function loadAllDistricts(regencies) {
                 }))
               )
               .catch((err) => {
-                console.warn(`Gagal ambil kecamatan kabupaten ${r.name}:`, err);
+                // Ini yang PALING SERING nyebabin kecamatan di 1 kabupaten
+                // random "hilang" (bisa Purwakarta, bisa Bandung Barat,
+                // tergantung mana yang gagal hari itu) -- sekarang udah
+                // dicoba ulang 2x dulu (lihat fetchJsonWithRetry) sebelum
+                // beneran nyerah buat kabupaten ini.
+                console.warn(`Gagal ambil kecamatan kabupaten ${r.name} (udah dicoba ulang):`, err);
+                failedRegencies.push(r.name);
                 return [];
               })
           )
@@ -163,10 +201,22 @@ async function loadAllDistricts(regencies) {
         throw new Error('Semua request daftar kecamatan gagal (hasil kosong)');
       }
 
-      try {
-        localStorage.setItem(DISTRICTS_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data: all }));
-      } catch {
-        // ignore
+      // PENTING: kalau ADA kabupaten yang gagal diambil kecamatannya
+      // (walau sudah dicoba ulang), JANGAN simpan ke cache 30 hari --
+      // biar kabupaten yang kelewat itu dicoba lagi di kunjungan
+      // berikutnya (bukan "hilang permanen" sampai cache expired, yang
+      // selama ini jadi penyebab bug kecamatan ilang random).
+      if (failedRegencies.length === 0) {
+        try {
+          localStorage.setItem(DISTRICTS_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data: all }));
+        } catch {
+          // ignore
+        }
+      } else {
+        console.warn(
+          `Data kecamatan buat ${failedRegencies.length} kabupaten gagal dimuat, TIDAK di-cache -- akan dicoba lagi kunjungan berikutnya:`,
+          failedRegencies
+        );
       }
       return all;
     })().catch((err) => {
