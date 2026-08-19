@@ -18,6 +18,14 @@
 // network-first: selalu coba ambil versi terbaru dulu, baru pakai
 // cache sebagai cadangan kalau lagi offline.
 const CACHE_NAME = 'rauma-shell-v2';
+// Cache terpisah buat file hasil build Vite (/assets/*.js, /assets/*.css).
+// Nama file-file ini SUDAH mengandung hash konten (mis. ImageSlider-B9VUp9i4.css),
+// jadi aman di-cache selama-lamanya: begitu isinya berubah, nama filenya
+// otomatis ikut berubah -- gak akan pernah ketuker sama versi lama.
+// Ini yang bikin lazy-loaded chunk (ImageSlider, halaman-halaman lazy() di
+// App.jsx, dst) tetap bisa dibuka lagi walau offline, bukan cuma mengandalkan
+// HTTP cache bawaan browser yang gak dijamin bertahan antar sesi.
+const ASSET_CACHE_NAME = 'rauma-assets-v1';
 const APP_SHELL = ['/manifest.json', '/icons/icon-192.png', '/icons/icon-512.png'];
 const NETWORK_FIRST_PATHS = ['/'];
 
@@ -31,7 +39,11 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(
+        keys
+          .filter((k) => k !== CACHE_NAME && k !== ASSET_CACHE_NAME)
+          .map((k) => caches.delete(k))
+      )
     )
   );
   self.clients.claim();
@@ -59,6 +71,26 @@ self.addEventListener('fetch', (event) => {
   if (APP_SHELL.includes(url.pathname)) {
     event.respondWith(
       caches.match(request).then((cached) => cached || fetch(request))
+    );
+    return;
+  }
+
+  // File hasil build (JS/CSS ter-hash di /assets/) termasuk chunk lazy-load
+  // kayak ImageSlider: cache-first + simpan ke cache buat dipakai lagi nanti.
+  // Ini yang bikin app-nya beneran bisa jalan offline (nampilin yang sudah
+  // pernah di-load), bukan cuma bergantung ke HTTP cache bawaan browser.
+  if (url.pathname.startsWith('/assets/')) {
+    event.respondWith(
+      caches.match(request).then((cached) => {
+        if (cached) return cached;
+        return fetch(request).then((response) => {
+          if (response && response.ok) {
+            const clone = response.clone();
+            caches.open(ASSET_CACHE_NAME).then((cache) => cache.put(request, clone));
+          }
+          return response;
+        });
+      })
     );
     return;
   }
