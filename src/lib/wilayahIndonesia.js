@@ -1,4 +1,4 @@
-        // Pencarian wilayah (kabupaten/kota + kecamatan) pakai data resmi
+// Pencarian wilayah (kabupaten/kota + kecamatan) pakai data resmi
 // Kemendagri, dilayani oleh wilayah.id -- BUKAN Nominatim/OpenStreetMap,
 // dan BUKAN emsifa.github.io lagi.
 //
@@ -103,42 +103,103 @@ async function loadRegencies() {
   return regenciesPromise;
 }
 
-// --- Daftar kecamatan per kabupaten, di-fetch on-demand & di-cache. ---
-const districtsMemCache = new Map();
+// --- Daftar SEMUA kecamatan se-Indonesia, di-load sekali di background
+//     (bukan cuma dari kabupaten yang keketik) supaya pencarian kecamatan
+//     langsung lengkap dari awal, lalu di-cache di localStorage. ---
+const DISTRICTS_CACHE_KEY = 'rauma_wilayah_districts_all_v1';
+let districtsPromise = null;
+let districtsMemCache = null; // array flat, diisi setelah loadAllDistricts() selesai
 
-async function loadDistricts(regencyCode) {
-  if (districtsMemCache.has(regencyCode)) return districtsMemCache.get(regencyCode);
-
-  const cacheKey = `rauma_wilayah_districts_${regencyCode}`;
+async function loadAllDistricts(regencies) {
   try {
-    const cached = JSON.parse(localStorage.getItem(cacheKey) || 'null');
-    if (Array.isArray(cached)) {
-      districtsMemCache.set(regencyCode, cached);
-      return cached;
+    const cached = JSON.parse(localStorage.getItem(DISTRICTS_CACHE_KEY) || 'null');
+    if (cached && Date.now() - cached.savedAt < CACHE_TTL_MS && Array.isArray(cached.data)) {
+      districtsMemCache = cached.data;
+      return cached.data;
     }
   } catch {
     // ignore
   }
 
-  const data = await fetchJson(`${API_BASE}/districts/${regencyCode}.json`).catch(() => []);
-  districtsMemCache.set(regencyCode, data);
-  try {
-    localStorage.setItem(cacheKey, JSON.stringify(data));
-  } catch {
-    // ignore
+  if (!districtsPromise) {
+    districtsPromise = (async () => {
+      // Ambil kecamatan per kabupaten SECARA BERTAHAP (8 kabupaten
+      // sekaligus dari total ~514) -- kalau digempur semua sekaligus,
+      // server kecil kayak wilayah.id gampang nolak/gagal.
+      const BATCH_SIZE = 8;
+      const all = [];
+      for (let i = 0; i < regencies.length; i += BATCH_SIZE) {
+        const batch = regencies.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(
+          batch.map((r) =>
+            fetchJson(`${API_BASE}/districts/${r.code}.json`)
+              .then((list) =>
+                list.map((d) => ({
+                  ...d,
+                  kabupaten: r.name,
+                  regencyCode: r.code,
+                  provinceName: r.province_name,
+                }))
+              )
+              .catch((err) => {
+                console.warn(`Gagal ambil kecamatan kabupaten ${r.name}:`, err);
+                return [];
+              })
+          )
+        );
+        all.push(...batchResults.flat());
+        // Update cache SEMENTARA tiap batch selesai, biar pencarian yang
+        // dilakukan user SELAGI proses ini masih jalan tetap dapat hasil
+        // parsial yang terus bertambah lengkap -- bukan nunggu ~514
+        // request kelar dulu baru bisa nyari kecamatan.
+        districtsMemCache = all.slice();
+      }
+
+      if (all.length === 0) {
+        throw new Error('Semua request daftar kecamatan gagal (hasil kosong)');
+      }
+
+      try {
+        localStorage.setItem(DISTRICTS_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data: all }));
+      } catch {
+        // ignore
+      }
+      return all;
+    })().catch((err) => {
+      districtsPromise = null;
+      console.warn('Gagal memuat daftar kecamatan:', err);
+      return districtsMemCache || [];
+    });
   }
-  return data;
+  return districtsPromise;
+}
+
+// Mulai load di background begitu module ini dipakai pertama kali (misal
+// pas LocationAutocomplete di-mount), supaya kemungkinan besar udah siap
+// duluan sebelum user selesai ngetik.
+let backgroundPrefetchStarted = false;
+export function ensureBackgroundPrefetch() {
+  if (backgroundPrefetchStarted) return;
+  backgroundPrefetchStarted = true;
+  loadRegencies()
+    .then((regencies) => {
+      if (regencies.length > 0) loadAllDistricts(regencies);
+    })
+    .catch(() => {});
 }
 
 /**
- * Cari kandidat lokasi (kabupaten/kota + kecamatan) di Indonesia, dari data
- * resmi Kemendagri -- dijamin lengkap (beda dari Nominatim yang crowd-sourced).
+ * Cari kandidat lokasi (kecamatan, atau kabupaten/kota) di Indonesia, dari
+ * data resmi Kemendagri -- dijamin lengkap (beda dari Nominatim yang
+ * crowd-sourced). Hasil kecamatan ditampilkan lebih dulu, baru kabupaten/kota.
  * @param {string} query
  * @returns {Promise<Array<{label, kabupaten, kecamatan, regencyCode, provinceName}>>}
  */
 export async function searchWilayah(query) {
   if (!query || query.trim().length < 3) return [];
   const q = query.toLowerCase().trim();
+
+  ensureBackgroundPrefetch();
 
   try {
     const regencies = await loadRegencies();
@@ -150,58 +211,50 @@ export async function searchWilayah(query) {
       return fallbackNominatimSearch(q);
     }
 
-    const matchedRegencies = regencies
-      .filter((r) => r.name.toLowerCase().includes(q))
-      .slice(0, 8);
-
-    // Supaya kecamatan juga bisa ke-search tanpa harus fetch kecamatan dari
-    // ke-514 kabupaten sekaligus, kita cuma cek kecamatan dari: kabupaten yang
-    // cocok query di atas, ditambah kabupaten yang datanya udah pernah
-    // di-fetch sebelumnya (dari pencarian2 lain di sesi ini).
-    const regencyCodesToCheck = new Set(matchedRegencies.map((r) => r.code));
-    for (const code of districtsMemCache.keys()) regencyCodesToCheck.add(code);
-
-    const districtLists = await Promise.all(
-      [...regencyCodesToCheck].map((code) => loadDistricts(code).then((d) => ({ code, d })))
-    );
-
+    // Kecamatan: pakai apa yang udah ke-load sejauh ini (bisa jadi belum
+    // 100% lengkap kalau prefetch background-nya masih jalan, tapi makin
+    // lama makin lengkap otomatis tanpa perlu aksi tambahan dari user).
+    const allDistricts = districtsMemCache || [];
     const results = [];
     const seen = new Set();
 
-    for (const { code, d } of districtLists) {
-      const regency = regencies.find((r) => r.code === code);
-      if (!regency) continue;
-      for (const dist of d) {
-        if (!dist.name.toLowerCase().includes(q)) continue;
-        const label = `${titleCase(dist.name)} - ${titleCase(regency.name)}`;
-        const key = label.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        results.push({
-          label,
-          kabupaten: titleCase(regency.name),
-          kecamatan: titleCase(dist.name),
-          regencyCode: regency.code,
-          provinceName: regency.province_name,
-        });
-      }
-    }
-
-    for (const r of matchedRegencies) {
-      const label = titleCase(r.name);
+    // 1) Kecamatan dulu.
+    for (const dist of allDistricts) {
+      if (!dist.name.toLowerCase().includes(q)) continue;
+      const label = `${titleCase(dist.name)} - ${titleCase(dist.kabupaten)}`;
       const key = label.toLowerCase();
       if (seen.has(key)) continue;
       seen.add(key);
       results.push({
         label,
-        kabupaten: titleCase(r.name),
-        kecamatan: '',
-        regencyCode: r.code,
-        provinceName: r.province_name,
+        kabupaten: titleCase(dist.kabupaten),
+        kecamatan: titleCase(dist.name),
+        regencyCode: dist.regencyCode,
+        provinceName: dist.provinceName,
       });
+      if (results.length >= 10) break;
     }
 
-    return results.slice(0, 10);
+    // 2) Baru kabupaten/kota.
+    if (results.length < 10) {
+      const matchedRegencies = regencies.filter((r) => r.name.toLowerCase().includes(q));
+      for (const r of matchedRegencies) {
+        const label = titleCase(r.name);
+        const key = label.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        results.push({
+          label,
+          kabupaten: titleCase(r.name),
+          kecamatan: '',
+          regencyCode: r.code,
+          provinceName: r.province_name,
+        });
+        if (results.length >= 10) break;
+      }
+    }
+
+    return results;
   } catch (err) {
     // Apapun yang gagal di atas (network, parsing, dll), JANGAN sampai
     // error ini nyangkut sampai ke pemanggil tanpa ke-handle -- itu yang
