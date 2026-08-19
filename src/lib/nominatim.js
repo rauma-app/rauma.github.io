@@ -34,6 +34,7 @@ async function fetchNominatim(query) {
   const res = await fetch(`${BASE_URL}?${params.toString()}`, {
     headers: {
       // Nominatim usage policy: identify the application.
+      'User-Agent': 'MyLocationApp/1.0', // Sebaiknya cantumkan User-Agent aplikasi Anda
       'Accept-Language': 'id',
     },
   });
@@ -69,38 +70,49 @@ export async function searchLocation(query) {
 
   for (const item of data) {
     const addr = item.address || {};
+
+    // 1. Ekstraksi Kabupaten/Kota yang lebih fleksibel mencakup hierarki OSM Indonesia
     const kabupaten =
-      addr.city || addr.regency || addr.county || addr.municipality || '';
+      addr.city ||
+      addr.regency ||
+      addr.county ||
+      addr.municipality ||
+      addr.state_district ||
+      '';
 
-    // Kandidat level kecamatan dari struktur alamat OSM.
+    // 2. Utamakan field yang benar-benar mewakili kecamatan dari hierarki OSM
     let kecamatan =
-      addr.suburb || addr.city_district || addr.district || addr.subdistrict ||
-      addr.town || addr.village || '';
+      addr.district ||
+      addr.subdistrict ||
+      addr.city_district ||
+      addr.suburb ||
+      addr.town ||
+      '';
 
-    // Nama tempat yang benar-benar cocok dengan pencarian user kadang tidak
-    // muncul di "address" (misal kecamatan seperti "Cililin" hanya muncul
-    // sebagai nama hasil pencarian, bukan sebagai field address). Pakai itu
-    // sebagai kecamatan kalau lebih spesifik daripada yang sudah ada.
-    const matchedName = item.namedetails?.name || item.display_name?.split(',')[0]?.trim() || '';
-    if (matchedName && matchedName.toLowerCase() !== kabupaten.toLowerCase()) {
-      kecamatan = matchedName;
+    // 3. Hanya gunakan fallback nama tempat jika kecamatan dari address details kosong
+    if (!kecamatan) {
+      const matchedName = item.namedetails?.name || item.display_name?.split(',')[0]?.trim() || '';
+      if (matchedName && matchedName.toLowerCase() !== kabupaten.toLowerCase()) {
+        kecamatan = matchedName;
+      }
     }
 
     if (kecamatan && kabupaten && kecamatan.toLowerCase() === kabupaten.toLowerCase()) {
       kecamatan = '';
     }
 
-    // Hanya ambil hasil yang setidaknya punya kota/kabupaten.
-    if (!kabupaten) continue;
+    // Gunakan provinsi/state sebagai penopang jika kabupaten tidak terisi
+    const finalKabupaten = kabupaten || addr.state || '';
+    if (!finalKabupaten) continue;
 
-    const label = kecamatan ? `${kecamatan} - ${kabupaten}` : kabupaten;
+    const label = kecamatan ? `${kecamatan} - ${finalKabupaten}` : finalKabupaten;
     const key = label.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
 
     results.push({
       label,
-      kabupaten,
+      kabupaten: finalKabupaten,
       kecamatan,
       lat: parseFloat(item.lat),
       lon: parseFloat(item.lon),
@@ -109,8 +121,7 @@ export async function searchLocation(query) {
 
   // Disambiguasi: kalau user nyebut nama kabupaten/kota di query-nya (misal
   // "Kabupaten Subang"), dahulukan hasil yang kabupatennya benar-benar
-  // cocok -- biar gak ketuker sama tempat senama di kabupaten lain
-  // (kasus "Binong, Subang" vs "Binong, Cilegon").
+  // cocok -- biar gak ketuker sama tempat senama di kabupaten lain.
   if (hintedArea) {
     const hint = hintedArea.toLowerCase();
     results.sort((a, b) => {
