@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { searchLocation } from '../lib/nominatim';
+import { searchWilayah, geocodeWilayah } from '../lib/wilayahIndonesia';
 
 /**
  * Input teks biasa dengan autocomplete lokasi (Kota/Kabupaten - Kecamatan).
@@ -10,6 +10,7 @@ export default function LocationAutocomplete({ value, onSelect, placeholder }) {
   const [options, setOptions] = useState([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [resolving, setResolving] = useState(false);
   const debounceRef = useRef(null);
   const boxRef = useRef(null);
 
@@ -28,16 +29,21 @@ export default function LocationAutocomplete({ value, onSelect, placeholder }) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       setLoading(true);
-      const results = await searchLocation(q);
+      const results = await searchWilayah(q);
       setOptions(results);
       setLoading(false);
     }, 400);
   }
 
-  function handlePick(opt) {
+  async function handlePick(opt) {
     setQuery(opt.label);
     setOpen(false);
-    onSelect?.(opt);
+    setResolving(true);
+    // Cari koordinat baru SEKARANG (sekali saja), setelah lokasi resmi
+    // dipilih -- bukan di setiap ketikan seperti sebelumnya.
+    const coords = await geocodeWilayah(opt);
+    setResolving(false);
+    onSelect?.({ ...opt, lat: coords?.lat ?? null, lon: coords?.lon ?? null });
   }
 
   return (
@@ -47,8 +53,9 @@ export default function LocationAutocomplete({ value, onSelect, placeholder }) {
         value={query}
         onChange={handleChange}
         onFocus={() => query.length >= 3 && setOpen(true)}
-        placeholder={placeholder || 'Cari Kecamatan...'}
-        className="w-full rounded-xl border border-line bg-white px-4 py-3 text-ink placeholder:text-ink/40 outline-none focus:border-forest"
+        placeholder={resolving ? 'Menyimpan lokasi...' : placeholder || 'Cari Kecamatan...'}
+        disabled={resolving}
+        className="w-full rounded-xl border border-line bg-white px-4 py-3 text-ink placeholder:text-ink/40 outline-none focus:border-forest disabled:bg-cream disabled:text-ink/40"
         autoComplete="off"
       />
       {open && (query.length >= 3) && (
@@ -80,4 +87,4 @@ export default function LocationAutocomplete({ value, onSelect, placeholder }) {
       )}
     </div>
   );
-      }
+}
