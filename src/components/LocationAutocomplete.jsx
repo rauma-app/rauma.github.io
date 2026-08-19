@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { searchWilayah, geocodeWilayah, ensureBackgroundPrefetch } from '../lib/wilayahIndonesia';
+import { searchWilayah, geocodeWilayah, ensureBackgroundPrefetch, isDistrictsFullyLoaded } from '../lib/wilayahIndonesia';
 
 /**
  * Input teks biasa dengan autocomplete lokasi (Kota/Kabupaten - Kecamatan).
@@ -11,6 +11,7 @@ export default function LocationAutocomplete({ value, onSelect, placeholder }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resolving, setResolving] = useState(false);
+  const [stillLoadingDistricts, setStillLoadingDistricts] = useState(false);
   const debounceRef = useRef(null);
   const boxRef = useRef(null);
 
@@ -39,6 +40,21 @@ export default function LocationAutocomplete({ value, onSelect, placeholder }) {
       try {
         const results = await searchWilayah(q);
         setOptions(results);
+        // Kalau belum ada hasil kecamatan sama sekali DAN data kecamatan
+        // masih proses loading di background, kemungkinan besar bukan
+        // "gak ada" tapi "belum sempat ke-load" -- tunggu bentar terus
+        // coba ulang otomatis sekali.
+        const hasKecamatan = results.some((r) => r.kecamatan);
+        if (!hasKecamatan && !isDistrictsFullyLoaded()) {
+          setStillLoadingDistricts(true);
+          setTimeout(async () => {
+            const retryResults = await searchWilayah(q);
+            setOptions(retryResults);
+            setStillLoadingDistricts(false);
+          }, 2500);
+        } else {
+          setStillLoadingDistricts(false);
+        }
       } finally {
         setLoading(false);
       }
@@ -97,6 +113,11 @@ export default function LocationAutocomplete({ value, onSelect, placeholder }) {
                 </span>
               </button>
             ))}
+          {!loading && stillLoadingDistricts && (
+            <div className="border-t border-line px-4 py-2 text-xs text-ink/40">
+              Masih memuat data kecamatan, kecamatan yang kamu cari mungkin belum muncul. Tunggu sebentar...
+            </div>
+          )}
         </div>
       )}
     </div>
