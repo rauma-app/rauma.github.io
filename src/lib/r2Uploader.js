@@ -37,10 +37,36 @@ export async function uploadToR2(file) {
   }
 }
 
+// Proses upload dengan batas concurrency, bukan semua sekaligus.
+// Kenapa: createImageBitmap + canvas encode utk banyak foto besar secara
+// paralel bisa bikin memori HP kepepet -> decode gagal diam-diam ->
+// compressImage fallback ke file asli (jadi kompresi "kadang gagal").
+// Dengan batas (misal 2 foto bersamaan), tiap decode dapat memori cukup.
+const UPLOAD_CONCURRENCY = 2;
+
+async function uploadManyLimited(files) {
+  const results = new Array(files.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < files.length) {
+      const current = nextIndex++;
+      results[current] = await uploadToR2(files[current]);
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(UPLOAD_CONCURRENCY, files.length) },
+    () => worker()
+  );
+  await Promise.all(workers);
+  return results;
+}
+
 // Objek r2Uploader untuk dipanggil oleh Posting.jsx
 export const r2Uploader = {
   uploadFile: uploadToR2,
-  uploadMany: (files) => Promise.all(files.map((file) => uploadToR2(file))),
+  uploadMany: uploadManyLimited,
 };
 
 export default r2Uploader;

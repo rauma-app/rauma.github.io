@@ -2,13 +2,32 @@ const MAX_DIMENSION = 1280; // Diturunkan sedikit dari 1600 agar aman untuk RAM 
 const WEBP_QUALITY = 0.82;
 const JPEG_QUALITY = 0.8;
 
+// Coba createImageBitmap dengan 1x retry. Kegagalan decode di HP biasanya
+// transient (memori lagi penuh sesaat, bukan file-nya yang rusak), jadi
+// daripada langsung nyerah ke file asli, kita kasih jeda singkat lalu
+// coba sekali lagi -- baru kalau tetap gagal, fallback ke file asli.
+async function createBitmapWithRetry(file) {
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      return await createImageBitmap(file);
+    } catch (e) {
+      console.warn(`createImageBitmap gagal (percobaan ${attempt}/2):`, file.name, e);
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 300));
+    }
+  }
+  return null;
+}
+
 export async function compressImage(file) {
   // Pastikan benar-benar file gambar
   if (!file || !file.type.startsWith('image/')) return file;
 
   try {
-    const imageBitmap = await createImageBitmap(file).catch(() => null);
-    if (!imageBitmap) return file;
+    const imageBitmap = await createBitmapWithRetry(file);
+    if (!imageBitmap) {
+      console.warn('Kompresi dilewati, pakai file asli:', file.name);
+      return file;
+    }
 
     const scale = Math.min(1, MAX_DIMENSION / Math.max(imageBitmap.width, imageBitmap.height));
     const width = Math.max(1, Math.round(imageBitmap.width * scale));
