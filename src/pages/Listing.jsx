@@ -12,14 +12,17 @@ import { usePremium } from '../context/PremiumContext';
 import { useAuth } from '../context/AuthContext';
 import { getAnonId } from '../lib/anon';
 import { formatRupiah, formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
-import { FaChevronDown, FaChevronUp, FaWhatsapp } from 'react-icons/fa';
+import { FaChevronDown, FaChevronUp, FaWhatsapp, FaRulerCombined, FaVectorSquare, FaBed, FaBath, FaBolt, FaTint, FaFileContract, FaCity, FaVideo } from 'react-icons/fa';
 
-// Baris sisa spesifikasi (Luas & Kamar sudah digabung terpisah, lihat di bawah)
+// Baris sisa spesifikasi (Luas & Kamar sudah digabung terpisah, lihat di bawah).
+// Icon plain (text-ink, ngikutin warna teks biasa) -- bukan emoji lagi,
+// biar tampilannya konsisten & otomatis kebalik jadi putih kalau HP/
+// browser orang lagi mode gelap (sama kayak teks lain di halaman ini).
 const SPEC_ROWS = [
-  { key: 'electricity', label: 'Daya Listrik', icon: '⚡', suffix: '' },
-  { key: 'air', label: 'Air', icon: '💧', suffix: '' },
-  { key: 'sertifikat', label: 'Sertifikat', icon: '📋', suffix: '' },
-  { key: 'unitTersedia', label: 'Unit Tersedia', icon: '🏘️', suffix: ' unit' },
+  { key: 'electricity', label: 'Daya Listrik', Icon: FaBolt, suffix: '' },
+  { key: 'air', label: 'Air', Icon: FaTint, suffix: '' },
+  { key: 'sertifikat', label: 'Sertifikat', Icon: FaFileContract, suffix: '' },
+  { key: 'unitTersedia', label: 'Unit Tersedia', Icon: FaCity, suffix: ' unit' },
 ];
 
 // Material bangunan (opsional) - hanya tampil kalau ada isinya
@@ -31,6 +34,21 @@ const MATERIAL_ROWS = [
   { key: 'materialLantai', label: 'Lantai' },
   { key: 'materialKloset', label: 'Kloset' },
 ];
+
+// Kartu kecil buat grid Spesifikasi (icon + label + value). Icon sengaja
+// warna polos (text-ink, sama kayak warna teks biasa) -- bukan
+// dikasih warna macem-macem kayak emoji dulu, biar konsisten & otomatis
+// ikut kebalik jadi putih kalau HP/browser lagi mode gelap, sama kayak
+// teks lain di halaman ini.
+function SpecCard({ Icon, label, value }) {
+  return (
+    <div className="rounded-2xl border border-line bg-white p-4">
+      <Icon className="text-ink/70" size={18} />
+      <p className="mt-2.5 text-xs text-ink/50">{label}</p>
+      <p className="text-sm font-semibold text-ink">{value}</p>
+    </div>
+  );
+}
 
 export default function Listing() {
   const { id, slug } = useParams();
@@ -301,53 +319,42 @@ export default function Listing() {
         </div>
       )}
 
-      {/* Tabel Spesifikasi */}
+      {/* Tabel Spesifikasi -- grid kartu kecil (icon + label + value),
+          gaya minimalis kayak Rumah123/99.co. Tiap kartu berdiri sendiri
+          (bukan list panjang ke bawah), lebih cepat discan mata. */}
       <section className="mt-8">
         <h2 className="font-display text-xl font-semibold text-navy mb-3">Spesifikasi</h2>
-        <dl className="divide-y divide-line rounded-2xl border border-line bg-white">
-          {activeSpec.luasBangunan && activeSpec.luasTanah && (
-            <div className="flex items-center justify-between px-4 py-3">
-              <dt className="flex items-center gap-2 text-sm text-ink/60">
-                <span>📐</span> Luas Bangunan &amp; Tanah
-              </dt>
-              <dd className="text-sm font-medium text-ink">
-                {activeSpec.luasBangunan}m² / {activeSpec.luasTanah}m²
-              </dd>
-            </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          {activeSpec.luasBangunan && (
+            <SpecCard Icon={FaRulerCombined} label="Luas Bangunan" value={`${activeSpec.luasBangunan}m²`} />
           )}
-          {activeSpec.bedrooms && activeSpec.bathrooms && (
-            <div className="flex items-center justify-between px-4 py-3">
-              <dt className="flex items-center gap-2 text-sm text-ink/60">
-                <span>🛏️</span> Kamar Tidur &amp; Mandi
-              </dt>
-              <dd className="text-sm font-medium text-ink">
-                {activeSpec.bedrooms} / {activeSpec.bathrooms}
-              </dd>
-            </div>
+          {activeSpec.luasTanah && (
+            <SpecCard Icon={FaVectorSquare} label="Luas Tanah" value={`${activeSpec.luasTanah}m²`} />
           )}
-          {SPEC_ROWS.filter((row) => (row.key === 'electricity' ? activeSpec.electricity : listing[row.key])).map((row) => (
-            <div key={row.key} className="flex items-center justify-between px-4 py-3">
-              <dt className="flex items-center gap-2 text-sm text-ink/60">
-                <span>{row.icon}</span> {row.label}
-              </dt>
-              <dd className="text-sm font-medium text-ink">
-                {row.key === 'electricity' ? activeSpec.electricity : listing[row.key]}{row.suffix}
-              </dd>
-            </div>
-          ))}
-          {listing.videoUrl && (
-            <div className="flex items-center justify-between px-4 py-3">
-              <dt className="flex items-center gap-2 text-sm text-ink/60">
-                <span>🎥</span> Video
-              </dt>
-              <dd className="text-sm font-medium">
-                <a href={listing.videoUrl} target="_blank" rel="noreferrer" className="text-forest underline font-semibold">
-                  Lihat Video
-                </a>
-              </dd>
-            </div>
+          {activeSpec.bedrooms && <SpecCard Icon={FaBed} label="Kamar Tidur" value={activeSpec.bedrooms} />}
+          {activeSpec.bathrooms && <SpecCard Icon={FaBath} label="Kamar Mandi" value={activeSpec.bathrooms} />}
+          {SPEC_ROWS.filter((row) => (row.key === 'electricity' ? activeSpec.electricity : listing[row.key])).map(
+            (row) => (
+              <SpecCard
+                key={row.key}
+                Icon={row.Icon}
+                label={row.label}
+                value={`${row.key === 'electricity' ? activeSpec.electricity : listing[row.key]}${row.suffix}`}
+              />
+            )
           )}
-        </dl>
+        </div>
+
+        {listing.videoUrl && (
+          <a
+            href={listing.videoUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-3 flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 text-sm font-semibold text-forest hover:bg-cream"
+          >
+            <FaVideo className="text-ink" /> Lihat Video Properti
+          </a>
+        )}
       </section>
 
       {/* Material Bangunan (opsional, hanya tampil kalau ada isinya) */}
