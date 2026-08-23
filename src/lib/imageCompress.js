@@ -18,6 +18,44 @@ async function createBitmapWithRetry(file) {
   return null;
 }
 
+// Penajaman ringan (unsharp mask sederhana) -- dipakai SETELAH kontras
+// & saturasi dinaikkan, biar detail (tekstur dinding, kayu, dsb) kelihatan
+// lebih jelas. Efeknya SENGAJA dibuat halus (amount kecil), bukan
+// se-agresif filter "sharpen" default -- sharpening yang terlalu kuat
+// bikin muncul "halo" putih/gelap di pinggir objek kontras tinggi dan
+// mempertegas noise/bintik kamera HP, malah kelihatan amatir.
+//
+// Caranya: bikin versi blur dari gambar, lalu tambahkan balik SEBAGIAN
+// kecil selisih (gambar asli - blur) ke gambar asli. Ini teknik "unsharp
+// mask" klasik yang sama dipakai software foto profesional.
+function applySharpen(ctx, width, height, amount = 0.25) {
+  const src = ctx.getImageData(0, 0, width, height);
+  const data = src.data;
+  const out = new Uint8ClampedArray(data); // hasil akhir, mulai dari salinan asli
+
+  // Kernel blur 3x3 sederhana buat estimasi "versi halus"-nya
+  const w = width;
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = (y * w + x) * 4;
+      for (let c = 0; c < 3; c++) {
+        // c = 0(R),1(G),2(B) -- alpha (c=3) dibiarkan apa adanya
+        let sum = 0;
+        sum += data[i - w * 4 - 4 + c] + data[i - w * 4 + c] + data[i - w * 4 + 4 + c];
+        sum += data[i - 4 + c] + data[i + c] * 1 + data[i + 4 + c];
+        sum += data[i + w * 4 - 4 + c] + data[i + w * 4 + c] + data[i + w * 4 + 4 + c];
+        const blurred = sum / 9;
+        const original = data[i + c];
+        // Tambah balik SEBAGIAN KECIL (amount) dari selisih asli-blur
+        out[i + c] = original + (original - blurred) * amount;
+      }
+    }
+  }
+
+  src.data.set(out);
+  ctx.putImageData(src, 0, 0);
+}
+
 export async function compressImage(file) {
   // Pastikan benar-benar file gambar
   if (!file || !file.type.startsWith('image/')) return file;
@@ -36,15 +74,31 @@ export async function compressImage(file) {
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
-    
+
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       imageBitmap.close?.();
       return file;
     }
-    
+
+    // Naikkan kontras & saturasi sedikit sebelum digambar -- diproses
+    // GPU lewat ctx.filter (bawaan browser), jadi cepat & gak nambah
+    // ukuran file (cuma nyesuain warna, bukan nambah detail baru).
+    // Efeknya bikin foto kelihatan lebih "hidup"/gak pucat, mirip
+    // "Auto Enhance" di Google Photos.
+    ctx.filter = 'contrast(108%) saturate(112%)';
     ctx.drawImage(imageBitmap, 0, 0, width, height);
+    ctx.filter = 'none'; // reset, biar gak kebawa ke proses canvas lain
     imageBitmap.close?.();
+
+    // Penajaman ringan (lihat penjelasan di applySharpen di atas)
+    try {
+      applySharpen(ctx, width, height, 0.25);
+    } catch (e) {
+      // Kalau gagal (jarang -- misal foto raksasa & HP low-end), gak
+      // masalah, foto tetap terupload dengan kontras/saturasi doang.
+      console.warn('Sharpening dilewati:', e);
+    }
 
     // Fungsi pembantu untuk convert canvas ke blob dengan Promise
     const getBlob = (type, quality) => 
