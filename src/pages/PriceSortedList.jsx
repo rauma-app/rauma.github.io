@@ -24,8 +24,8 @@ const PROGRAMS = {
     tagline: 'Koleksi hunian eksklusif untuk kalangan High Net-Worth Individual.',
     seoDescription:
       'HNWI: koleksi rumah dan hunian eksklusif untuk kalangan High Net-Worth Individual, mulai dari Rp1 miliar sampai Rp5 miliar.',
-    minPrice: 1_000_000_000,
-    maxPrice: 5_000_000_000,
+    minPrice: 2_000_000_000,
+    maxPrice: 7_000_000_000,
   },
 };
 
