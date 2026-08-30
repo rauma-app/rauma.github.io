@@ -1,11 +1,13 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import Seo from '../components/Seo';
 
-const SCALE_OPTIONS = [
-  { label: '1x', value: 1 },
-  { label: '2x', value: 2 },
-  { label: '4x', value: 4 },
-];
+// Diproses secara internal di 4x dulu (upscale -> auto-kontras -> saturasi
+// -> sharpen), baru dikecilkan lagi ke ukuran ASLI foto sebelum di-export.
+// Efek "menyala/tajam" yang didapat dari memproses di ukuran besar tadi
+// tetap terbawa walau hasil akhirnya dikecilkan lagi -- teknik ini disebut
+// "output sharpening" di dunia editing foto. Hasilnya: sejernih versi besar,
+// tapi ukuran file tetap sama seperti foto aslinya (bukan membengkak 4x).
+const INTERNAL_UPSCALE = 4;
 
 // Batas ukuran output biar browser (terutama di HP) gak nge-hang pas proses
 // gambar besar. Ini BUKAN AI upscaling (kayak Real-ESRGAN di Upscayl) --
@@ -224,12 +226,12 @@ export default function PenjernihFoto() {
   const [originalSrc, setOriginalSrc] = useState(null);
   const [resultSrc, setResultSrc] = useState(null);
   const [outputFormat] = useState(detectOutputFormat);
-  const [scale, setScale] = useState(2);
   const [sharpenAmount, setSharpenAmount] = useState(60);
   const [processing, setProcessing] = useState(false);
   const [fileName, setFileName] = useState('');
   const [error, setError] = useState('');
   const canvasRef = useRef(null);
+  const outputCanvasRef = useRef(null);
 
   function handleFile(e) {
     const file = e.target.files?.[0];
@@ -249,7 +251,7 @@ export default function PenjernihFoto() {
   }
 
   // Proses otomatis begitu foto dipilih, dan diproses ulang tiap kali
-  // pengaturan (perbesar/ketajaman) diubah -- gak perlu klik tombol apapun.
+  // ketajaman diubah -- gak perlu klik tombol apapun.
   useEffect(() => {
     if (!originalSrc) return;
     let cancelled = false;
@@ -259,29 +261,44 @@ export default function PenjernihFoto() {
     const timer = setTimeout(async () => {
       try {
         const img = await loadImage(originalSrc);
-        let targetW = img.width * scale;
-        let targetH = img.height * scale;
-        if (targetW > MAX_OUTPUT_DIMENSION || targetH > MAX_OUTPUT_DIMENSION) {
-          const ratio = MAX_OUTPUT_DIMENSION / Math.max(targetW, targetH);
-          targetW = Math.round(targetW * ratio);
-          targetH = Math.round(targetH * ratio);
+        const finalW = img.width;
+        const finalH = img.height;
+
+        // Kanvas kerja: upscale 4x biar auto-kontras/saturasi/sharpen
+        // "menguat" efeknya (lihat catatan INTERNAL_UPSCALE di atas).
+        let workW = finalW * INTERNAL_UPSCALE;
+        let workH = finalH * INTERNAL_UPSCALE;
+        if (workW > MAX_OUTPUT_DIMENSION || workH > MAX_OUTPUT_DIMENSION) {
+          const ratio = MAX_OUTPUT_DIMENSION / Math.max(workW, workH);
+          workW = Math.round(workW * ratio);
+          workH = Math.round(workH * ratio);
         }
 
-        const canvas = canvasRef.current;
-        canvas.width = targetW;
-        canvas.height = targetH;
-        const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, targetW, targetH);
+        const workCanvas = canvasRef.current;
+        workCanvas.width = workW;
+        workCanvas.height = workH;
+        const workCtx = workCanvas.getContext('2d');
+        workCtx.imageSmoothingEnabled = true;
+        workCtx.imageSmoothingQuality = 'high';
+        workCtx.drawImage(img, 0, 0, workW, workH);
 
-        const imageData = ctx.getImageData(0, 0, targetW, targetH);
+        const imageData = workCtx.getImageData(0, 0, workW, workH);
         autoLevels(imageData, 0.5);
         adjustSaturation(imageData, 1.12);
         sharpen(imageData, sharpenAmount / 100);
-        ctx.putImageData(imageData, 0, 0);
+        workCtx.putImageData(imageData, 0, 0);
 
-        if (!cancelled) setResultSrc(canvas.toDataURL(outputFormat.mime, OUTPUT_QUALITY));
+        // Kecilkan lagi ke ukuran ASLI foto sebelum di-export, biar file
+        // gak membengkak walau proses di atas dilakukan di ukuran 4x.
+        const outputCanvas = outputCanvasRef.current;
+        outputCanvas.width = finalW;
+        outputCanvas.height = finalH;
+        const outputCtx = outputCanvas.getContext('2d');
+        outputCtx.imageSmoothingEnabled = true;
+        outputCtx.imageSmoothingQuality = 'high';
+        outputCtx.drawImage(workCanvas, 0, 0, finalW, finalH);
+
+        if (!cancelled) setResultSrc(outputCanvas.toDataURL(outputFormat.mime, OUTPUT_QUALITY));
       } catch (err) {
         console.error(err);
         if (!cancelled) setError('Gagal memproses gambar. Coba gambar lain.');
@@ -294,21 +311,21 @@ export default function PenjernihFoto() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [originalSrc, scale, sharpenAmount]);
+  }, [originalSrc, sharpenAmount]);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
       <Seo
         title="Penjernih Foto"
-        description="Perbesar dan pertajam foto rumah gratis langsung dari browser, tanpa upload ke server."
+        description="Jernihkan foto rumah gratis langsung dari browser, tanpa upload ke server."
         path="/alat/penjernih-foto"
       />
 
       <h1 className="font-display text-2xl font-semibold text-navy">Penjernih Foto</h1>
       <p className="mt-1 text-sm text-ink/60">
-        Upload foto, hasilnya otomatis diproses. Geser pegangan di tengah gambar untuk
-        bandingkan sebelum & sesudah. Semua diproses di perangkat kamu sendiri, foto
-        tidak dikirim ke server manapun.
+        Upload foto, hasilnya otomatis diproses jadi lebih jernih & tajam -- ukuran foto
+        tidak berubah. Geser pegangan di tengah gambar untuk bandingkan sebelum & sesudah.
+        Semua diproses di perangkat kamu sendiri, foto tidak dikirim ke server manapun.
       </p>
 
       <div className="mt-6 rounded-2xl border border-line bg-white p-5">
@@ -338,26 +355,6 @@ export default function PenjernihFoto() {
             </div>
 
             <div className="mt-5 space-y-5">
-              <div>
-                <p className="text-sm font-medium text-ink">Perbesar</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {SCALE_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setScale(opt.value)}
-                      className={`rounded-full px-4 py-1.5 text-sm font-medium ${
-                        scale === opt.value
-                          ? 'bg-forest text-white'
-                          : 'border border-line text-ink/70 hover:border-forest'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div>
                 <div className="flex justify-between text-sm">
                   <label htmlFor="sharpen-slider" className="font-medium text-ink">
@@ -397,14 +394,15 @@ export default function PenjernihFoto() {
       </div>
 
       <canvas ref={canvasRef} className="hidden" />
+      <canvas ref={outputCanvasRef} className="hidden" />
 
       <div className="mt-4 rounded-2xl border border-line bg-cream p-4 text-xs text-ink/50">
         <strong>Catatan:</strong> Alat ini memakai pemrosesan gambar biasa (auto-kontras,
-        saturasi, dan penajaman), bukan AI, jadi cocok buat foto blur ringan/kusam. Untuk
-        foto yang sudah sangat rusak/pecah, hasilnya tidak akan sebagus alat berbasis AI
-        khusus seperti Upscayl.
+        saturasi, dan penajaman), bukan AI. Ukuran hasil akhir sama seperti foto aslinya
+        -- gak membengkak, walau proses penjernihannya dilakukan di ukuran yang diperbesar
+        dulu di balik layar. Untuk foto yang sudah sangat rusak/pecah, hasilnya tidak akan
+        sebagus alat berbasis AI khusus seperti Upscayl.
       </div>
     </div>
   );
 }
-  
