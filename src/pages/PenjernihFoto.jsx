@@ -13,6 +13,38 @@ const SCALE_OPTIONS = [
 // semua dihitung langsung di browser tanpa server/GPU.
 const MAX_OUTPUT_DIMENSION = 4000;
 const PROCESS_DEBOUNCE_MS = 120;
+// Simpan hasil sebagai WebP kalau browser support (biasanya 25-35% lebih
+// kecil dari JPEG di kualitas visual yang sama), fallback ke JPEG kalau
+// browser-nya gak support -- PNG dihindari karena lossless, ukurannya
+// membengkak parah apalagi setelah di-upscale 2x/4x.
+const OUTPUT_QUALITY = 0.9;
+
+function detectOutputFormat() {
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const supportsWebp = canvas.toDataURL('image/webp').startsWith('data:image/webp');
+    return supportsWebp
+      ? { mime: 'image/webp', extension: 'webp' }
+      : { mime: 'image/jpeg', extension: 'jpg' };
+  } catch {
+    return { mime: 'image/jpeg', extension: 'jpg' };
+  }
+}
+
+function estimateDataUrlBytes(dataUrl) {
+  if (!dataUrl) return 0;
+  const base64 = dataUrl.split(',')[1] || '';
+  // base64 encoding menambah ~33% ukuran, jadi dibalik buat estimasi byte asli.
+  return Math.round((base64.length * 3) / 4);
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
@@ -191,6 +223,7 @@ function BeforeAfterSlider({ beforeSrc, afterSrc, processing }) {
 export default function PenjernihFoto() {
   const [originalSrc, setOriginalSrc] = useState(null);
   const [resultSrc, setResultSrc] = useState(null);
+  const [outputFormat] = useState(detectOutputFormat);
   const [scale, setScale] = useState(2);
   const [sharpenAmount, setSharpenAmount] = useState(60);
   const [processing, setProcessing] = useState(false);
@@ -248,7 +281,7 @@ export default function PenjernihFoto() {
         sharpen(imageData, sharpenAmount / 100);
         ctx.putImageData(imageData, 0, 0);
 
-        if (!cancelled) setResultSrc(canvas.toDataURL('image/png'));
+        if (!cancelled) setResultSrc(canvas.toDataURL(outputFormat.mime, OUTPUT_QUALITY));
       } catch (err) {
         console.error(err);
         if (!cancelled) setError('Gagal memproses gambar. Coba gambar lain.');
@@ -346,13 +379,18 @@ export default function PenjernihFoto() {
             </div>
 
             {resultSrc && (
-              <a
-                href={resultSrc}
-                download={`${fileName || 'foto'}-jernih.png`}
-                className="mt-4 block w-full rounded-full border border-forest px-6 py-2.5 text-center text-sm font-semibold text-forest hover:bg-forest/5"
-              >
-                Download Hasil
-              </a>
+              <>
+                <p className="mt-4 text-center text-xs text-ink/50">
+                  Ukuran hasil: {formatBytes(estimateDataUrlBytes(resultSrc))}
+                </p>
+                <a
+                  href={resultSrc}
+                  download={`${fileName || 'foto'}-jernih.${outputFormat.extension}`}
+                  className="mt-1 block w-full rounded-full border border-forest px-6 py-2.5 text-center text-sm font-semibold text-forest hover:bg-forest/5"
+                >
+                  Download Hasil
+                </a>
+              </>
             )}
           </>
         )}
