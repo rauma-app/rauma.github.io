@@ -31,6 +31,7 @@ const SyaratKetentuan = lazy(() => import('./pages/SyaratKetentuan'));
 const SaranMasukan = lazy(() => import('./pages/SaranMasukan'));
 const PetaSitus = lazy(() => import('./pages/PetaSitus'));
 const Kerjasama = lazy(() => import('./pages/Kerjasama'));
+const PenjernihFoto = lazy(() => import('./pages/PenjernihFoto'));
 
 // SpecialCategoryList.jsx pakai named export (bukan default), jadi
 // bungkus tipis biar tetap bisa di-lazy-load dengan cara yang sama.
@@ -85,6 +86,7 @@ export default function App() {
             <Route path="/saran-masukan" element={<SaranMasukan />} />
             <Route path="/peta-situs" element={<PetaSitus />} />
             <Route path="/kerjasama" element={<Kerjasama />} />
+            <Route path="/alat/penjernih-foto" element={<PenjernihFoto />} />
             <Route path="/id/:id" element={<Listing />} />
             <Route path="/perumahan/:slug" element={<Listing />} />
             <Route path="/penjual/:uid" element={<SellerProfile />} />
