@@ -1,17 +1,18 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import Seo from '../components/Seo';
 
 const SCALE_OPTIONS = [
-  { label: '1x (ukuran asli)', value: 1 },
+  { label: '1x', value: 1 },
   { label: '2x', value: 2 },
   { label: '4x', value: 4 },
 ];
 
 // Batas ukuran output biar browser (terutama di HP) gak nge-hang pas proses
-// gambar besar. Bukan AI upscaling (kayak Real-ESRGAN di Upscayl) -- ini
-// interpolasi gambar biasa + unsharp mask, jadi diproses cepat langsung di
-// browser tanpa perlu server/GPU.
+// gambar besar. Ini BUKAN AI upscaling (kayak Real-ESRGAN di Upscayl) --
+// melainkan kombinasi resize halus + auto-kontras + saturasi + unsharp mask,
+// semua dihitung langsung di browser tanpa server/GPU.
 const MAX_OUTPUT_DIMENSION = 4000;
+const PROCESS_DEBOUNCE_MS = 120;
 
 function loadImage(src) {
   return new Promise((resolve, reject) => {
@@ -22,41 +23,176 @@ function loadImage(src) {
   });
 }
 
-// Unsharp mask sederhana: hitung versi "pentajam" pakai kernel konvolusi,
-// lalu campur dengan piksel asli sesuai `amount` (0-1) dari slider ketajaman.
+function clamp255(v) {
+  return v < 0 ? 0 : v > 255 ? 255 : v;
+}
+
+// Auto-contrast: regangkan histogram tiap kanal warna berdasarkan persentil,
+// biar foto yang keliatan "kusam"/pudar jadi lebih hidup -- efek utama yang
+// bikin hasil "penjernihan" ini kelihatan jelas bedanya, bukan cuma tajam
+// dikit doang.
+function autoLevels(imageData, clipPercent = 0.5) {
+  const { data } = imageData;
+  const total = data.length / 4;
+  const histR = new Array(256).fill(0);
+  const histG = new Array(256).fill(0);
+  const histB = new Array(256).fill(0);
+  for (let i = 0; i < data.length; i += 4) {
+    histR[data[i]]++;
+    histG[data[i + 1]]++;
+    histB[data[i + 2]]++;
+  }
+  const clip = total * (clipPercent / 100);
+  function bounds(hist) {
+    let low = 0;
+    let high = 255;
+    let count = 0;
+    for (let i = 0; i < 256; i++) {
+      count += hist[i];
+      if (count > clip) {
+        low = i;
+        break;
+      }
+    }
+    count = 0;
+    for (let i = 255; i >= 0; i--) {
+      count += hist[i];
+      if (count > clip) {
+        high = i;
+        break;
+      }
+    }
+    if (high <= low) return [0, 255];
+    return [low, high];
+  }
+  const [rl, rh] = bounds(histR);
+  const [gl, gh] = bounds(histG);
+  const [bl, bh] = bounds(histB);
+  const stretch = (v, lo, hi) => clamp255(((v - lo) / (hi - lo)) * 255);
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = stretch(data[i], rl, rh);
+    data[i + 1] = stretch(data[i + 1], gl, gh);
+    data[i + 2] = stretch(data[i + 2], bl, bh);
+  }
+  return imageData;
+}
+
+// Naikkan saturasi dikit biar warna "pop", umum dipakai alat enhance foto.
+function adjustSaturation(imageData, factor) {
+  const { data } = imageData;
+  for (let i = 0; i < data.length; i += 4) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
+    data[i] = clamp255(gray + (r - gray) * factor);
+    data[i + 1] = clamp255(gray + (g - gray) * factor);
+    data[i + 2] = clamp255(gray + (b - gray) * factor);
+  }
+}
+
+// Unsharp mask: campur piksel asli dengan versi konvolusi kernel pentajam,
+// porsinya diatur `amount` (0-1) dari slider ketajaman.
 function sharpen(imageData, amount) {
   if (amount <= 0) return imageData;
   const { width, height, data } = imageData;
-  const src = new Uint8ClampedArray(data); // salinan piksel asli buat dibaca
+  const src = new Uint8ClampedArray(data);
   const kernel = [0, -1, 0, -1, 5, -1, 0, -1, 0];
-
   for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
       const idx = (y * width + x) * 4;
       for (let c = 0; c < 3; c++) {
-        // hanya kanal R,G,B -- alpha dibiarkan apa adanya
         let sum = 0;
         let k = 0;
         for (let ky = -1; ky <= 1; ky++) {
           for (let kx = -1; kx <= 1; kx++) {
-            const nIdx = ((y + ky) * width + (x + kx)) * 4 + c;
-            sum += src[nIdx] * kernel[k];
+            sum += src[((y + ky) * width + (x + kx)) * 4 + c] * kernel[k];
             k++;
           }
         }
         const original = src[idx + c];
-        data[idx + c] = original + (sum - original) * amount;
+        data[idx + c] = clamp255(original + (sum - original) * amount);
       }
     }
   }
   return imageData;
 }
 
+// Slider bandingkan sebelum/sesudah dalam 1 gambar, gaya Squoosh: tarik
+// pegangan di tengah untuk geser batas kiri/kanan.
+function BeforeAfterSlider({ beforeSrc, afterSrc, processing }) {
+  const containerRef = useRef(null);
+  const [position, setPosition] = useState(50);
+
+  const updateFromClientX = useCallback((clientX) => {
+    const rect = containerRef.current.getBoundingClientRect();
+    let pct = ((clientX - rect.left) / rect.width) * 100;
+    pct = Math.min(100, Math.max(0, pct));
+    setPosition(pct);
+  }, []);
+
+  function handlePointerDown(e) {
+    e.currentTarget.setPointerCapture(e.pointerId);
+    updateFromClientX(e.clientX);
+  }
+  function handlePointerMove(e) {
+    if (e.buttons === 0 && e.pointerType !== 'touch') return;
+    updateFromClientX(e.clientX);
+  }
+
+  return (
+    <div>
+      <div className="mb-1.5 flex justify-between text-xs font-semibold uppercase tracking-wide text-ink/50">
+        <span>Sebelum</span>
+        <span>Sesudah</span>
+      </div>
+      <div
+        ref={containerRef}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        className="relative w-full touch-none select-none overflow-hidden rounded-xl border border-line bg-cream"
+        style={{ aspectRatio: '4 / 3' }}
+      >
+        <img
+          src={afterSrc || beforeSrc}
+          alt="Sesudah"
+          draggable={false}
+          className="absolute inset-0 h-full w-full object-contain"
+        />
+        <img
+          src={beforeSrc}
+          alt="Sebelum"
+          draggable={false}
+          className="absolute inset-0 h-full w-full object-contain"
+          style={{ clipPath: `polygon(0 0, ${position}% 0, ${position}% 100%, 0 100%)` }}
+        />
+        <div
+          className="pointer-events-none absolute inset-y-0 w-0.5 bg-white shadow"
+          style={{ left: `${position}%` }}
+        />
+        <div
+          className="pointer-events-none absolute top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-forest shadow"
+          style={{ left: `${position}%` }}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5l-6 7 6 7V5zM16 5v14l6-7-6-7z" />
+          </svg>
+        </div>
+        {processing && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 text-xs font-medium text-white">
+            Memproses...
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function PenjernihFoto() {
   const [originalSrc, setOriginalSrc] = useState(null);
   const [resultSrc, setResultSrc] = useState(null);
   const [scale, setScale] = useState(2);
-  const [sharpenAmount, setSharpenAmount] = useState(50);
+  const [sharpenAmount, setSharpenAmount] = useState(60);
   const [processing, setProcessing] = useState(false);
   const [fileName, setFileName] = useState('');
   const [error, setError] = useState('');
@@ -79,42 +215,52 @@ export default function PenjernihFoto() {
     reader.readAsDataURL(file);
   }
 
-  const handleProcess = useCallback(async () => {
+  // Proses otomatis begitu foto dipilih, dan diproses ulang tiap kali
+  // pengaturan (perbesar/ketajaman) diubah -- gak perlu klik tombol apapun.
+  useEffect(() => {
     if (!originalSrc) return;
+    let cancelled = false;
     setProcessing(true);
     setError('');
-    try {
-      const img = await loadImage(originalSrc);
-      let targetW = img.width * scale;
-      let targetH = img.height * scale;
 
-      if (targetW > MAX_OUTPUT_DIMENSION || targetH > MAX_OUTPUT_DIMENSION) {
-        const ratio = MAX_OUTPUT_DIMENSION / Math.max(targetW, targetH);
-        targetW = Math.round(targetW * ratio);
-        targetH = Math.round(targetH * ratio);
-      }
+    const timer = setTimeout(async () => {
+      try {
+        const img = await loadImage(originalSrc);
+        let targetW = img.width * scale;
+        let targetH = img.height * scale;
+        if (targetW > MAX_OUTPUT_DIMENSION || targetH > MAX_OUTPUT_DIMENSION) {
+          const ratio = MAX_OUTPUT_DIMENSION / Math.max(targetW, targetH);
+          targetW = Math.round(targetW * ratio);
+          targetH = Math.round(targetH * ratio);
+        }
 
-      const canvas = canvasRef.current;
-      canvas.width = targetW;
-      canvas.height = targetH;
-      const ctx = canvas.getContext('2d');
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(img, 0, 0, targetW, targetH);
+        const canvas = canvasRef.current;
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, targetW, targetH);
 
-      if (sharpenAmount > 0) {
         const imageData = ctx.getImageData(0, 0, targetW, targetH);
+        autoLevels(imageData, 0.5);
+        adjustSaturation(imageData, 1.12);
         sharpen(imageData, sharpenAmount / 100);
         ctx.putImageData(imageData, 0, 0);
-      }
 
-      setResultSrc(canvas.toDataURL('image/png'));
-    } catch (err) {
-      console.error(err);
-      setError('Gagal memproses gambar. Coba gambar lain.');
-    } finally {
-      setProcessing(false);
-    }
+        if (!cancelled) setResultSrc(canvas.toDataURL('image/png'));
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) setError('Gagal memproses gambar. Coba gambar lain.');
+      } finally {
+        if (!cancelled) setProcessing(false);
+      }
+    }, PROCESS_DEBOUNCE_MS);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [originalSrc, scale, sharpenAmount]);
 
   return (
@@ -127,8 +273,9 @@ export default function PenjernihFoto() {
 
       <h1 className="font-display text-2xl font-semibold text-navy">Penjernih Foto</h1>
       <p className="mt-1 text-sm text-ink/60">
-        Perbesar ukuran & pertajam foto rumah kamu langsung di browser -- semua diproses
-        di perangkat kamu sendiri, foto tidak dikirim ke server manapun.
+        Upload foto, hasilnya otomatis diproses. Geser pegangan di tengah gambar untuk
+        bandingkan sebelum & sesudah. Semua diproses di perangkat kamu sendiri, foto
+        tidak dikirim ke server manapun.
       </p>
 
       <div className="mt-6 rounded-2xl border border-line bg-white p-5">
@@ -137,7 +284,7 @@ export default function PenjernihFoto() {
           className="flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-line bg-cream px-4 py-8 text-center hover:border-forest"
         >
           <span className="text-sm font-medium text-ink">
-            {fileName ? `Foto dipilih: ${fileName}` : 'Tap untuk pilih foto'}
+            {fileName ? `Ganti foto (dipilih: ${fileName})` : 'Tap untuk pilih foto'}
           </span>
           <span className="mt-1 text-xs text-ink/50">JPG, PNG, atau WEBP</span>
         </label>
@@ -153,6 +300,10 @@ export default function PenjernihFoto() {
 
         {originalSrc && (
           <>
+            <div className="mt-5">
+              <BeforeAfterSlider beforeSrc={originalSrc} afterSrc={resultSrc} processing={processing} />
+            </div>
+
             <div className="mt-5 space-y-5">
               <div>
                 <p className="text-sm font-medium text-ink">Perbesar</p>
@@ -192,36 +343,6 @@ export default function PenjernihFoto() {
                   className="mt-2 w-full accent-forest"
                 />
               </div>
-
-              <button
-                type="button"
-                onClick={handleProcess}
-                disabled={processing}
-                className="w-full rounded-full bg-forest px-6 py-2.5 text-sm font-semibold text-white hover:bg-forest-dark disabled:opacity-60"
-              >
-                {processing ? 'Memproses...' : 'Proses Foto'}
-              </button>
-            </div>
-
-            <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink/50">
-                  Sebelum
-                </p>
-                <img src={originalSrc} alt="Sebelum" className="w-full rounded-xl border border-line" />
-              </div>
-              <div>
-                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink/50">
-                  Sesudah
-                </p>
-                {resultSrc ? (
-                  <img src={resultSrc} alt="Sesudah" className="w-full rounded-xl border border-line" />
-                ) : (
-                  <div className="flex aspect-square w-full items-center justify-center rounded-xl border border-dashed border-line text-xs text-ink/40">
-                    Hasil muncul di sini
-                  </div>
-                )}
-              </div>
             </div>
 
             {resultSrc && (
@@ -240,11 +361,12 @@ export default function PenjernihFoto() {
       <canvas ref={canvasRef} className="hidden" />
 
       <div className="mt-4 rounded-2xl border border-line bg-cream p-4 text-xs text-ink/50">
-        <strong>Catatan:</strong> Alat ini memperbesar dan mempertajam foto memakai
-        pemrosesan gambar biasa (bukan AI), jadi cocok buat foto blur ringan atau
-        resolusi kecil. Untuk foto yang sudah sangat rusak/pecah, hasilnya tidak akan
-        sebagus alat berbasis AI khusus seperti Upscayl.
+        <strong>Catatan:</strong> Alat ini memakai pemrosesan gambar biasa (auto-kontras,
+        saturasi, dan penajaman), bukan AI, jadi cocok buat foto blur ringan/kusam. Untuk
+        foto yang sudah sangat rusak/pecah, hasilnya tidak akan sebagus alat berbasis AI
+        khusus seperti Upscayl.
       </div>
     </div>
   );
 }
+  
