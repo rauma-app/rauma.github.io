@@ -21,6 +21,7 @@ const INFO_LINKS = [
     label: 'Kerjasama',
     to: '/kerjasama',
   },
+  { label: 'Penjernih Foto', to: '/alat/penjernih-foto' },
 ];
 
 export default function Footer() {
