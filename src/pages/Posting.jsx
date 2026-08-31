@@ -16,6 +16,25 @@ const PREMIUM_PRICE_LABEL = 'Rp299.000/tahun';
 
 const SERTIFIKAT_OPTIONS = ['SHM', 'SHGB', 'HGB', 'AJB', 'Girik', 'PPJB', 'Lainnya'];
 const AIR_OPTIONS = ['PDAM', 'Sumur Bor', 'Sumur Gali', 'Lainnya'];
+// Daya listrik PLN yang umum dipakai di rumah tinggal Indonesia, dari yang
+// terkecil sampai yang biasa dipakai rumah besar/mewah.
+const ELECTRICITY_OPTIONS = [
+  '450 VA',
+  '900 VA',
+  '1300 VA',
+  '2200 VA',
+  '3500 VA',
+  '4400 VA',
+  '5500 VA',
+  '6600 VA',
+  '7700 VA',
+  '10600 VA',
+  '13200 VA',
+  '16500 VA',
+  '22000 VA',
+  '23000 VA',
+  'Lainnya',
+];
 
 const MATERIAL_FIELDS = [
   { key: 'materialPondasi', label: 'Pondasi', options: ['Batu Kali', 'Footplat / Cakar Ayam', 'Straus Pile / Bore Pile', 'Tiang Pancang'] },
@@ -1015,13 +1034,16 @@ export default function Posting() {
                 </div>
 
                 <Field label="Daya Listrik">
-                  <input
-                    type="text"
+                  <select
                     value={t.electricity}
                     onChange={(e) => updateUnitType(idx, 'electricity', e.target.value)}
-                    placeholder="Masukkan daya listrik (contoh: 2200 VA)"
                     className="input"
-                  />
+                  >
+                    <option value="">Pilih Daya Listrik</option>
+                    {ELECTRICITY_OPTIONS.map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </select>
                 </Field>
 
                 {/* Foto Tipe Ini: card PERTAMA (idx 0) SELALU pakai foto
@@ -1130,13 +1152,16 @@ export default function Posting() {
 
         {!isMultiType && (
           <Field label="Daya Listrik">
-            <input
-              type="text"
+            <select
               value={form.electricity}
               onChange={(e) => update('electricity', e.target.value)}
-              placeholder="Masukkan daya listrik (contoh: 2200 VA)"
               className="input"
-            />
+            >
+              <option value="">Pilih Daya Listrik</option>
+              {ELECTRICITY_OPTIONS.map((o) => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
           </Field>
         )}
 
