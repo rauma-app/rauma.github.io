@@ -15,7 +15,13 @@ const PREMIUM_WHATSAPP = '6285156222635';
 const PREMIUM_PRICE_LABEL = 'Rp299.000/tahun';
 
 const SERTIFIKAT_OPTIONS = ['SHM', 'SHGB', 'HGB', 'AJB', 'Girik', 'PPJB', 'Lainnya'];
-const AIR_OPTIONS = ['PDAM', 'Sumur Bor', 'Sumur Gali', 'Lainnya'];
+const AIR_OPTIONS = ['PDAM',
+  'PAM Desa',
+  'Sumur Gali',
+  'Sumur Bor (Dangkal)',
+  'Sumur Bor (Jet Pump)',
+  'Sumur Artesis',
+  'Lainnya'];
 // Daya listrik PLN yang umum dipakai di rumah tinggal Indonesia, dari yang
 // terkecil sampai yang biasa dipakai rumah besar/mewah.
 const ELECTRICITY_OPTIONS = [
