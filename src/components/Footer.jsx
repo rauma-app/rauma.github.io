@@ -12,6 +12,7 @@ const SOCIAL_LINKS = [
 ];
 
 const INFO_LINKS = [
+  { label: 'Blog', to: '/blog' },
   { label: 'Tentang Kami', to: '/tentang-kami' },
   { label: 'Kebijakan dan Privasi', to: '/kebijakan-privasi' },
   { label: 'Syarat & Ketentuan', to: '/syarat-ketentuan' },
