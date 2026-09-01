@@ -27,6 +27,7 @@ const SECTIONS = [
     title: 'Informasi',
     links: [
       { label: 'Tentang Kami', to: '/tentang-kami' },
+      { label: 'Blog', to: '/blog' },
       { label: 'Kebijakan dan Privasi', to: '/kebijakan-privasi' },
       { label: 'Syarat & Ketentuan', to: '/syarat-ketentuan' },
       { label: 'Saran & Masukan', to: '/saran-masukan' },
