@@ -19,7 +19,7 @@ export const POSTS = [
     excerpt:
       'Panduan resmi cara registrasi Internet Rakyat: membuka link referral, verifikasi data melalui WhatsApp, mengirim lokasi rumah, hingga aktivasi modem.',
     date: '2026-09-03',
-    coverImage: '/blog/internet-rakyat/foto-1.jpg',
+    coverImage: '/blog/internet-rakyat/338886.jpg',
     seoDescription:
       'Panduan lengkap dan resmi cara daftar Internet Rakyat: buka link referral, verifikasi data via WhatsApp, kirim lokasi rumah, pilih paket dan metode pembayaran, sampai aktivasi modem.',
     content: [
