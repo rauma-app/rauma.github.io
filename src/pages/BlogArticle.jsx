@@ -139,10 +139,17 @@ export default function BlogArticle() {
       </article>
 
       <div className="mt-10 rounded-2xl border border-line bg-white p-5">
-        <p className="text-sm text-ink/70">Cari rumah KPR yang sesuai kebutuhan kamu?</p>
-        <Link to="/" className="mt-2 inline-block text-sm font-semibold text-forest underline">
-          Jelajahi Rauma
-        </Link>
+        <p className="text-sm text-ink/70">
+          Jika ada kendala, hubungi kontak bantuan resmi Internet Rakyat.
+        </p>
+        <a
+          href="https://wa.me/6285711151151"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-2 inline-block text-sm font-semibold text-forest underline"
+        >
+          +62 857-1115-1151
+        </a>
       </div>
     </div>
   );
