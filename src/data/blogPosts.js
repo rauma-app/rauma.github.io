@@ -8,142 +8,147 @@
 // - { type: 'list', items }    -> daftar bullet, tiap item bisa pakai **kata**
 // - { type: 'image', src, alt, caption } -> gambar + keterangan opsional
 // - { type: 'quote', text }    -> kutipan/notifikasi ditonjolkan
-// - { type: 'link', href, label } -> tombol/link menonjol
+// - { type: 'code', text }     -> contoh teks/tautan bergaya monospace
+// - { type: 'link', href, label, variant } -> tombol/link menonjol
+//   (variant: 'primary' default, atau 'secondary' untuk gaya outline)
 
 export const POSTS = [
   {
     slug: 'cara-daftar-internet-rakyat-lewat-aplikasi',
     title: 'Cara Daftar Internet Rakyat Lewat Aplikasi, Lengkap sampai Pembayaran',
     excerpt:
-      'Panduan lengkap cara registrasi Internet Rakyat, mulai dari download aplikasi, daftar lewat link referral, sampai cara membeli paket internet dan pembayarannya.',
-    date: '2026-09-01',
+      'Panduan resmi cara registrasi Internet Rakyat: membuka link referral, verifikasi data melalui WhatsApp, mengirim lokasi rumah, hingga aktivasi modem.',
+    date: '2026-09-03',
     coverImage: '/blog/internet-rakyat/foto-1.jpg',
     seoDescription:
-      'Panduan lengkap cara daftar Internet Rakyat lewat aplikasi: download aplikasi, daftar lewat link referral, isi data, sampai cara membeli paket internet dan pembayarannya.',
+      'Panduan lengkap dan resmi cara daftar Internet Rakyat: buka link referral, verifikasi data via WhatsApp, kirim lokasi rumah, pilih paket dan metode pembayaran, sampai aktivasi modem.',
     content: [
       {
         type: 'p',
-        text: 'Berikut panduan lengkap cara melakukan registrasi Internet Rakyat, mulai dari mengunduh aplikasi hingga melakukan pembelian paket internet.',
+        text: 'Berikut panduan lengkap cara melakukan registrasi Internet Rakyat, mulai dari membuka tautan referral hingga proses aktivasi modem.',
       },
-      { type: 'h2', text: '1. Download Aplikasi Internet Rakyat' },
+      { type: 'h2', text: '1. Buka Tautan Referral' },
       {
         type: 'p',
-        text: 'Langkah pertama, download aplikasi Internet Rakyat melalui Google Play Store untuk pengguna Android atau App Store untuk pengguna iPhone.',
-      },
-      {
-        type: 'list',
-        items: [
-          '**Android**: [Google Play Store](https://play.google.com/store/apps/details?id=com.weave.ira)',
-          '**iPhone**: [App Store](https://apps.apple.com/id/app/internet-rakyat/id6758337694)',
-        ],
-      },
-      {
-        type: 'p',
-        text: 'Pastikan aplikasi yang diunduh merupakan **aplikasi resmi** Internet Rakyat.',
-      },
-      { type: 'h2', text: '2. Daftar Menggunakan Link Referral' },
-      {
-        type: 'p',
-        text: 'Setelah aplikasi berhasil diunduh, gunakan link referral berikut untuk melanjutkan proses pendaftaran:',
+        text: 'Langkah pertama, buka tautan referral resmi Internet Rakyat berikut untuk memulai proses pendaftaran.',
       },
       {
         type: 'link',
         href: 'https://sahabat.internetrakyat.id/go/sira_abdul635',
-        label: 'Daftar Lewat Link Referral Internet Rakyat',
+        label: 'Buka Tautan Referral Internet Rakyat',
       },
       {
         type: 'image',
         src: '/blog/internet-rakyat/foto-1.jpg',
-        alt: 'Halaman link referral Internet Rakyat',
+        alt: 'Halaman tautan referral Internet Rakyat',
         caption: 'Foto 1',
       },
       {
         type: 'p',
-        text: 'Setelah membuka link tersebut, pilih **"Daftar Lewat Aplikasi"**. Anda akan diarahkan secara otomatis ke aplikasi Internet Rakyat yang sebelumnya sudah diunduh.',
+        text: 'Setelah halaman terbuka, tekan tombol **"Daftar Sekarang"**. Sistem akan secara otomatis mengalihkan Anda ke WhatsApp resmi Internet Rakyat untuk mengisi form proses verifikasi data dan lokasi rumah.',
       },
-      { type: 'h2', text: '3. Isi Data Pendaftaran' },
+      { type: 'h2', text: '2. Verifikasi Data melalui WhatsApp' },
       {
         type: 'p',
-        text: 'Selanjutnya, isi seluruh data yang diperlukan pada formulir pendaftaran.',
+        text: 'Tim Internet Rakyat akan meminta beberapa data secara bertahap melalui WhatsApp. Data awal yang diperlukan adalah:',
+      },
+      {
+        type: 'list',
+        items: ['**Nama Lengkap**', '**Nomor Telepon**'],
+      },
+      {
+        type: 'p',
+        text: 'Selanjutnya, Anda akan diminta melengkapi data alamat pemasangan sebagai berikut:',
+      },
+      {
+        type: 'list',
+        items: [
+          'Provinsi',
+          'Kota/Kabupaten',
+          'Kecamatan',
+          'Kelurahan',
+          'Kode Pos',
+          'RT & RW',
+          'Alamat Lengkap Pemasangan',
+        ],
+      },
+      { type: 'h2', text: '3. Mengirim Lokasi Rumah' },
+      {
+        type: 'p',
+        text: 'Setelah seluruh data terisi, langkah terakhir pada tahap ini adalah mengirimkan lokasi rumah. Terdapat dua metode yang dapat digunakan.',
+      },
+      {
+        type: 'p',
+        text: '**Metode 1: Bagikan Lokasi (Share Location)**',
+      },
+      {
+        type: 'p',
+        text: 'Aktifkan layanan lokasi pada perangkat Anda seperti biasa, kemudian bagikan lokasi terkini melalui fitur berbagi lokasi WhatsApp.',
       },
       {
         type: 'image',
         src: '/blog/internet-rakyat/foto-2.jpg',
-        alt: 'Formulir pendaftaran Internet Rakyat',
+        alt: 'Membagikan lokasi rumah melalui WhatsApp',
         caption: 'Foto 2',
+      },
+      {
+        type: 'p',
+        text: '**Metode 2: Melalui Google Maps**',
+      },
+      {
+        type: 'p',
+        text: 'Untuk hasil yang lebih akurat, Anda dapat menentukan titik lokasi rumah secara manual melalui Google Maps, kemudian membagikan tautannya. Berikut contoh format tautan yang dapat dikirimkan:',
+      },
+      {
+        type: 'code',
+        text: 'https://maps.app.goo.gl/wPGWQcb2s7ESPT1o6?g_st=ac',
       },
       {
         type: 'image',
         src: '/blog/internet-rakyat/foto-3.jpg',
-        alt: 'Formulir pendaftaran Internet Rakyat lanjutan',
+        alt: 'Menentukan lokasi rumah melalui Google Maps',
         caption: 'Foto 3',
-      },
-      {
-        type: 'p',
-        text: 'Pastikan seluruh data yang dimasukkan sudah **benar dan sesuai** dengan data pelanggan. Periksa kembali sebelum melanjutkan ke tahap berikutnya.',
-      },
-      { type: 'h2', text: '4. Konfirmasi Data Pelanggan' },
-      {
-        type: 'p',
-        text: 'Pada langkah terakhir, lakukan konfirmasi terhadap data pelanggan yang telah dimasukkan.',
       },
       {
         type: 'image',
         src: '/blog/internet-rakyat/foto-4.jpg',
-        alt: 'Konfirmasi data pelanggan Internet Rakyat',
+        alt: 'Membagikan tautan lokasi dari Google Maps',
         caption: 'Foto 4',
       },
+      { type: 'h2', text: '4. Pengecekan Jangkauan dan Pemilihan Paket' },
       {
         type: 'p',
-        text: 'Pastikan seluruh informasi sudah benar, kemudian lanjutkan proses pendaftaran.',
+        text: 'Setelah lokasi ditentukan, tim Internet Rakyat akan mencocokkan data Anda dengan jangkauan ketersediaan layanan di wilayah tersebut.',
       },
-      { type: 'p', text: 'Jika registrasi berhasil, akan muncul notifikasi:' },
-      { type: 'quote', text: 'Terima kasih, pendaftaran Anda berhasil!' },
-      { type: 'h2', text: 'Cara Membeli Paket Internet di Aplikasi' },
       {
         type: 'p',
-        text: 'Setelah proses registrasi selesai, pelanggan dapat membeli paket internet melalui aplikasi Internet Rakyat.',
-      },
-      { type: 'h2', text: '1. Pilih Paket Internet' },
-      {
-        type: 'list',
-        items: [
-          'Masuk ke halaman utama aplikasi Internet Rakyat.',
-          'Pada banner **"Beli Paket untuk Menyelesaikan Pendaftaran Internet Rakyat"**, akan tersedia pilihan paket internet.',
-          'Pilih paket yang sesuai dengan kebutuhan, misalnya paket 100 Mbps.',
-          'Tekan **"Pilih Paket Ini"** untuk melanjutkan ke proses pembayaran.',
-        ],
-      },
-      { type: 'h2', text: '2. Pilih Metode Pembayaran' },
-      {
-        type: 'p',
-        text: 'Pada halaman Metode Pembayaran, pelanggan dapat memilih metode pembayaran yang tersedia, seperti:',
+        text: 'Apabila lokasi Anda terjangkau, Anda akan diberikan pilihan paket serta metode pembayaran yang tersedia, di antaranya:',
       },
       {
         type: 'list',
         items: [
-          'Virtual Account, termasuk BRIVA, Mandiri, Danamon, dan BNI.',
-          'QRIS.',
-          'E-Wallet.',
+          'Virtual Account (VA)',
+          'QRIS',
+          'GoPay',
+          'DANA',
+          'OVO',
+          'Pembayaran offline melalui outlet resmi',
         ],
+      },
+      { type: 'h2', text: '5. Pengiriman dan Aktivasi Modem' },
+      {
+        type: 'p',
+        text: 'Setelah proses pemesanan selesai, modem akan dikirimkan kepada pelanggan dalam jangka waktu **7 hari kerja**.',
       },
       {
         type: 'p',
-        text: 'Sebelum melakukan pembayaran, pastikan kembali **total tagihan** paket yang dipilih.',
+        text: 'Aktivasi modem dapat dilakukan secara mandiri oleh pelanggan dengan mengikuti panduan video resmi berikut:',
       },
       {
-        type: 'p',
-        text: 'Jika semua sudah sesuai, tekan **"Bayar"**, kemudian selesaikan pembayaran mengikuti instruksi dari metode pembayaran yang dipilih.',
-      },
-      { type: 'h2', text: '3. Setelah Pembayaran Berhasil' },
-      { type: 'p', text: 'Setelah pembayaran berhasil dilakukan:' },
-      {
-        type: 'list',
-        items: [
-          'Akan muncul notifikasi **"Pembayaran Berhasil"** di aplikasi.',
-          'Status paket akan otomatis berubah menjadi **"Menunggu Pengiriman Perangkat"**.',
-          'Pelanggan tinggal menunggu perangkat dikirim dan proses pemasangan dilakukan oleh tim Internet Rakyat.',
-        ],
+        type: 'link',
+        href: 'https://www.youtube.com/watch?v=mwwagWY9Sg4',
+        label: 'Tonton Tutorial Aktivasi Modem',
+        variant: 'secondary',
       },
     ],
   },
