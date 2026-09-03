@@ -54,8 +54,25 @@ function ContentBlock({ block }) {
           "{block.text}"
         </blockquote>
       );
-    case 'link':
+    case 'code':
       return (
+        <div className="mt-3 overflow-x-auto rounded-lg border border-line bg-cream px-3 py-2">
+          <code className="whitespace-nowrap break-all font-mono text-xs text-ink/70">
+            {block.text}
+          </code>
+        </div>
+      );
+    case 'link':
+      return block.variant === 'secondary' ? (
+        <a
+          href={block.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-4 block w-full rounded-full border border-forest px-6 py-2.5 text-center text-sm font-semibold text-forest hover:bg-forest/5"
+        >
+          {block.label}
+        </a>
+      ) : (
         <a
           href={block.href}
           target="_blank"
