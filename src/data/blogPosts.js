@@ -14,7 +14,7 @@
 
 export const POSTS = [
   {
-    slug: 'cara-daftar-internet-rakyat-lewat-aplikasi',
+    slug: 'cara-daftar-internet-rakyat-terbaru',
     title: 'Cara Daftar Internet Rakyat Lewat Aplikasi, Lengkap sampai Pembayaran',
     excerpt:
       'Panduan resmi cara registrasi Internet Rakyat: membuka link referral, verifikasi data melalui WhatsApp, mengirim lokasi rumah, hingga aktivasi modem.',
