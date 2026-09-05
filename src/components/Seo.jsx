@@ -40,6 +40,16 @@ function setJsonLd(id, data) {
   el.textContent = JSON.stringify(data);
 }
 
+function setRobotsTag(content) {
+  let el = document.head.querySelector('meta[name="robots"]');
+  if (!el) {
+    el = document.createElement('meta');
+    el.setAttribute('name', 'robots');
+    document.head.appendChild(el);
+  }
+  el.setAttribute('content', content);
+}
+
 /**
  * Komponen tanpa render apapun ke layar — cuma menyuntik/update
  * <title>, meta description, canonical URL, Open Graph, dan
@@ -47,8 +57,13 @@ function setJsonLd(id, data) {
  *
  * Pasang di halaman manapun yang butuh SEO spesifik (halaman detail
  * listing, halaman kategori kota/kecamatan, dst).
+ *
+ * `noindex`: pakai di halaman yang isinya kosong/tidak ada hasil (mis.
+ * halaman pencarian yang 0 listing) supaya Google tidak menyimpan
+ * halaman kosong itu -- begitu ada listing yang cocok, cukup render
+ * ulang dengan noindex={false} dan Google akan index otomatis.
  */
-export default function Seo({ title, description, path, jsonLd, image }) {
+export default function Seo({ title, description, path, jsonLd, image, noindex }) {
   useEffect(() => {
     const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} — Jual Beli Rumah KPR`;
     document.title = fullTitle;
@@ -67,11 +82,13 @@ export default function Seo({ title, description, path, jsonLd, image }) {
     setLinkTag('canonical', canonical);
     setMetaTag('property', 'og:url', canonical);
 
+    setRobotsTag(noindex ? 'noindex, nofollow' : 'index, follow');
+
     setJsonLd('seo-jsonld', jsonLd || null);
 
     // Bersihkan JSON-LD saat komponen unmount / pindah halaman.
     return () => setJsonLd('seo-jsonld', null);
-  }, [title, description, path, jsonLd, image]);
+  }, [title, description, path, jsonLd, image, noindex]);
 
   return null;
 }
