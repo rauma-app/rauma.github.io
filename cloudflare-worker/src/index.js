@@ -216,6 +216,195 @@ export default {
 
     try {
       // =============================================================
+      // 0b. SITEMAP DINAMIS UNTUK HALAMAN DETAIL LISTING
+      // =============================================================
+      // Berbeda dari sitemap-listings.xml (yang cuma dari pencarian yang
+      // pernah diketik orang), ini mendaftarkan SEMUA listing approved
+      // apa adanya -- jadi listing di lokasi manapun (misal Cililin) tetap
+      // punya jalur pasti buat ditemukan Google, walau belum pernah ada
+      // yang search lokasi itu di web. Route-nya ikut src/App.jsx:
+      //   - listing dengan perumahanSlug -> /perumahan/:slug
+      //   - listing biasa (rumah individu)-> /id/:id
+      if (path === "/sitemap-detail.xml" && method === "GET") {
+        const rows = await env.DB.prepare(
+          `SELECT id, perumahanSlug, created_at FROM listings WHERE status = 'approved' ORDER BY created_at DESC LIMIT 45000`
+        ).all();
+
+        const urlEntries = (rows.results || []).map((row) => {
+          const loc = row.perumahanSlug
+            ? `https://rauma.id/perumahan/${row.perumahanSlug}`
+            : `https://rauma.id/id/${row.id}`;
+          const lastmod = row.created_at ? String(row.created_at).slice(0, 10) : "";
+          return `  <url><loc>${loc}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<priority>0.6</priority></url>`;
+        });
+
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urlEntries.join("\n")}\n</urlset>`;
+
+        return new Response(xml, {
+          headers: {
+            "Content-Type": "application/xml; charset=UTF-8",
+            "Cache-Control": "public, max-age=21600",
+          },
+        });
+      }
+
+      // =============================================================
+      // 0c. SITEMAP DINAMIS UNTUK HALAMAN PENCARIAN (/cari/:slug)
+      // =============================================================
+      // Setiap pencarian yang diketik orang di rauma.id (lihat
+      // d1Api.logEvent('search', ...) di frontend) tercatat di tabel
+      // analytics_events. Endpoint ini mengambil pencarian yang PALING
+      // SERING diketik, mengecek apakah pencarian itu BENERAN punya
+      // listing yang cocok, dan cuma memasukkan yang punya hasil ke
+      // sitemap -- supaya Google gak nemu halaman kosong (thin content).
+      //
+      // Setup di Cloudflare dashboard: tambahkan Workers Route
+      //   rauma.id/sitemap-listings.xml
+      // yang mengarah ke worker ini (biar URL-nya sehost dengan rauma.id,
+      // syarat wajib sitemap menurut aturan Google), lalu tambahkan baris
+      //   Sitemap: https://rauma.id/sitemap-listings.xml
+      // di public/robots.txt.
+      if (path === "/sitemap-listings.xml" && method === "GET") {
+        // Port ringan dari src/lib/searchParser.js (frontend) -- HARUS
+        // tetap disamakan kalau logika parsing di frontend diubah nanti.
+        function unitMultiplier(unit) {
+          if (/^(jt|juta|jutaan)$/.test(unit)) return 1_000_000;
+          if (/^(m|miliar|milyar|milyaran|miliaran)$/.test(unit)) return 1_000_000_000;
+          return 1;
+        }
+        const UNIT = "jt|juta|jutaan|m|miliar|milyar|milyaran|miliaran";
+        function bucketRange(value) {
+          const base = Math.floor(value / 100_000_000) * 100_000_000;
+          return { min: base, max: base + 99_000_000 };
+        }
+        function parseSearchLite(rawText) {
+          const text = (rawText || "").trim();
+          if (!text) return null;
+          let working = ` ${text.toLowerCase()} `;
+          let minPrice = null;
+          let maxPrice = null;
+
+          const rangeRe = new RegExp(`(\\d+(?:[.,]\\d+)?)\\s*(?:-|–|sampai|s\\.?d\\.?|hingga|\\s+)\\s*(\\d+(?:[.,]\\d+)?)\\s*(${UNIT})\\b`);
+          const underRe = new RegExp(`(di\\s*bawah|maksimal|maks|kurang\\s*dari)\\s*(\\d+(?:[.,]\\d+)?)\\s*(${UNIT})\\b`);
+          const overRe = new RegExp(`(di\\s*atas|minimal|min|lebih\\s*dari)\\s*(\\d+(?:[.,]\\d+)?)\\s*(${UNIT})\\b`);
+          const singleRe = new RegExp(`(\\d+(?:[.,]\\d+)?)\\s*(${UNIT})\\b\\s*(an\\b)?`);
+
+          let m = working.match(rangeRe);
+          if (m) {
+            const mult = unitMultiplier(m[3]);
+            const a = parseFloat(m[1].replace(",", ".")) * mult;
+            const b = parseFloat(m[2].replace(",", ".")) * mult;
+            minPrice = Math.min(a, b);
+            maxPrice = Math.max(a, b);
+            working = working.replace(m[0], " ");
+          } else if ((m = working.match(underRe))) {
+            maxPrice = parseFloat(m[2].replace(",", ".")) * unitMultiplier(m[3]);
+            working = working.replace(m[0], " ");
+          } else if ((m = working.match(overRe))) {
+            minPrice = parseFloat(m[2].replace(",", ".")) * unitMultiplier(m[3]);
+            working = working.replace(m[0], " ");
+          } else if ((m = working.match(singleRe))) {
+            const value = parseFloat(m[1].replace(",", ".")) * unitMultiplier(m[2]);
+            const { min, max } = bucketRange(value);
+            minPrice = min;
+            maxPrice = max;
+            working = working.replace(m[0], " ");
+          }
+
+          const stopwords = [
+            "rumah", "rmh", "properti", "hunian", "tanah", "ruko", "kavling", "perumahan",
+            "dijual", "jual", "beli", "cari", "carikan", "mau", "pengen", "ingin", "nyari",
+            "ada", "apa", "yang", "dong", "min", "kak", "tolong", "bantu", "di", "ke", "ya",
+            "daerah", "kawasan", "wilayah", "sekitar", "dekat", "area", "lokasi", "harga",
+            "kisaran", "sekitaran", "budget", "dgn", "dengan", "murah", "termurah", "baru",
+            "dong", "gan", "kak", "plis", "please",
+          ];
+          const stopRe = new RegExp(`\\b(${stopwords.join("|")})\\b`, "g");
+          const location = working.replace(stopRe, " ").replace(/\s+/g, " ").trim();
+
+          if (!location && minPrice == null && maxPrice == null) return null;
+          return { minPrice, maxPrice, location };
+        }
+
+        // Sama seperti src/lib/searchParser.js -> slugifySearch(), supaya
+        // URL yang dihasilkan cocok dengan yang dikenali route /cari/:slug.
+        function slugifySearchTerm(text) {
+          return (text || "")
+            .toLowerCase()
+            .trim()
+            .replace(/(\d),(\d)/g, "$1.$2")
+            .replace(/[^a-z0-9\s.-]/g, "")
+            .replace(/\s+/g, "-")
+            .replace(/-+/g, "-");
+        }
+
+        const rows = await env.DB.prepare(
+          `SELECT query_text, COUNT(*) AS cnt
+           FROM analytics_events
+           WHERE event_type = 'search' AND query_text IS NOT NULL AND TRIM(query_text) != ''
+           GROUP BY query_text
+           ORDER BY cnt DESC
+           LIMIT 800`
+        ).all();
+
+        const seenSlugs = new Set();
+        const urlEntries = [];
+
+        for (const row of rows.results || []) {
+          const parsed = parseSearchLite(row.query_text);
+          if (!parsed) continue; // gak ada harga & lokasi sama sekali, gak layak jadi landing page
+
+          const slug = slugifySearchTerm(row.query_text);
+          if (!slug || seenSlugs.has(slug)) continue;
+
+          // Cek beneran ada listing yang cocok -- ini yang mencegah
+          // halaman kosong (thin content) masuk sitemap.
+          const conditions = ["status = 'approved'"];
+          const binds = [];
+          if (parsed.minPrice != null) {
+            conditions.push("price >= ?");
+            binds.push(parsed.minPrice);
+          }
+          if (parsed.maxPrice != null) {
+            conditions.push("price <= ?");
+            binds.push(parsed.maxPrice);
+          }
+          if (parsed.location) {
+            const words = parsed.location.split(/\s+/).filter(Boolean).slice(0, 5);
+            for (const w of words) {
+              conditions.push("(kabupaten LIKE ? OR kecamatan LIKE ? OR location LIKE ?)");
+              binds.push(`%${w}%`, `%${w}%`, `%${w}%`);
+            }
+          }
+
+          const countRow = await env.DB.prepare(
+            `SELECT COUNT(*) AS n FROM listings WHERE ${conditions.join(" AND ")}`
+          ).bind(...binds).first();
+
+          if (!countRow || countRow.n <= 0) continue;
+
+          seenSlugs.add(slug);
+          // Prioritas mengikuti seberapa sering dicari (dibatasi 0.5 - 0.8
+          // biar tetap di bawah halaman utama/kategori yang priority-nya
+          // di-set manual di public/sitemap.xml).
+          const priority = Math.min(0.8, Math.max(0.5, 0.5 + Math.log10(row.cnt + 1) / 10)).toFixed(1);
+          urlEntries.push(`  <url><loc>https://rauma.id/cari/${slug}</loc><priority>${priority}</priority></url>`);
+        }
+
+        const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urlEntries.join("\n")}\n</urlset>`;
+
+        return new Response(xml, {
+          headers: {
+            "Content-Type": "application/xml; charset=UTF-8",
+            // Cache 6 jam di edge Cloudflare -- endpoint ini query lumayan
+            // banyak (N+1 ke listings), gak perlu dihitung ulang tiap kali
+            // Googlebot mampir.
+            "Cache-Control": "public, max-age=21600",
+          },
+        });
+      }
+
+      // =============================================================
       // 1. ENDPOINT UPLOAD & TAMPIL GAMBAR R2
       // =============================================================
       if (path === "/upload" && method === "POST") {
