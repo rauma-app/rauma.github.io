@@ -7,3 +7,5 @@ Disallow: /iklan-saya
 Disallow: /disimpan
 
 Sitemap: https://rauma.id/sitemap.xml
+Sitemap: https://rauma.id/sitemap-detail.xml
+Sitemap: https://rauma.id/sitemap-listings.xml
