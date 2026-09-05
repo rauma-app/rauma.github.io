@@ -87,7 +87,12 @@ export default function Cari() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <Seo title={pageTitle} description={seoDescription} path={`/cari${slug ? `/${slug}` : ''}`} />
+      <Seo
+        title={pageTitle}
+        description={seoDescription}
+        path={`/cari${slug ? `/${slug}` : ''}`}
+        noindex={!loading && results.length === 0}
+      />
 
       <h1 className="font-display text-2xl font-semibold text-navy sm:text-3xl">{pageTitle}</h1>
       <p className="mt-1.5 text-sm text-ink/50">
