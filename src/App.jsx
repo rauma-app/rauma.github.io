@@ -98,6 +98,8 @@ export default function App() {
             <Route path="/perumahan/:slug" element={<Listing />} />
             <Route path="/penjual/:uid" element={<SellerProfile />} />
             <Route path="/u/:username" element={<SellerProfile />} />
+            <Route path="/tanah" element={<Tanah />} />
+            <Route path="/tanah/:slug" element={<TanahArticle />} />
             <Route
               path="/posting"
               element={
