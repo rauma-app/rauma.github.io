@@ -85,6 +85,25 @@ const rangeRe = new RegExp(`(\\d+(?:[.,]\\d+)?)\\s*(?:-|–|sampai|s\\.?d\\.?|hi
   // 2) Sisa teks setelah harga dibuang -> anggap itu lokasi. Buang kata-kata
   // umum ("rumah", "dijual", "di", dst) biar yang tersisa cuma nama kota/
   // kecamatan.
+
+  // 1.5) Pisahkan "di" yang nempel ke nama lokasi tanpa spasi, misal
+  // "dicimahi" -> "di cimahi", "dibandung" -> "di bandung". Ini pola umum
+  // kalau orang ngetik cepat/di HP. Tanpa ini, "di" ikut ketinggalan jadi
+  // bagian dari nama lokasi, dan pas ditampilkan di judul ("... di
+  // ${lokasi}") jadinya dobel: "di dicimahi".
+  //
+  // Kata ber-awalan "di" yang beneran ada di Bahasa Indonesia (dijual,
+  // disewa, dst) dikecualikan biar gak salah kepotong.
+  const DI_WHOLE_WORDS = new Set([
+    'dijual', 'dicari', 'disewa', 'disewakan', 'dikontrakkan', 'ditawarkan',
+    'diskon', 'dijamin', 'dipasarkan', 'dini', 'dinding', 'digunakan',
+    'dilengkapi', 'dibangun', 'direnovasi', 'dibeli', 'dibayar', 'dicicil',
+    'ditata', 'dirawat', 'dijaga',
+  ]);
+  working = working.replace(/\bdi([a-z]{3,})\b/g, (full, rest) =>
+    DI_WHOLE_WORDS.has(`di${rest}`) ? full : `di ${rest}`
+  );
+
   const stopwords = [
     'rumah', 'rmh', 'properti', 'hunian', 'tanah', 'ruko', 'kavling', 'perumahan',
     'dijual', 'jual', 'beli', 'cari', 'carikan', 'mau', 'pengen', 'ingin', 'nyari',
@@ -117,4 +136,4 @@ export function slugifySearch(text) {
 // "rumah-200jt-an-di-bandung" -> "rumah 200jt an di bandung"
 export function deslugify(slug) {
   return (slug || '').replace(/-/g, ' ').trim();
-    }
+}
