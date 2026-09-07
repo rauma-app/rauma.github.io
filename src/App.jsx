@@ -34,6 +34,9 @@ const Kerjasama = lazy(() => import('./pages/Kerjasama'));
 const PenjernihFoto = lazy(() => import('./pages/PenjernihFoto'));
 const Blog = lazy(() => import('./pages/Blog'));
 const BlogArticle = lazy(() => import('./pages/BlogArticle'));
+const Tanah = lazy(() => import('./pages/Tanah'));
+const TanahArticle = lazy(() => import('./pages/TanahArticle'));
+
 
 // SpecialCategoryList.jsx pakai named export (bukan default), jadi
 // bungkus tipis biar tetap bisa di-lazy-load dengan cara yang sama.
