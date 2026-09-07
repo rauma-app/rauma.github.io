@@ -18,11 +18,9 @@ const INFO_LINKS = [
   { label: 'Syarat & Ketentuan', to: '/syarat-ketentuan' },
   { label: 'Saran & Masukan', to: '/saran-masukan' },
   { label: 'Peta Situs', to: '/peta-situs' },
-  {
-    label: 'Kerjasama',
-    to: '/kerjasama',
-  },
+  { label: 'Kerjasama',to: '/kerjasama',},
   { label: 'Penjernih Foto', to: '/alat/penjernih-foto' },
+  { label: 'Tanah', to: '/tanah' },
 ];
 
 export default function Footer() {
