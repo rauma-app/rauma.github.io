@@ -311,6 +311,19 @@ export default {
             working = working.replace(m[0], " ");
           }
 
+          // Pisahkan "di" yang nempel ke lokasi tanpa spasi ("dicimahi" ->
+          // "di cimahi") -- harus sama persis dengan src/lib/searchParser.js
+          // di frontend, supaya slug yang dihasilkan konsisten.
+          const DI_WHOLE_WORDS = new Set([
+            "dijual", "dicari", "disewa", "disewakan", "dikontrakkan", "ditawarkan",
+            "diskon", "dijamin", "dipasarkan", "dini", "dinding", "digunakan",
+            "dilengkapi", "dibangun", "direnovasi", "dibeli", "dibayar", "dicicil",
+            "ditata", "dirawat", "dijaga",
+          ]);
+          working = working.replace(/\bdi([a-z]{3,})\b/g, (full, rest) =>
+            DI_WHOLE_WORDS.has(`di${rest}`) ? full : `di ${rest}`
+          );
+
           const stopwords = [
             "rumah", "rmh", "properti", "hunian", "tanah", "ruko", "kavling", "perumahan",
             "dijual", "jual", "beli", "cari", "carikan", "mau", "pengen", "ingin", "nyari",
