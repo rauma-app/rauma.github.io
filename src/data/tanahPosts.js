@@ -10,7 +10,7 @@ export const POSTS = [
     excerpt:
       '42 hektar kebun teh produktif dengan legalitas SHM lengkap di Lemahsugih, Majalengka -- cashflow berjalan, dekat Tol Cisumdawu & Bandara Kertajati.',
     date: '2026-09-07',
-    coverImage: '/blog/kebun-teh-cipasung/banner.jpg',
+    coverImage: '/blog/kebun-teh-cipasung/banner.webp',
     seoDescription:
       '42 hektar kebun teh produktif SHM lengkap di Majalengka, cashflow berjalan Rp948 juta/tahun, dekat Tol Cisumdawu & Bandara Kertajati. Siap jadi resort/agrowisata.',
     content: [
