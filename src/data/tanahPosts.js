@@ -10,7 +10,7 @@ export const POSTS = [
     excerpt:
       '42 hektar kebun teh produktif dengan legalitas SHM lengkap di Lemahsugih, Majalengka -- cashflow berjalan, dekat Tol Cisumdawu & Bandara Kertajati.',
     date: '2026-09-07',
-    coverImage: '/blog/kebun-teh-cipasung/foto-1.jpg',
+    coverImage: '/blog/kebun-teh-cipasung/banner.jpg',
     seoDescription:
       '42 hektar kebun teh produktif SHM lengkap di Majalengka, cashflow berjalan Rp948 juta/tahun, dekat Tol Cisumdawu & Bandara Kertajati. Siap jadi resort/agrowisata.',
     content: [
@@ -37,7 +37,7 @@ export const POSTS = [
       },
       {
         type: 'image',
-        src: '/blog/kebun-teh-cipasung/foto-1.jpg',
+        src: '/blog/kebun-teh-cipasung/pemandangan.webp',
         alt: 'Pemandangan Kebun Teh Cipasung',
         caption: 'Foto 1',
       },
@@ -58,7 +58,7 @@ export const POSTS = [
       },
       {
         type: 'image',
-        src: '/blog/kebun-teh-cipasung/foto-2.jpg',
+        src: '/blog/kebun-teh-cipasung/pemetikan.webp',
         alt: 'Aktivitas pemetikan teh di kebun',
         caption: 'Foto 2',
       },
@@ -88,7 +88,7 @@ export const POSTS = [
       },
       {
         type: 'image',
-        src: '/blog/kebun-teh-cipasung/foto-3.jpg',
+        src: '/blog/kebun-teh-cipasung/maps.jpg',
         alt: 'Akses jalan menuju kawasan Kebun Teh Cipasung',
         caption: 'Foto 3',
       },
@@ -108,7 +108,7 @@ export const POSTS = [
       },
       {
         type: 'image',
-        src: '/blog/kebun-teh-cipasung/foto-4.jpg',
+        src: '/blog/kebun-teh-cipasung/glamping.jpg',
         alt: 'Ilustrasi potensi pengembangan agrowisata dan resort',
         caption: 'Foto 4',
       },
