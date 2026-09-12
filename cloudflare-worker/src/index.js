@@ -92,6 +92,35 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
+    // =============================================================
+    // PROXY UNTUK FIREBASE AUTH HANDLER (/__/auth/*)
+    // =============================================================
+    // Kenapa ini perlu: authDomain Firebase kamu (rauma-e0aff.firebaseapp.com)
+    // itu domain BEDA dari rauma.id. Login redirect Google butuh Firebase
+    // "menyambungkan" hasil login itu balik ke app lewat iframe tersembunyi
+    // yang akses storage rauma-e0aff.firebaseapp.com DARI halaman rauma.id --
+    // ini dihitung browser sebagai "storage pihak ketiga", dan makin banyak
+    // browser mobile (Chrome, Safari) yang BLOKIR ini secara default. Kalau
+    // keblokir: login di Google sukses, tapi app di rauma.id gak pernah
+    // "denger" bahwa login itu berhasil (makanya harus login ulang terus).
+    //
+    // Solusinya: proxy transparan supaya /__/auth/* di rauma.id secara diam-
+    // diam diteruskan ke rauma-e0aff.firebaseapp.com. Dengan begini, dari
+    // sudut pandang browser, semuanya jalan di SATU origin (rauma.id) --
+    // gak perlu akses storage pihak ketiga sama sekali.
+    //
+    // WAJIB juga: di src/firebase.js, authDomain diganti jadi 'rauma.id'
+    // (bukan rauma-e0aff.firebaseapp.com lagi), dan di Cloudflare dashboard
+    // tambahkan Workers Route: rauma.id/__/auth/*  -> worker ini.
+    if (path.startsWith("/__/auth/")) {
+      const target = new URL(request.url);
+      target.protocol = "https:";
+      target.hostname = "rauma-e0aff.firebaseapp.com";
+      target.port = "";
+      const proxyRequest = new Request(target.toString(), request);
+      return fetch(proxyRequest);
+    }
+
     // --- Helper tanggal WIB (UTC+7), dipakai buat filter periode statistik ---
     function wibNow() {
       return new Date(Date.now() + 7 * 3600 * 1000);
