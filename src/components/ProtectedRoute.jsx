@@ -2,7 +2,7 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 
 export default function ProtectedRoute({ children }) {
-  const { user, loading, loginWithGoogle } = useAuth();
+  const { user, loading, loginWithGoogle, authError } = useAuth();
 
   async function handleLoginClick() {
     try {
@@ -27,6 +27,17 @@ export default function ProtectedRoute({ children }) {
         >
           Masuk dengan Google
         </button>
+        {/* Sengaja ditampilkan langsung di layar (bukan cuma di console) --
+            supaya kalau login gagal, errornya kebaca tanpa perlu buka
+            DevTools, yang ribet diakses dari HP. HAPUS blok ini nanti
+            setelah bug login ini beres, ini cuma buat debugging sementara. */}
+        {authError && (
+          <div className="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-left text-xs text-red-700">
+            <p className="font-semibold">Debug -- error login:</p>
+            <p className="mt-1 break-words">code: {authError.code || '(tidak ada code)'}</p>
+            <p className="mt-1 break-words">message: {authError.message || String(authError)}</p>
+          </div>
+        )}
       </div>
     );
   }
