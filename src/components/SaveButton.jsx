@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { d1Api } from '../lib/d1Api';
 
+const PENDING_SAVE_KEY = 'rauma_pending_save_listing_id';
+
 /**
  * Tombol simpan (bookmark) listing, dipakai mengambang di pojok foto
  * halaman detail (bukan di ListingCard). Berlaku untuk semua jenis akun
@@ -24,6 +26,26 @@ export default function SaveButton({ listingId, className = '' }) {
     };
   }, [user, listingId]);
 
+  // Login pakai redirect: halaman sempat pindah total ke Google lalu balik
+  // lagi (reload), jadi klik simpan sebelumnya "hilang" -- gak bisa lanjut
+  // nyimpen di baris kode berikutnya kayak dulu pas masih pakai popup. Ini
+  // yang nyelesaiin niat "simpan" itu otomatis begitu user beneran login.
+  useEffect(() => {
+    if (!user || !listingId) return;
+    const pendingId = sessionStorage.getItem(PENDING_SAVE_KEY);
+    if (pendingId !== listingId) return;
+
+    sessionStorage.removeItem(PENDING_SAVE_KEY);
+    d1Api
+      .saveListing(user.uid, listingId)
+      .then(() => {
+        setSaved(true);
+        setJustSaved(true);
+        setTimeout(() => setJustSaved(false), 900);
+      })
+      .catch((err) => console.error('Gagal menyimpan listing setelah login:', err));
+  }, [user, listingId]);
+
   async function handleClick(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -31,17 +53,20 @@ export default function SaveButton({ listingId, className = '' }) {
     setBusy(true);
 
     try {
-      let currentUser = user;
-      if (!currentUser) {
-        currentUser = await loginWithGoogle();
+      if (!user) {
+        // Simpan niatnya dulu, baru redirect ke Google. Begitu balik lagi
+        // ke halaman ini dan `user` terisi, useEffect di atas yang
+        // menyelesaikan proses simpannya.
+        sessionStorage.setItem(PENDING_SAVE_KEY, listingId);
+        await loginWithGoogle();
+        return;
       }
-      if (!currentUser?.uid) return;
 
       if (saved) {
-        await d1Api.unsaveListing(currentUser.uid, listingId);
+        await d1Api.unsaveListing(user.uid, listingId);
         setSaved(false);
       } else {
-        await d1Api.saveListing(currentUser.uid, listingId);
+        await d1Api.saveListing(user.uid, listingId);
         setSaved(true);
         setJustSaved(true);
         setTimeout(() => setJustSaved(false), 900);
@@ -80,4 +105,3 @@ export default function SaveButton({ listingId, className = '' }) {
     </button>
   );
 }
-
