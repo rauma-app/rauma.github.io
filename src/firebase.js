@@ -16,7 +16,12 @@ import { getFirestore } from 'firebase/firestore';
 // security rules and Firebase Auth, not from hiding this object.
 const firebaseConfig = {
   apiKey: 'AIzaSyD28Sr6hjTMlHyx3ZHjnciosVEythRFs_A',
-  authDomain: 'rauma-e0aff.firebaseapp.com',
+  // authDomain sengaja pakai domain sendiri (bukan *.firebaseapp.com) --
+  // supaya proses login redirect Google gak butuh akses storage lintas-
+  // domain (yang makin sering diblokir browser mobile). Lihat proxy
+  // /__/auth/* di cloudflare-worker/src/index.js, itu yang bikin ini
+  // berfungsi -- rauma.id meneruskan diam-diam ke rauma-e0aff.firebaseapp.com.
+  authDomain: 'rauma.id',
   projectId: 'rauma-e0aff',
   storageBucket: 'rauma-e0aff.firebasestorage.app',
   messagingSenderId: '357303011529',
