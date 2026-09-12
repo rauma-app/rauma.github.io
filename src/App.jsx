@@ -6,6 +6,7 @@ import ScrollToTop from './components/ScrollToTop';
 import ProtectedRoute from './components/ProtectedRoute';
 import { d1Api } from './lib/d1Api';
 import { getAnonId } from './lib/anon';
+import AuthDebugBanner from './components/AuthDebugBanner';
 
 // Halaman di-load "malas" (lazy) -- kode tiap halaman baru didownload
 // browser pas beneran dibuka, bukan semua sekaligus di awal. Ini yang
