@@ -8,27 +8,49 @@ import {
 import { auth, googleProvider } from '../firebase';
 
 const AuthContext = createContext(null);
+const LOGIN_ATTEMPTED_KEY = 'rauma_login_attempted';
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [authError, setAuthError] = useState(null);
+  // Info debug login, ditampilkan lewat <AuthDebugBanner /> di halaman
+  // manapun kamu berakhir setelah balik dari Google -- bukan cuma di
+  // halaman yang butuh login. HAPUS mekanisme ini nanti setelah bug login
+  // ini beres, ini cuma buat ketauan letak masalahnya tanpa perlu DevTools.
+  const [authDebug, setAuthDebug] = useState(null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
+      if (u) setAuthDebug(null); // login akhirnya kedeteksi -> gak perlu tampilin debug lagi
     });
 
-    // Setelah signInWithRedirect() memindahkan halaman ke Google lalu balik
-    // lagi ke situs, hasil login gak langsung "return" dari fungsi manapun
-    // (halamannya sempat reload total). Ini yang nangkep hasil itu begitu
-    // app jalan lagi -- kalau berhasil, onAuthStateChanged di atas otomatis
-    // ke-trigger juga dengan user yang baru login.
-    getRedirectResult(auth).catch((err) => {
-      console.error('Login Google gagal:', err);
-      setAuthError(err);
-    });
+    // Cuma tampilin info debug kalau SEBELUMNYA memang baru nyoba login di
+    // tab ini (ditandai loginWithGoogle() di bawah) -- biar gak muncul
+    // ngasal di kunjungan biasa yang emang belum pernah coba login.
+    const justAttemptedLogin = sessionStorage.getItem(LOGIN_ATTEMPTED_KEY) === '1';
+
+    getRedirectResult(auth)
+      .then((result) => {
+        if (!justAttemptedLogin) return;
+        sessionStorage.removeItem(LOGIN_ATTEMPTED_KEY);
+        if (!result) {
+          // Gak error, tapi juga gak ada hasil -- artinya Firebase "lupa"
+          // kalau tadi baru aja nyoba redirect ke Google. Ini biasanya
+          // kejadian kalau storage/cookie sesi kepotong di tengah jalan.
+          setAuthDebug({
+            status: 'null-result',
+            message:
+              'getRedirectResult() mengembalikan kosong padahal barusan mencoba login -- sesi redirect kemungkinan hilang di tengah jalan (storage/cookie browser mereset antara pindah ke Google dan balik lagi).',
+          });
+        }
+      })
+      .catch((err) => {
+        sessionStorage.removeItem(LOGIN_ATTEMPTED_KEY);
+        console.error('Login Google gagal:', err);
+        setAuthDebug({ status: 'error', code: err.code, message: err.message });
+      });
 
     return unsub;
   }, []);
@@ -45,6 +67,7 @@ export function AuthProvider({ children }) {
   // "niat" aksinya sendiri (mis. lewat sessionStorage) sebelum manggil ini,
   // lalu cek balik & lanjutkan aksinya di useEffect setelah `user` terisi.
   function loginWithGoogle() {
+    sessionStorage.setItem(LOGIN_ATTEMPTED_KEY, '1');
     return signInWithRedirect(auth, googleProvider);
   }
 
@@ -53,7 +76,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, authError, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, loading, authDebug, loginWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   );
