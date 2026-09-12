@@ -1,4 +1,4 @@
-                  import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../lib/admin';
@@ -55,11 +55,26 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
+  // Login pakai redirect: halaman pindah total ke Google lalu balik lagi
+  // (reload), jadi `navigate('/posting')` di baris berikutnya gak akan
+  // sempat jalan kalau ditaruh langsung setelah await loginWithGoogle().
+  // Simpan dulu niatnya di sessionStorage, baru dieksekusi di useEffect di
+  // bawah begitu `user` beneran terisi (setelah balik dari Google).
+  const POST_LOGIN_REDIRECT_KEY = 'rauma_post_login_redirect';
+
+  useEffect(() => {
+    if (!user) return;
+    const target = sessionStorage.getItem(POST_LOGIN_REDIRECT_KEY);
+    if (!target) return;
+    sessionStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
+    navigate(target);
+  }, [user, navigate]);
+
   async function handlePostingClick() {
     if (!user) {
       try {
+        sessionStorage.setItem(POST_LOGIN_REDIRECT_KEY, '/posting');
         await loginWithGoogle();
-        navigate('/posting');
       } catch (err) {
         console.error('Login gagal:', err);
         alert(`Login gagal: ${err.code || err.message}`);
