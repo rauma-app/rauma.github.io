@@ -95,10 +95,10 @@ export default {
     // =============================================================
     // PROXY UNTUK FIREBASE AUTH HANDLER (/__/auth/*)
     // =============================================================
-    // Kenapa ini perlu: authDomain Firebase kamu (rauma-e0aff.firebaseapp.com)
+    // Kenapa ini perlu: authDomain Firebase sekarang memakai rauma.id,
     // itu domain BEDA dari rauma.id. Login redirect Google butuh Firebase
     // "menyambungkan" hasil login itu balik ke app lewat iframe tersembunyi
-    // yang akses storage rauma-e0aff.firebaseapp.com DARI halaman rauma.id --
+    // sehingga Firebase Auth dapat memakai handler di origin yang sama (rauma.id).
     // ini dihitung browser sebagai "storage pihak ketiga", dan makin banyak
     // browser mobile (Chrome, Safari) yang BLOKIR ini secara default. Kalau
     // keblokir: login di Google sukses, tapi app di rauma.id gak pernah
