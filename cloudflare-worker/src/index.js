@@ -92,6 +92,25 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
+    // --- Proxy handler login Google ke Firebase asli ---
+    // authDomain di src/firebase.js sekarang "rauma.id" (bukan lagi
+    // default *.firebaseapp.com) supaya proses redirect login Google
+    // gak lintas-domain (yang gampang diblokir storage/cookie browser,
+    // terutama Safari & in-app browser IG/TikTok).
+    // Konsekuensinya: Google akan redirect balik ke
+    // rauma.id/__/auth/handler, dan karena rauma.id dikelola Cloudflare,
+    // request itu masuk ke Worker ini dulu (lihat route di wrangler.toml).
+    // Worker HARUS meneruskan (proxy) apa adanya ke
+    // <project-id>.firebaseapp.com -- itu yang benar-benar tahu cara
+    // memproses handler login ini. Kalau tidak diteruskan, request akan
+    // kena fallback 404 "Endpoint tidak ditemukan" di bagian bawah file
+    // ini, dan login gagal terus.
+    if (path.startsWith("/__/auth/") || path.startsWith("/__/firebase/")) {
+      const target = new URL(request.url);
+      target.hostname = `${env.FIREBASE_PROJECT_ID}.firebaseapp.com`;
+      return fetch(target.toString(), request);
+    }
+
     // --- Helper tanggal WIB (UTC+7), dipakai buat filter periode statistik ---
     function wibNow() {
       return new Date(Date.now() + 7 * 3600 * 1000);
