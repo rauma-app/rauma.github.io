@@ -7,6 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { d1Api } from './lib/d1Api';
 import { getAnonId } from './lib/anon';
 import AuthDebugBanner from './components/AuthDebugBanner';
+import { useAuth } from './context/AuthContext';
 
 // Halaman di-load "malas" (lazy) -- kode tiap halaman baru didownload
 // browser pas beneran dibuka, bukan semua sekaligus di awal. Ini yang
@@ -67,7 +68,28 @@ function PageLoading() {
   );
 }
 
+// Ditampilkan sebentar setelah balik dari redirect login Google, selama
+// getRedirectResult()/onAuthStateChanged belum selesai memastikan hasilnya.
+// Sebelumnya di jeda ini homepage sempat kelihatan penuh dulu baru "lompat"
+// ke halaman tujuan (mis. /posting) -- kelihatan kayak bug/nyasar, padahal
+// itu proses login yang belum kelar (proxy Worker + Firebase perlu waktu,
+// apalagi di Brave). Sekarang jeda itu ditutupi loading yang jelas.
+function ResolvingLoginScreen() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-cream">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-forest border-t-transparent" />
+      <p className="text-sm text-ink/60">Menyelesaikan login...</p>
+    </div>
+  );
+}
+
 export default function App() {
+  const { resolvingRedirect } = useAuth();
+
+  if (resolvingRedirect) {
+    return <ResolvingLoginScreen />;
+  }
+
   return (
     <div className="flex min-h-screen flex-col bg-cream">
       <AuthDebugBanner />
@@ -150,4 +172,4 @@ export default function App() {
       <Footer />
     </div>
   );
-}
+              }
