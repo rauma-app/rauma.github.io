@@ -86,8 +86,8 @@ const emptyForm = {
   perumahanPhoto: '', // URL foto lama (mode edit); file barunya di state perumahanPhotoFile
 };
 
-const MAX_PHOTOS = 8;
-const MAX_UNIT_TYPES = 4;
+const MAX_PHOTOS = 10;
+const MAX_UNIT_TYPES = 5;
 
 function emptyUnitType() {
   return {
