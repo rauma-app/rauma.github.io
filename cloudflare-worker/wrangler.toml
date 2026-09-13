@@ -31,3 +31,9 @@ database_id = "add0f90b-b35b-46b2-8551-f7c52573c5c5"
  [[kv_namespaces]]
  binding = "RATE_LIMIT"
  id = "cda2b1478e4d4cf18bd8c9ac3b5f77c7"
+# Firebase Auth redirect handler harus tetap berada di origin rauma.id.
+# Jika rauma.id sudah dikelola di Cloudflare, route ini membuat request
+# /__/auth/* otomatis masuk ke Worker dan diproxy ke Firebase Auth.
+[[routes]]
+pattern = "rauma.id/__/auth/*"
+zone_name = "rauma.id"
