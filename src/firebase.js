@@ -16,7 +16,7 @@ import { getFirestore } from 'firebase/firestore';
 // security rules and Firebase Auth, not from hiding this object.
 const firebaseConfig = {
   apiKey: 'AIzaSyD28Sr6hjTMlHyx3ZHjnciosVEythRFs_A',
-  authDomain: 'rauma.id',
+  authDomain: 'rauma-e0aff.firebaseapp.com',
   projectId: 'rauma-e0aff',
   storageBucket: 'rauma-e0aff.firebasestorage.app',
   messagingSenderId: '357303011529',
