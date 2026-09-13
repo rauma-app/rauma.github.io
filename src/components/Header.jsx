@@ -15,6 +15,12 @@ export default function Header() {
   const menuRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
+  // Ditandai true persis pas tombol "Pasang Iklan" diklik, sampai halaman
+  // beneran berpindah ke Google. Tanpa ini, jeda sebelum sampai ke Google
+  // (rauma.id -> proxy Worker -> firebaseapp.com -> Google) kelihatan
+  // kayak tombolnya gak ngapa-ngapain/macet, padahal proses login lagi
+  // jalan -- apalagi di Brave yang jedanya bisa beberapa detik.
+  const [loggingIn, setLoggingIn] = useState(false);
 
   // Foto & nama yang tampil di header: utamakan profil custom yang udah
   // diisi di menu "Profil Saya", kalau belum pernah isi -> fallback ke
@@ -72,12 +78,18 @@ export default function Header() {
 
   async function handlePostingClick() {
     if (!user) {
+      setLoggingIn(true);
       try {
         sessionStorage.setItem(POST_LOGIN_REDIRECT_KEY, '/posting');
         await loginWithGoogle();
+        // Kalau berhasil, browser udah pindah ke halaman Google duluan
+        // sebelum baris ini sempat jalan -- jadi setLoggingIn(false) di
+        // sini cuma kepake kalau redirect-nya gagal duluan sebelum
+        // sempat pindah halaman.
       } catch (err) {
         console.error('Login gagal:', err);
         alert(`Login gagal: ${err.code || err.message}`);
+        setLoggingIn(false);
       }
     } else {
       navigate('/posting');
@@ -98,9 +110,10 @@ export default function Header() {
         {!user ? (
           <button
             onClick={handlePostingClick}
-            className="rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-dark"
+            disabled={loggingIn}
+            className="rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-dark disabled:opacity-70"
           >
-            + Pasang Iklan
+            {loggingIn ? 'Membuka Google...' : '+ Pasang Iklan'}
           </button>
         ) : (
           <div className="relative" ref={menuRef}>
