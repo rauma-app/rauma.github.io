@@ -1119,13 +1119,13 @@ export default {
           const imagesJson = typeof body.images === "string" ? body.images : JSON.stringify(body.images || []);
           const toNumberOrNull = (v) => (v === undefined || v === null || v === "" ? null : Number(v));
 
-          // Multi-tipe (khusus kategori Perumahan, maks 4 tipe per listing,
+          // Multi-tipe (khusus kategori Perumahan, maks 5 tipe per listing,
           // misal "Tipe 36/72" / "Tipe 45/90"). Kolom harga/cicilan/luas/
           // kamar/listrik di level listing tetap diisi dari TIPE TERMURAH,
           // supaya listing ini tetap ketemu normal di pencarian & filter
           // harga yang sudah ada -- gak perlu ubah logic pencarian sama
           // sekali. Detail semua tipe disimpan lengkap di kolom unitTypes.
-          const unitTypesArr = Array.isArray(body.unitTypes) ? body.unitTypes.slice(0, 4) : [];
+          const unitTypesArr = Array.isArray(body.unitTypes) ? body.unitTypes.slice(0, 5) : [];
           const cheapestType = unitTypesArr.length
             ? [...unitTypesArr].sort((a, b) => (Number(a.price) || 0) - (Number(b.price) || 0))[0]
             : null;
