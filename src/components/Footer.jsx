@@ -55,9 +55,9 @@ const LINK_GROUPS = [
   return (
     <footer className="mt-16 bg-navy text-cream/80">
       <div className="mx-auto max-w-6xl px-4 py-12">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1.15fr]">
-          {/* Kolom 1: Logo, deskripsi, social media */}
-          <div className="sm:col-span-2 lg:col-span-1">
+        <div className="grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1.15fr]">
+          {/* Kolom 1: Logo, deskripsi, social media -- lebar penuh di mobile/tablet */}
+          <div className="col-span-2 lg:col-span-1">
             <span className="flex select-none items-center gap-2">
               <img
                 src={rauLogo2}
