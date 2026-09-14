@@ -11,19 +11,34 @@ const SOCIAL_LINKS = [
   { label: 'YouTube', Icon: FaYoutube, href: 'https://youtube.com/@rauma_id?si=OZ_FgC_Wgjhgypsq' },
 ];
 
-const INFO_LINKS = [
-  { label: 'Blog', to: '/blog' },
-  { label: 'Tentang Kami', to: '/tentang-kami' },
-  { label: 'Kebijakan dan Privasi', to: '/kebijakan-privasi' },
-  { label: 'Syarat & Ketentuan', to: '/syarat-ketentuan' },
-  { label: 'Saran & Masukan', to: '/saran-masukan' },
-  { label: 'Peta Situs', to: '/peta-situs' },
-  { label: 'Kerjasama',to: '/kerjasama',},
-  { label: 'Penjernih Foto', to: '/alat/penjernih-foto' },
-  { label: 'Tanah', to: '/tanah' },
-];
-
-export default function Footer() {
+// Dikelompokkan per kategori (bukan 1 daftar panjang) biar lebih gampang
+// di-scan dan rapi tampilannya di footer.
+const LINK_GROUPS = [
+  {
+    heading: 'Perusahaan',
+    links: [
+      { label: 'Tentang Kami', to: '/tentang-kami' },
+      { label: 'Blog', to: '/blog' },
+      { label: 'Kerjasama', to: '/kerjasama' },
+    ],
+  },
+  {
+    heading: 'Jelajahi',
+    links: [
+      { label: 'Tanah', to: '/tanah' },
+      { label: 'Penjernih Foto', to: '/alat/penjernih-foto' },
+      { label: 'Peta Situs', to: '/peta-situs' },
+    ],
+  },
+  {
+    heading: 'Bantuan',
+    links: [
+      { label: 'Kebijakan dan Privasi', to: '/kebijakan-privasi' },
+      { label: 'Syarat & Ketentuan', to: '/syarat-ketentuan' },
+      { label: 'Saran & Masukan', to: '/saran-masukan' },
+    ],
+  },
+];export default function Footer() {
   const { installed, canPromptInstall, needsIosInstructions, promptInstall } = usePwaInstall();
   const [showIosHelp, setShowIosHelp] = useState(false);
 
@@ -40,9 +55,9 @@ export default function Footer() {
   return (
     <footer className="mt-16 bg-navy text-cream/80">
       <div className="mx-auto max-w-6xl px-4 py-12">
-        <div className="grid gap-10 sm:grid-cols-[1.4fr_1fr_1fr]">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr_1.15fr]">
           {/* Kolom 1: Logo, deskripsi, social media */}
-          <div>
+          <div className="sm:col-span-2 lg:col-span-1">
             <span className="flex select-none items-center gap-2">
               <img
                 src={rauLogo2}
@@ -73,31 +88,42 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Kolom 2: Informasi (tengah) */}
-          <div>
-            <p className="text-sm font-semibold uppercase tracking-wide text-white/90">Informasi</p>
-            <ul className="mt-4 grid grid-cols-2 gap-x-6 gap-y-2.5 text-sm sm:grid-cols-1">
-              {INFO_LINKS.map((l) => (
-                <li key={l.label}>
-                  {l.to ? (
-                    <Link to={l.to} className="hover:text-white">{l.label}</Link>
-                  ) : (
-                    <a href={l.href} target="_blank" rel="noreferrer" className="hover:text-white">
-                      {l.label}
-                    </a>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
+          {/* Kolom 2-4: link dikelompokkan per kategori */}
+          {LINK_GROUPS.map((group) => (
+            <div key={group.heading}>
+              <p className="text-sm font-semibold uppercase tracking-wide text-white/90">
+                {group.heading}
+              </p>
+              <ul className="mt-4 space-y-2.5 text-sm">
+                {group.links.map((l) => (
+                  <li key={l.label}>
+                    {l.to ? (
+                      <Link to={l.to} className="transition-colors hover:text-white">
+                        {l.label}
+                      </Link>
+                    ) : (
+                      <a
+                        href={l.href}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="transition-colors hover:text-white"
+                      >
+                        {l.label}
+                      </a>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
 
-          {/* Kolom 3: Download Aplikasi (kanan) */}
+          {/* Kolom 5: Download Aplikasi */}
           <div>
             <p className="text-sm font-semibold uppercase tracking-wide text-white/90">Download Aplikasi</p>
             {installed ? (
               <p className="mt-3 text-xs text-cream/50">Aplikasi sudah terpasang di perangkat kamu 🎉</p>
             ) : (
-              <div className="mt-3 flex flex-row gap-3">
+              <div className="mt-3 flex flex-row flex-wrap gap-3">
                 <button
                   type="button"
                   onClick={handleInstallClick}
