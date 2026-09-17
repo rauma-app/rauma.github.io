@@ -121,6 +121,19 @@ export const POSTS = [
         type: 'p',
         text: 'Tertarik untuk survei lokasi langsung atau ingin data lebih lengkap? Hubungi kami untuk penjadwalan kunjungan atau diskusi lebih lanjut mengenai skema akuisisi.',
       },
+      { type: 'h2', text: 'Kontak' },
+      {
+        type: 'link',
+        href: 'https://wa.me/6285156222635',
+        label: 'WhatsApp: 085156222635',
+      },
+      {
+        type: 'list',
+        items: [
+          'Instagram: [@alamproper.ty](https://instagram.com/alamproper.ty)',
+          'Threads: [@alamproper.ty](https://www.threads.net/@alamproper.ty)',
+        ],
+      },
     ],
   },
 ];
