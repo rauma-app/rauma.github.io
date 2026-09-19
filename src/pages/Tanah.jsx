@@ -23,28 +23,34 @@ export default function Tanah() {
         kembang.
       </p>
 
-      <div className="mt-8 space-y-5">
+      <div className="mt-8 space-y-4">
         {POSTS.map((post) => (
           <Link
             key={post.slug}
             to={`/tanah/${post.slug}`}
-            className="block overflow-hidden rounded-2xl border border-line bg-white transition hover:border-forest"
+            className="block rounded-2xl border border-line bg-white p-5 transition hover:border-forest"
           >
-            <img
-              src={post.coverImage}
-              alt={post.title}
-              className="h-48 w-full object-cover"
-            />
-            <div className="p-5">
-              <p className="text-xs text-ink/50">{formatDate(post.date)}</p>
-              <h2 className="mt-1 font-display text-lg font-semibold text-navy">
-                {post.title}
-              </h2>
-              <p className="mt-2 text-sm leading-relaxed text-ink/70">{post.excerpt}</p>
-              <span className="mt-3 inline-block text-sm font-semibold text-forest">
-                Baca selengkapnya →
-              </span>
-            </div>
+            <p className="text-xs text-ink/50">{formatDate(post.date)}</p>
+            <h2 className="mt-1 font-display text-lg font-semibold leading-snug text-navy">
+              {post.title}
+            </h2>
+
+            {post.specs?.length > 0 && (
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {post.specs.map((spec) => (
+                  <div key={spec.label} className="rounded-xl bg-cream px-3 py-2.5">
+                    <p className="text-[11px] uppercase tracking-wide text-ink/50">
+                      {spec.label}
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold text-navy">{spec.value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <span className="mt-4 inline-block text-sm font-semibold text-forest">
+              Lihat detail →
+            </span>
           </Link>
         ))}
       </div>
