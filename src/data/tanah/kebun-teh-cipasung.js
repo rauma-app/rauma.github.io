@@ -12,7 +12,7 @@ export default {
   // Ditampilkan di kartu listing /tanah (bukan di isi artikel) -- bebas
   // isi berapa item aja, sesuaikan sama data yang ada di listing ini.
   specs: [
-    { label: 'Harga', value: 'Rp 26 M' },
+    { label: 'Harga', value: 'Rp 63.000 / m²' },
     { label: 'Luas Tanah', value: '42 Hektar' },
     { label: 'Keuntungan Bersih', value: '± Rp 948,7 jt/tahun' },
   ],
