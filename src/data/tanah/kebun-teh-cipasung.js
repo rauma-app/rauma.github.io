@@ -9,6 +9,13 @@ export default {
     '42 hektar kebun teh produktif dengan legalitas SHM lengkap di Lemahsugih, Majalengka -- cashflow berjalan, dekat Tol Cisumdawu & Bandara Kertajati.',
   date: '2026-09-07',
   coverImage: '/blog/kebun-teh-cipasung/banner.webp',
+  // Ditampilkan di kartu listing /tanah (bukan di isi artikel) -- bebas
+  // isi berapa item aja, sesuaikan sama data yang ada di listing ini.
+  specs: [
+    { label: 'Harga', value: 'Rp 26 M' },
+    { label: 'Luas Tanah', value: '42 Hektar' },
+    { label: 'Keuntungan Bersih', value: '± Rp 948,7 jt/tahun' },
+  ],
   seoDescription:
     '42 hektar kebun teh produktif SHM lengkap di Majalengka, cashflow berjalan Rp948 juta/tahun, dekat Tol Cisumdawu & Bandara Kertajati. Siap jadi resort/agrowisata.',
   content: [
@@ -134,4 +141,3 @@ export default {
     },
   ],
 };
-    
