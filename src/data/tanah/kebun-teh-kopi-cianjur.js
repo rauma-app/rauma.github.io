@@ -106,6 +106,12 @@ export default {
       text: 'Catatan tambahan: kebun dan pabrik pengolahan kopi **tidak berproduksi dalam ± 2 tahun terakhir**.',
     },
     { type: 'h2', text: 'Kontak' },
+{
+      type: 'link',
+      href: 'https://wa.me/6285156222635',
+      label: 'WhatsApp: 085156222635',
+    },
+    
     {
       type: 'list',
       items: [
