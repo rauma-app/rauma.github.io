@@ -9,6 +9,11 @@ export default {
     '1.672 hektar kebun teh dan kopi di Cianjur lengkap dengan 2 pabrik pengolahan teh, 1 pabrik kopi, dan aset operasional. HGU berlaku hingga 2049.',
   date: '2026-09-19',
   coverImage: '/blog/kebun-teh-kopi-cianjur/foto-1.jpg',
+  specs: [
+    { label: 'Harga', value: 'Rp 45.000 / m²' },
+    { label: 'Luas Tanah', value: '1.672 Hektar' },
+    { label: 'HGU', value: 'Berlaku hingga 2049' },
+  ],
   seoDescription:
     'Dijual kebun teh dan kopi 1.672 hektar di Cianjur, HGU hingga 2049, lengkap 2 pabrik pengolahan teh & 1 pabrik kopi serta aset operasional. Harga Rp45.000/m².',
   content: [
