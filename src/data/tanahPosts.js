@@ -11,8 +11,9 @@
 
 import kebunTehCipasung from './tanah/kebun-teh-cipasung';
 import kebunTehKopiCianjur from './tanah/kebun-teh-kopi-cianjur';
+import sawahPebayuran from './tanah/sawah-pebayuran';
 
-export const POSTS = [kebunTehCipasung, kebunTehKopiCianjur];
+export const POSTS = [kebunTehCipasung, kebunTehKopiCianjur, sawahPebayuran];
 
 export function getPostBySlug(slug) {
   return POSTS.find((p) => p.slug === slug);
