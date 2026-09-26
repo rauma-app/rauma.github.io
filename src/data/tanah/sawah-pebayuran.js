@@ -4,7 +4,7 @@
 
 export default {
   slug: 'sawah-produktif-19258m2-pebayuran-bekasi',
-  title: 'Sawah Produktif 19.258 m² di Pebayuran, Bekasi -- Bisa Diperluas hingga 3 Hektar',
+  title: 'Dijual Sawah Produktif 19.258 m² di Pebayuran, Bekasi -- Bisa Diperluas hingga 3 Hektar',
   excerpt:
     'Sawah produktif seluas 19.258 m² di Pebayuran, Bekasi, hasil panen 12-16 ton per musim. Bisa diperluas hingga 3 hektar, harga Rp150.000/m².',
   date: '2026-09-25',
