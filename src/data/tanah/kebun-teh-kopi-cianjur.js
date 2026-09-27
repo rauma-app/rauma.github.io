@@ -117,7 +117,7 @@ export default {
       items: [
         'Instagram: [@alamproper.ty](https://instagram.com/alamproper.ty)',
         'Threads: [@alamproper.ty](https://www.threads.net/@alamproper.ty)',
-        'Tiktok: [@alamproper.ty](https://www.tiktok.com/@alamproper.ty)',
+        'Tiktok: [@alamproperti_](https://www.tiktok.com/@alamproper.ty)',
     
       ],
     },
