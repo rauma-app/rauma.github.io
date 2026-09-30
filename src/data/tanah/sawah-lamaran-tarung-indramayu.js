@@ -8,7 +8,7 @@ export default {
   excerpt:
     'Lahan sawah ± 4.000 hektar di Desa Lamaran Tarung, Indramayu -- irigasi Bendung Waledan & DAS Cimanuk, panen 2-3 kali setahun, harga Rp 55.000/m², bisa termin.',
   date: '2026-09-30',
-  coverImage: '/blog/sawah-lamaran-tarung/banner.webp',
+  coverImage: '/blog/sawah-lamaran-tarung/foto-1.jpg',
   // Ditampilkan di kartu listing /tanah (bukan di isi artikel).
   specs: [
     { label: 'Harga', value: 'Rp 55.000 / m²' },
