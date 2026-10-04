@@ -37,3 +37,13 @@ database_id = "add0f90b-b35b-46b2-8551-f7c52573c5c5"
 [[routes]]
 pattern = "rauma.id/__/auth/*"
 zone_name = "rauma.id"
+
+# SEO buat bot (Googlebot, WhatsApp, Facebook, dll) di halaman listing --
+# lihat komentar lengkap di src/index.js bagian atas fetch handler.
+[[routes]]
+pattern = "rauma.id/id/*"
+zone_name = "rauma.id"
+
+[[routes]]
+pattern = "rauma.id/perumahan/*"
+zone_name = "rauma.id"
