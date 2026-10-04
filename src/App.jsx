@@ -118,7 +118,16 @@ export default function App() {
             <Route path="/alat/penjernih-foto" element={<PenjernihFoto />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/blog/:slug" element={<BlogArticle />} />
+            {/* /id/:id/:titleSlug -- format baru (SEO friendly). Sengaja
+                dinamai "titleSlug" (bukan "slug") biar gak ketuker sama
+                :slug di route /perumahan/:slug di bawah -- itu kunci
+                pencarian data (perumahanSlug), punya kita di sini cuma
+                hiasan URL, gak pernah dipakai buat fetch data.
+                /id/:id tanpa titleSlug tetap didukung (link lama yang
+                sudah disebar jangan sampai jadi link mati), keduanya
+                render komponen yang sama. */}
             <Route path="/id/:id" element={<Listing />} />
+            <Route path="/id/:id/:titleSlug" element={<Listing />} />
             <Route path="/perumahan/:slug" element={<Listing />} />
             <Route path="/penjual/:uid" element={<SellerProfile />} />
             <Route path="/u/:username" element={<SellerProfile />} />
@@ -172,4 +181,4 @@ export default function App() {
       <Footer />
     </div>
   );
-              }
+}
