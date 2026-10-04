@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { slugifyTitle } from '../lib/slugify';
 import { d1Api } from '../lib/d1Api';
 import ImageSlider from '../components/ImageSlider';
 import ListingCard from '../components/ListingCard';
@@ -52,6 +53,7 @@ function SpecCard({ Icon, label, value }) {
 
 export default function Listing() {
   const { id, slug } = useParams();
+  const navigate = useNavigate();
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -238,20 +240,46 @@ export default function Listing() {
     ? listing.unitTypes.map((t) => t.name).filter(Boolean).join(', ')
     : '';
 
+  // Listing non-perumahan sekarang bisa punya judul sendiri dari user
+  // (field "Judul Listing" di form posting) -- kalau ada, itu yang dipakai
+  // buat judul di Google/WhatsApp, karena itu yang paling deskriptif &
+  // paling mewakili listing ini (lebih baik dari judul generik "Rumah
+  // Dijual di ..."). Listing lama yang titlenya masih hasil auto-generate
+  // ("Rumah di Cikalongwetan") tetap kebaca wajar juga kalau dipakai di sini.
   const seoTitle = listing.perumahanName
     ? `${listing.perumahanName} - Rumah Dijual di ${lokasiText}`
-    : `Rumah Dijual di ${lokasiText} - ${formattedPriceShort}`;
+    : listing.title
+      ? `${listing.title} - ${formattedPriceShort}`
+      : `Rumah Dijual di ${lokasiText} - ${formattedPriceShort}`;
 
   const seoDescription = listing.perumahanName
     ? `${listing.perumahanName} - hunian di ${lokasiText} mulai ${formattedPriceShort}.${
         daftarTipe ? ` Tersedia tipe ${daftarTipe}.` : ''
       } Lihat detail lengkap & hubungi penjual di Rauma.`
-    : `Rumah dijual di ${lokasiText} harga ${formattedPriceFull}. Lihat detail & hubungi penjual di Rauma.`;
+    : `${listing.title ? `${listing.title}. ` : ''}Rumah dijual di ${lokasiText} harga ${formattedPriceFull}. Lihat detail & hubungi penjual di Rauma.`;
 
   const adminList = Array.isArray(ADMIN_UIDS) ? ADMIN_UIDS : [];
   const isOwnerAdmin = adminList.includes(listing.ownerUid);
   const isOwnerPremium = Boolean(listing.ownerUid && premiumMap && premiumMap[listing.ownerUid] !== undefined);
   const isOwnerVerified = isOwnerAdmin || isOwnerPremium;
+
+  const titleSlug = slugifyTitle(listing.title);
+  const canonicalPath = listing.perumahanSlug
+    ? `/perumahan/${listing.perumahanSlug}`
+    : titleSlug
+      ? `/id/${listing.id}/${titleSlug}`
+      : `/id/${listing.id}`;
+
+  // Rapihin URL di address bar biar selalu ikut judul TERBARU -- link lama
+  // tanpa slug, atau slug basi (judul pernah diubah setelah link dibagikan),
+  // otomatis "didandanin" ke URL kanonik. Pakai replace (bukan push) biar
+  // gak nambah entry baru di tombol back, dan ini bukan navigasi/reload --
+  // cuma ganti teks di address bar.
+  useEffect(() => {
+    if (!listing.perumahanSlug && window.location.pathname !== canonicalPath) {
+      navigate(canonicalPath, { replace: true });
+    }
+  }, [canonicalPath, listing.perumahanSlug, navigate]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
@@ -259,7 +287,7 @@ export default function Listing() {
         <Seo
           title={seoTitle}
           description={seoDescription}
-          path={listing.perumahanSlug ? `/perumahan/${listing.perumahanSlug}` : `/id/${listing.id}`}
+          path={canonicalPath}
           image={activeImages?.[0]}
         />
       )}
@@ -297,6 +325,13 @@ export default function Listing() {
           <span>📍</span>
           <span>{listing.kecamatan ? `${listing.kecamatan} - ` : ''}{listing.kabupaten}</span>
         </div>
+        {/* Judul listing (manual dari user, atau auto-generate kalau
+            dikosongin pas posting) -- sengaja ditaruh di bawah harga &
+            lokasi, bukan di atas, biar harga tetap jadi fokus utama mata
+            begitu halaman dibuka. */}
+        {listing.title && !listing.perumahanName && (
+          <h1 className="mt-2 text-lg font-semibold text-navy">{listing.title}</h1>
+        )}
       </div>
 
       {/* Pilihan Tipe Unit (cuma muncul kalau listing ini punya >1 tipe) */}

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { d1Api } from '../lib/d1Api';
 import { r2Uploader } from '../lib/r2Uploader';
+import { slugifyTitle } from '../lib/slugify';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../lib/admin';
 import { isPremium, FREE_LISTING_LIMIT, PREMIUM_LISTING_LIMIT } from '../lib/premium';
@@ -62,6 +63,9 @@ const CICILAN_TYPES = ['perumahan', 'subsidi', 'take_over_kpr'];
 
 const emptyForm = {
   type: 'pribadi',
+  // Opsional -- kalau dikosongin, judul di-generate otomatis dari
+  // Tipe + Lokasi pas submit (lihat handleSubmit).
+  title: '',
   priceRaw: '',
   cicilanRaw: '',
   location: null,
@@ -234,6 +238,7 @@ export default function Posting() {
 
         setForm({
           type: data.type || 'pribadi',
+          title: data.title || '',
           priceRaw: String(data.price || ''),
           cicilanRaw: data.cicilanPerBulan ? String(data.cicilanPerBulan) : '',
           location: {
@@ -615,7 +620,12 @@ export default function Posting() {
         // Listing LAMA yang masih format "item_..." tetap jalan normal,
         // ini cuma berlaku buat listing baru mulai dari sekarang.
         id: isEditMode ? id : Date.now().toString(36),
-        title: `${TYPE_LABELS[form.type] || 'Rumah'} di ${kecName || kabName || 'Indonesia'}`,
+        // Judul manual dari user kalau diisi; kalau dikosongin, tetap
+        // auto-generate kayak sebelumnya (Tipe + Lokasi) biar gak ada
+        // listing yang judulnya kosong melompong.
+        title:
+          form.title.trim() ||
+          `${TYPE_LABELS[form.type] || 'Rumah'} di ${kecName || kabName || 'Indonesia'}`,
         type: form.type,
         category: TYPE_LABELS[form.type] || 'Rumah',
         price: isMultiType ? cheapestType?.price || 0 : Number(form.priceRaw),
@@ -685,11 +695,15 @@ export default function Posting() {
       const saveResult = await d1Api.createListing(payload);
 
       // URL final: kalau ini listing perumahan dan sudah dapat slug SEO
-      // dari server, pakai /perumahan/slug -- kalau tidak, fallback ke
-      // /id/id seperti biasa.
+      // dari server, pakai /perumahan/slug -- kalau tidak, pakai /id/id
+      // plus slug dari judul (kalau ada judulnya) biar linknya sekalian
+      // SEO-friendly dari awal.
+      const titleSlugForUrl = slugifyTitle(payload.title);
       const finalUrl = saveResult?.perumahanSlug
         ? `/perumahan/${saveResult.perumahanSlug}`
-        : `/id/${payload.id}`;
+        : titleSlugForUrl
+          ? `/id/${payload.id}/${titleSlugForUrl}`
+          : `/id/${payload.id}`;
 
       // 4. Kirim notifikasi email ke admin tiap ada listing BARU (bukan edit)
       // biar gak perlu bolak-balik cek Tinjau Iklan. Pakai FormSubmit yang
@@ -916,6 +930,17 @@ export default function Posting() {
             )}
           </div>
         )}
+
+        <Field label="Judul Listing" info="Opsional. Kalau dikosongin, judul dibuat otomatis dari Tipe + Lokasi.">
+          <input
+            type="text"
+            value={form.title}
+            onChange={(e) => update('title', e.target.value)}
+            placeholder="Contoh: Dijual rumah murah dan cantik di Bandung"
+            maxLength={120}
+            className="w-full rounded-xl border border-line bg-white px-4 py-3 text-ink placeholder:text-ink/40 outline-none focus:border-forest"
+          />
+        </Field>
 
         <Field label="Lokasi" info="Jika lokasi tidak ada, tulis alamat lengkap di deskripsi">
           <LocationAutocomplete
