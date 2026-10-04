@@ -111,6 +111,165 @@ export default {
       return fetch(target.toString(), request);
     }
 
+    // =============================================================
+    // SEO UNTUK BOT (Googlebot, WhatsApp, Facebook, dll) DI HALAMAN
+    // LISTING (/id/:id, /id/:id/:slug, /perumahan/:slug)
+    // =============================================================
+    // Situs ini SPA (React) -- isi halaman (judul, deskripsi, foto listing)
+    // baru muncul SETELAH JavaScript jalan di browser. Googlebot & terutama
+    // bot preview WhatsApp/Facebook itu "buru-buru": mereka gak nunggu
+    // JavaScript selesai, jadi yang mereka baca cuma judul default di
+    // index.html ("Rauma — Jual Beli Rumah KPR"), bukan judul listingnya.
+    //
+    // Solusinya: untuk 2 pola URL ini doang, worker ngecek dulu siapa yang
+    // minta (lewat User-Agent):
+    //  - Manusia biasa -> diteruskan apa adanya ke situs asli di GitHub
+    //    Pages, gak ada yang berubah sama sekali dari sisi pengunjung.
+    //  - Bot -> dikasih index.html yang <title> & meta tag-nya SUDAH
+    //    ditulis duluan sesuai listingnya (ambil dari D1), jadi gak perlu
+    //    nunggu JavaScript.
+    //
+    // CATATAN: ini BELUM mencakup halaman Blog (/blog/:slug) atau Tanah
+    // (/tanah/:slug) -- artikel-artikel itu datanya ada di file JS statis
+    // (src/data/blog, src/data/tanah), bukan di database D1, jadi worker
+    // ini (yang jalan terpisah dari kode React) gak bisa baca isinya
+    // langsung. Kalau nanti itu juga mau dibenerin, caranya beda (misal
+    // pindahin konten artikel ke D1 juga) -- di luar scope perubahan ini.
+    const GITHUB_PAGES_ORIGIN = "https://rauma-app.github.io";
+    const BOT_UA_PATTERN =
+      /bot|crawl|spider|facebookexternalhit|whatsapp|telegrambot|slackbot|discordbot|linkedinbot|twitterbot|pinterest|applebot|skypeuripreview|redditbot|qwantify|vkshare|embedly|w3c_validator/i;
+
+    const idMatch = path.match(/^\/id\/([^/]+)(?:\/.*)?$/);
+    const perumahanMatch = path.match(/^\/perumahan\/([^/]+)\/?$/);
+
+    if (idMatch || perumahanMatch) {
+      const userAgent = request.headers.get("User-Agent") || "";
+      const isBot = BOT_UA_PATTERN.test(userAgent);
+
+      if (!isBot) {
+        // Manusia biasa: situs aslinya di-hosting di GitHub Pages,
+        // teruskan apa adanya -- SPA React yang nanya ambil alih dari
+        // situ seperti biasa, gak ada bedanya sama sekarang.
+        return fetch(`${GITHUB_PAGES_ORIGIN}${path}${url.search}`, request);
+      }
+
+      try {
+        let listing = null;
+        if (idMatch) {
+          listing = await env.DB.prepare(
+            `SELECT listings.*, user_profiles.username AS ownerUsername
+             FROM listings
+             LEFT JOIN user_profiles ON user_profiles.uid = listings.ownerUid
+             WHERE listings.id = ?`
+          )
+            .bind(idMatch[1])
+            .first();
+        } else {
+          listing = await env.DB.prepare("SELECT * FROM listings WHERE perumahanSlug = ?")
+            .bind(perumahanMatch[1])
+            .first();
+        }
+
+        // Listing gak ketemu (mis. sudah dihapus) -- jangan kasih bot
+        // error aneh, tetap kasih HTML asli apa adanya.
+        if (!listing) {
+          return fetch(`${GITHUB_PAGES_ORIGIN}${path}${url.search}`, request);
+        }
+
+        // --- Bangun judul & deskripsi -- HARUS disamakan manual kalau
+        // logic seoTitle/seoDescription di src/pages/Listing.jsx diubah
+        // nanti, karena worker ini jalan terpisah, gak bisa "import"
+        // langsung dari kode React-nya. ---
+        function formatRupiahShort(value) {
+          if (value == null || Number.isNaN(value)) return "-";
+          if (value >= 1_000_000_000) {
+            return `Rp ${(value / 1_000_000_000).toFixed(2).replace(/\.?0+$/, "").replace(".", ",")} M`;
+          }
+          if (value >= 1_000_000) {
+            return `Rp ${Math.round(value / 1_000_000)} Jt`;
+          }
+          return new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+            maximumFractionDigits: 0,
+          }).format(value);
+        }
+
+        const lokasiText = listing.kecamatan
+          ? `${listing.kecamatan}, ${listing.kabupaten}`
+          : listing.kabupaten || listing.location || "";
+        const priceShort = formatRupiahShort(listing.price);
+
+        let seoTitle;
+        let seoDescription;
+        if (listing.perumahanName) {
+          seoTitle = `${listing.perumahanName} - Rumah Dijual di ${lokasiText}`;
+          seoDescription = `${listing.perumahanName} - hunian di ${lokasiText} mulai ${priceShort}. Lihat detail lengkap & hubungi penjual di Rauma.`;
+        } else if (listing.title) {
+          seoTitle = `${listing.title} - ${priceShort}`;
+          seoDescription = `${listing.title}. Rumah dijual di ${lokasiText} harga ${priceShort}. Lihat detail & hubungi penjual di Rauma.`;
+        } else {
+          seoTitle = `Rumah Dijual di ${lokasiText} - ${priceShort}`;
+          seoDescription = `Rumah dijual di ${lokasiText} harga ${priceShort}. Lihat detail & hubungi penjual di Rauma.`;
+        }
+        const fullTitle = `${seoTitle} | Rauma`;
+
+        let image = null;
+        try {
+          const images = typeof listing.images === "string" ? JSON.parse(listing.images) : listing.images;
+          image = Array.isArray(images) ? images[0] : null;
+        } catch {
+          image = null;
+        }
+        const canonicalUrl = `https://rauma.id${path}`;
+
+        function esc(str) {
+          return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+
+        // Ambil index.html ASLI dari GitHub Pages -- supaya nama file
+        // JS/CSS yang ada hash-nya (beda tiap kali deploy) tetap akurat,
+        // gak perlu di-hardcode di sini. Cuma <title> & meta tag SEO-nya
+        // yang ditimpa.
+        const originRes = await fetch(`${GITHUB_PAGES_ORIGIN}/index.html`);
+        let html = await originRes.text();
+
+        html = html.replace(/<title>.*?<\/title>/s, `<title>${esc(fullTitle)}</title>`);
+        html = html.replace(
+          /<meta name="description" content=".*?"\s*\/>/s,
+          `<meta name="description" content="${esc(seoDescription)}" />\n` +
+            `    <meta property="og:title" content="${esc(fullTitle)}" />\n` +
+            `    <meta property="og:description" content="${esc(seoDescription)}" />\n` +
+            `    <meta property="og:type" content="website" />\n` +
+            `    <meta property="og:url" content="${esc(canonicalUrl)}" />\n` +
+            (image ? `    <meta property="og:image" content="${esc(image)}" />\n` : "") +
+            `    <meta name="twitter:card" content="${image ? "summary_large_image" : "summary"}" />\n` +
+            `    <meta name="twitter:title" content="${esc(fullTitle)}" />\n` +
+            `    <meta name="twitter:description" content="${esc(seoDescription)}" />\n` +
+            (image ? `    <meta name="twitter:image" content="${esc(image)}" />\n` : "") +
+            `    <link rel="canonical" href="${esc(canonicalUrl)}" />`
+        );
+
+        return new Response(html, {
+          headers: {
+            "Content-Type": "text/html; charset=UTF-8",
+            // Di-cache 1 jam di edge Cloudflare -- bot (terutama Googlebot)
+            // suka nge-crawl ulang URL yang sama, gak perlu query D1 tiap
+            // kali itu kejadian.
+            "Cache-Control": "public, max-age=3600",
+          },
+        });
+      } catch (err) {
+        // Apapun yang gagal (D1 error, dll) -- jangan sampai bot malah
+        // dapet error, tetap kasih HTML asli apa adanya.
+        return fetch(`${GITHUB_PAGES_ORIGIN}${path}${url.search}`, request);
+      }
+    }
+
     // --- Helper tanggal WIB (UTC+7), dipakai buat filter periode statistik ---
     function wibNow() {
       return new Date(Date.now() + 7 * 3600 * 1000);
