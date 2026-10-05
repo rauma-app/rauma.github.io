@@ -64,6 +64,29 @@ export default function Listing() {
   const [selectedTypeIndex, setSelectedTypeIndex] = useState(0);
   const [descExpanded, setDescExpanded] = useState(false);
 
+  // Rapihin URL di address bar biar selalu ikut judul TERBARU -- link lama
+  // tanpa slug, atau slug basi (judul pernah diubah setelah link dibagikan),
+  // otomatis "didandanin" ke URL kanonik. Pakai replace (bukan push) biar
+  // gak nambah entry baru di tombol back, dan ini bukan navigasi/reload --
+  // cuma ganti teks di address bar.
+  //
+  // PENTING: hook ini harus dipanggil SELALU di posisi yang sama tiap
+  // render (makanya ditaruh di sini, di atas, sebelum return bersyarat
+  // apapun kayak "if (loading) return ..." di bawah) -- kalau sebuah hook
+  // cuma kepanggil pas kondisi tertentu, React bakal error "Rendered more
+  // hooks than during the previous render" (React error #310). `listing`
+  // masih bisa null pas efek ini pertama kali jalan (data belum ke-load),
+  // makanya logic-nya di-guard di DALAM body-nya, bukan dengan skip
+  // manggil hook-nya.
+  useEffect(() => {
+    if (!listing || listing.perumahanSlug) return;
+    const titleSlug = slugifyTitle(listing.title);
+    const canonical = titleSlug ? `/id/${listing.id}/${titleSlug}` : `/id/${listing.id}`;
+    if (window.location.pathname !== canonical) {
+      navigate(canonical, { replace: true });
+    }
+  }, [listing, navigate]);
+
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -269,17 +292,6 @@ export default function Listing() {
     : titleSlug
       ? `/id/${listing.id}/${titleSlug}`
       : `/id/${listing.id}`;
-
-  // Rapihin URL di address bar biar selalu ikut judul TERBARU -- link lama
-  // tanpa slug, atau slug basi (judul pernah diubah setelah link dibagikan),
-  // otomatis "didandanin" ke URL kanonik. Pakai replace (bukan push) biar
-  // gak nambah entry baru di tombol back, dan ini bukan navigasi/reload --
-  // cuma ganti teks di address bar.
-  useEffect(() => {
-    if (!listing.perumahanSlug && window.location.pathname !== canonicalPath) {
-      navigate(canonicalPath, { replace: true });
-    }
-  }, [canonicalPath, listing.perumahanSlug, navigate]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
