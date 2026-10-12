@@ -135,7 +135,18 @@ export default {
     // ini (yang jalan terpisah dari kode React) gak bisa baca isinya
     // langsung. Kalau nanti itu juga mau dibenerin, caranya beda (misal
     // pindahin konten artikel ke D1 juga) -- di luar scope perubahan ini.
-    const GITHUB_PAGES_ORIGIN = "https://rauma-app.github.io";
+    // PENTING: harus ada "/rauma.github.io" di belakang (nama repo-nya),
+    // BUKAN cuma "https://rauma-app.github.io" doang. Aturan GitHub Pages:
+    // biar sebuah repo jadi "root page" (bisa diakses tanpa embel-embel
+    // nama repo), nama repo-nya WAJIB sama persis kayak "<namaorg>.github.io"
+    // -- punya kita nama repo-nya "rauma.github.io", beda sama nama org
+    // "rauma-app" (harusnya "rauma-app.github.io" biar jadi root page).
+    // Karena beda, GitHub nganggep ini "project page", yang alamat asli
+    // (di luar custom domain rauma.id) selalu ada nama repo-nya di
+    // belakang. Custom domain rauma.id sendiri gak kena aturan ini (dia
+    // selalu serve dari root), tapi fetch langsung ke *.github.io dari
+    // worker ini HARUS ikut alamat asli yang sebenarnya.
+    const GITHUB_PAGES_ORIGIN = "https://rauma-app.github.io/rauma.github.io";
     const BOT_UA_PATTERN =
       /bot|crawl|spider|facebookexternalhit|whatsapp|telegrambot|slackbot|discordbot|linkedinbot|twitterbot|pinterest|applebot|skypeuripreview|redditbot|qwantify|vkshare|embedly|w3c_validator/i;
 
