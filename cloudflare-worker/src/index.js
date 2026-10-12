@@ -150,7 +150,16 @@ export default {
         // Manusia biasa: situs aslinya di-hosting di GitHub Pages,
         // teruskan apa adanya -- SPA React yang nanya ambil alih dari
         // situ seperti biasa, gak ada bedanya sama sekarang.
-        return fetch(`${GITHUB_PAGES_ORIGIN}${path}${url.search}`, request);
+        //
+        // PENTING: fetch(url) doang, JANGAN fetch(url, request) -- kalau
+        // request asli ikut disertakan, header Host-nya ("rauma.id") ikut
+        // kebawa ke permintaan ke GitHub Pages, padahal yang diminta itu
+        // rauma-app.github.io. GitHub Pages jadi gak ngenalin domain mana
+        // yang dimaksud dan nolak dengan halaman 404 generic-nya ("There
+        // isn't a GitHub Pages site here"). fetch(url) polos bikin
+        // permintaan baru yang bersih, Host-nya otomatis sesuai origin
+        // yang bener.
+        return fetch(`${GITHUB_PAGES_ORIGIN}${path}${url.search}`);
       }
 
       try {
@@ -173,7 +182,7 @@ export default {
         // Listing gak ketemu (mis. sudah dihapus) -- jangan kasih bot
         // error aneh, tetap kasih HTML asli apa adanya.
         if (!listing) {
-          return fetch(`${GITHUB_PAGES_ORIGIN}${path}${url.search}`, request);
+          return fetch(`${GITHUB_PAGES_ORIGIN}${path}${url.search}`);
         }
 
         // --- Bangun judul & deskripsi -- HARUS disamakan manual kalau
@@ -266,7 +275,7 @@ export default {
       } catch (err) {
         // Apapun yang gagal (D1 error, dll) -- jangan sampai bot malah
         // dapet error, tetap kasih HTML asli apa adanya.
-        return fetch(`${GITHUB_PAGES_ORIGIN}${path}${url.search}`, request);
+        return fetch(`${GITHUB_PAGES_ORIGIN}${path}${url.search}`);
       }
     }
 
