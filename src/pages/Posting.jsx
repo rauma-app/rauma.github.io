@@ -15,12 +15,13 @@ import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
 const PREMIUM_WHATSAPP = '6285156222635';
 const PREMIUM_PRICE_LABEL = 'Rp299.000/tahun';
 
-const SERTIFIKAT_OPTIONS = ['SHM', 'SHGB', 'HGB', 'AJB', 'Girik', 'PPJB', 'Lainnya'];
+const SERTIFIKAT_OPTIONS = ['SHM', 'SHM & IMB', 'SHGB', 'HGB', 'AJB', 'Girik', 'PPJB', 'Lainnya'];
 const AIR_OPTIONS = ['PDAM',
   'PAM Desa',
   'Sumur Gali',
   'Sumur Bor (Dangkal)',
   'Sumur Bor (Jet Pump)',
+  'Sumur Bor (Submersible)',
   'Sumur Artesis',
   'Lainnya'];
 // Daya listrik PLN yang umum dipakai di rumah tinggal Indonesia, dari yang
