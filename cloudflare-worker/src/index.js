@@ -135,18 +135,15 @@ export default {
     // ini (yang jalan terpisah dari kode React) gak bisa baca isinya
     // langsung. Kalau nanti itu juga mau dibenerin, caranya beda (misal
     // pindahin konten artikel ke D1 juga) -- di luar scope perubahan ini.
-    // PENTING: harus ada "/rauma.github.io" di belakang (nama repo-nya),
-    // BUKAN cuma "https://rauma-app.github.io" doang. Aturan GitHub Pages:
-    // biar sebuah repo jadi "root page" (bisa diakses tanpa embel-embel
-    // nama repo), nama repo-nya WAJIB sama persis kayak "<namaorg>.github.io"
-    // -- punya kita nama repo-nya "rauma.github.io", beda sama nama org
-    // "rauma-app" (harusnya "rauma-app.github.io" biar jadi root page).
-    // Karena beda, GitHub nganggep ini "project page", yang alamat asli
-    // (di luar custom domain rauma.id) selalu ada nama repo-nya di
-    // belakang. Custom domain rauma.id sendiri gak kena aturan ini (dia
-    // selalu serve dari root), tapi fetch langsung ke *.github.io dari
-    // worker ini HARUS ikut alamat asli yang sebenarnya.
-    const GITHUB_PAGES_ORIGIN = "https://rauma-app.github.io/rauma.github.io";
+    //
+    // KOREKSI PENTING: situs rauma.id itu BUKAN di-hosting di GitHub
+    // Pages -- dia di-deploy lewat Worker Cloudflare terpisah bernama
+    // "rauma-app" (pakai fitur Static Assets, file hasil build Vite
+    // diupload langsung ke Cloudflare). Alamat asli worker itu (bisa
+    // dicek di dashboard Cloudflare -> rauma-app -> Overview -> Domains
+    // and routes -> workers.dev) yang dipakai di sini buat "minta file
+    // asli" pas yang berkunjung itu manusia biasa.
+    const SITE_ORIGIN = "https://rauma-app.abduloh-salam7.workers.dev";
     const BOT_UA_PATTERN =
       /bot|crawl|spider|facebookexternalhit|whatsapp|telegrambot|slackbot|discordbot|linkedinbot|twitterbot|pinterest|applebot|skypeuripreview|redditbot|qwantify|vkshare|embedly|w3c_validator/i;
 
@@ -170,7 +167,7 @@ export default {
         // isn't a GitHub Pages site here"). fetch(url) polos bikin
         // permintaan baru yang bersih, Host-nya otomatis sesuai origin
         // yang bener.
-        return fetch(`${GITHUB_PAGES_ORIGIN}${path}${url.search}`);
+        return fetch(`${SITE_ORIGIN}${path}${url.search}`);
       }
 
       try {
@@ -193,7 +190,7 @@ export default {
         // Listing gak ketemu (mis. sudah dihapus) -- jangan kasih bot
         // error aneh, tetap kasih HTML asli apa adanya.
         if (!listing) {
-          return fetch(`${GITHUB_PAGES_ORIGIN}${path}${url.search}`);
+          return fetch(`${SITE_ORIGIN}${path}${url.search}`);
         }
 
         // --- Bangun judul & deskripsi -- HARUS disamakan manual kalau
@@ -255,7 +252,7 @@ export default {
         // JS/CSS yang ada hash-nya (beda tiap kali deploy) tetap akurat,
         // gak perlu di-hardcode di sini. Cuma <title> & meta tag SEO-nya
         // yang ditimpa.
-        const originRes = await fetch(`${GITHUB_PAGES_ORIGIN}/index.html`);
+        const originRes = await fetch(`${SITE_ORIGIN}/index.html`);
         let html = await originRes.text();
 
         html = html.replace(/<title>.*?<\/title>/s, `<title>${esc(fullTitle)}</title>`);
@@ -286,7 +283,7 @@ export default {
       } catch (err) {
         // Apapun yang gagal (D1 error, dll) -- jangan sampai bot malah
         // dapet error, tetap kasih HTML asli apa adanya.
-        return fetch(`${GITHUB_PAGES_ORIGIN}${path}${url.search}`);
+        return fetch(`${SITE_ORIGIN}${path}${url.search}`);
       }
     }
 
