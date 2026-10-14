@@ -619,7 +619,10 @@ export default {
         const authed = await getAuthedUser();
         if (!authed) return unauthorized("Login dulu untuk upload foto");
 
-        if (await tooManyRequests(`upload:${authed.uid}`, 40, 3600)) {
+        // Admin (centang kuning) dikecualikan dari limit ini -- mereka
+        // akun terpercaya, dan sering butuh upload banyak foto berkali-
+        // kali pas testing/posting banyak listing sekaligus.
+        if (!isAdminUid(authed.uid) && (await tooManyRequests(`upload:${authed.uid}`, 40, 3600))) {
           return json({ error: "Terlalu banyak upload, coba lagi nanti" }, 429);
         }
 
@@ -888,7 +891,7 @@ export default {
           const authed = await getAuthedUser();
           if (!authed) return unauthorized("Login dulu untuk mengubah profil");
 
-          if (await tooManyRequests(`profile:${authed.uid}`, 20, 3600)) {
+          if (!isAdminUid(authed.uid) && (await tooManyRequests(`profile:${authed.uid}`, 20, 3600))) {
             return json({ error: "Terlalu banyak percobaan, coba lagi nanti" }, 429);
           }
 
