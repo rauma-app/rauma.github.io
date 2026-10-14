@@ -1,6 +1,6 @@
 // Ubah judul listing jadi slug buat URL, misal:
 // "Dijual rumah murah dan cantik di Bandung!" -> "dijual-rumah-murah-dan-cantik-di-bandung"
-//
+
 // Dipakai di ListingCard.jsx, Listing.jsx -- slug ini CUMA hiasan di URL
 // buat SEO/dibaca manusia, bukan kunci pencarian data. ID listing (segmen
 // sebelum slug di URL, /id/{id}/{slug}) yang selalu jadi acuan utama, jadi
