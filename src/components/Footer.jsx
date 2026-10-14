@@ -68,9 +68,7 @@ const LINK_GROUPS = [
               />
             </span>
             <p className="mt-3 max-w-xs text-sm">
-              Rauma.id Adalah sebuah platform jual beli rumah Yang mudah dan gratis 
-              digunakan untuk semua kalangan, Temukan hunian menarik dari ratusan 
-              ribu Pengiklan di seluruh Indonesia.
+              Rauma.id adalah platform jual beli properti yang membantu Anda menemukan rumah terbaik melalui proses kurasi dan seleksi yang cermat. Untuk menghadirkan hunian berkualitas dengan harga dan nilai terbaik
             </p>
             <div className="mt-5 flex gap-3">
               {SOCIAL_LINKS.map(({ label, Icon, href }) => (
