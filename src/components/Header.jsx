@@ -61,38 +61,25 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
-  // Login pakai redirect: halaman pindah total ke Google lalu balik lagi
-  // (reload), jadi `navigate('/posting')` di baris berikutnya gak akan
-  // sempat jalan kalau ditaruh langsung setelah await loginWithGoogle().
-  // Simpan dulu niatnya di sessionStorage, baru dieksekusi di useEffect di
-  // bawah begitu `user` beneran terisi (setelah balik dari Google).
-  const POST_LOGIN_REDIRECT_KEY = 'rauma_post_login_redirect';
-
-  useEffect(() => {
-    if (!user) return;
-    const target = sessionStorage.getItem(POST_LOGIN_REDIRECT_KEY);
-    if (!target) return;
-    sessionStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
-    navigate(target);
-  }, [user, navigate]);
-
-  async function handlePostingClick() {
-    if (!user) {
-      setLoggingIn(true);
-      try {
-        sessionStorage.setItem(POST_LOGIN_REDIRECT_KEY, '/posting');
-        await loginWithGoogle();
-        // Kalau berhasil, browser udah pindah ke halaman Google duluan
-        // sebelum baris ini sempat jalan -- jadi setLoggingIn(false) di
-        // sini cuma kepake kalau redirect-nya gagal duluan sebelum
-        // sempat pindah halaman.
-      } catch (err) {
-        console.error('Login gagal:', err);
-        alert(`Login gagal: ${err.code || err.message}`);
-        setLoggingIn(false);
-      }
-    } else {
-      navigate('/posting');
+  // Tombol ini sekarang murni buat login doang -- setelah berhasil login,
+  // user TETAP di halaman yang lagi dibuka (biasanya homepage), gak
+  // dipindah otomatis ke /posting lagi. Begitu login, link "Posting" tetap
+  // ada di menu profil (dropdown foto profil di pojok kanan) buat yang
+  // mau lanjut masang iklan.
+  async function handleLoginClick() {
+    // Tombol ini cuma dirender pas belum login (lihat JSX di bawah),
+    // jadi gak perlu cek `user` lagi di sini.
+    setLoggingIn(true);
+    try {
+      await loginWithGoogle();
+      // Kalau berhasil, browser udah pindah ke halaman Google duluan
+      // sebelum baris ini sempat jalan -- jadi setLoggingIn(false) di
+      // sini cuma kepake kalau redirect-nya gagal duluan sebelum
+      // sempat pindah halaman.
+    } catch (err) {
+      console.error('Login gagal:', err);
+      alert(`Login gagal: ${err.code || err.message}`);
+      setLoggingIn(false);
     }
   }
 
@@ -109,11 +96,11 @@ export default function Header() {
 
         {!user ? (
           <button
-            onClick={handlePostingClick}
+            onClick={handleLoginClick}
             disabled={loggingIn}
             className="rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-dark disabled:opacity-70"
           >
-            {loggingIn ? 'Membuka Google...' : '+ Pasang Iklan'}
+            {loggingIn ? 'Membuka Google...' : 'Masuk'}
           </button>
         ) : (
           <div className="relative" ref={menuRef}>
