@@ -177,31 +177,21 @@ export default function Listing() {
   }, [id, slug]);
 
   useEffect(() => {
-    if (!listing?.kabupaten) return;
+    if (!listing?.id || !(listing.kabupaten || listing.location)) {
+      setRelated([]);
+      return;
+    }
     let cancelled = false;
 
-    async function loadRelated() {
-      try {
-        const allListings = await d1Api.getListings();
-        if (cancelled) return;
+    // Urutan & filter (se-kabupaten, harga mirip) dikerjakan di server.
+    d1Api.getRelatedListings(listing.id, 4).then((items) => {
+      if (!cancelled) setRelated(items);
+    });
 
-        const others = (allListings || []).filter(
-          (l) => l.id !== listing.id && (l.kabupaten === listing.kabupaten || l.location === listing.kabupaten)
-        );
-
-        const sameKecamatan = others.filter((l) => l.kecamatan && l.kecamatan === listing.kecamatan);
-        const rest = others.filter((l) => !l.kecamatan || l.kecamatan !== listing.kecamatan);
-        setRelated([...sameKecamatan, ...rest].slice(0, 4));
-      } catch (err) {
-        console.error('Gagal mengambil iklan terkait:', err);
-      }
-    }
-
-    loadRelated();
     return () => {
       cancelled = true;
     };
-  }, [listing]);
+  }, [listing?.id]);
 
   // PENTING: cuma tampilkan kotak "Memuat..." penuh kalau BENER-BENER
   // belum ada data sama sekali (pembukaan pertama kali). Kalau user
