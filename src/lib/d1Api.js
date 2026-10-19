@@ -85,6 +85,19 @@ export const d1Api = {
     }
   },
 
+  // Rekomendasi "Rumah Lain": se-kabupaten, harga mirip (dihitung di server)
+  async getRelatedListings(id, limit = 4) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/listings/${encodeURIComponent(id)}/related?limit=${limit}`);
+      if (!res.ok) throw new Error('Gagal mengambil iklan terkait');
+      const data = await res.json();
+      return Array.isArray(data) ? data.map(normalizeListing) : [];
+    } catch (err) {
+      console.error('Error d1Api.getRelatedListings:', err);
+      return [];
+    }
+  },
+
   // Ambil detail 1 properti
   async getListingById(id) {
     try {
