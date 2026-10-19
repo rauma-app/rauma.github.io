@@ -177,7 +177,18 @@ export default function Listing() {
     };
   }, [listing]);
 
-  if (loading) {
+  // PENTING: cuma tampilkan kotak "Memuat..." penuh kalau BENER-BENER
+  // belum ada data sama sekali (pembukaan pertama kali). Kalau user
+  // sedang pindah dari satu listing ke listing lain (misal klik kartu
+  // "Rumah Lain di [Kota]"), `listing` di sini masih berisi data listing
+  // yang LAMA selama data yang baru masih di-fetch -- jadi JANGAN
+  // dibuang/diganti kotak kecil itu, biarkan halaman lama tetap utuh
+  // kelihatan sampai data baru siap. Sebelumnya `if (loading)` di sini
+  // sendirian bikin SELURUH halaman collapse jadi kotak kecil tiap kali
+  // pindah listing -- gabungan sama ScrollToTop yang paksa lompat ke
+  // atas di saat bersamaan, itu yang kerasa "jedag-jedug" pas klik
+  // listing lain secara beruntun.
+  if (loading && !listing) {
     return <div className="mx-auto max-w-3xl px-4 py-16 text-center text-ink/50">Memuat...</div>;
   }
 
