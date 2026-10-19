@@ -2,9 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { d1Api } from '../lib/d1Api';
 import { useAuth } from '../context/AuthContext';
-import { usePremium } from '../context/PremiumContext';
 import { isAdmin } from '../lib/admin';
-import { isPerumahanAdmin } from '../lib/perumahanAdmin';
 import ImageSlider from '../components/ImageSlider';
 import { formatMonthlyShort, formatRupiahShort } from '../lib/kpr';
 import { FaEye } from 'react-icons/fa';
@@ -18,14 +16,13 @@ const STATUS_LABELS = {
 
 export default function MyListings() {
   const { user } = useAuth();
-  const { perumahanAdminMap } = usePremium();
 
   // Badge status ("Menunggu Persetujuan" / "Tayang" dst) cuma berguna
   // buat user biasa & premium, karena iklan mereka DITINJAU dulu sebelum
   // tayang. Admin Perumahan & Admin utama iklannya auto-approve begitu
   // posting, jadi badge-nya cuma bakal langsung "Tayang" terus -- gak ada
   // gunanya ditampilin, malah bikin ramai gak perlu.
-  const showStatusBadge = !isAdmin(user) && !isPerumahanAdmin(user, perumahanAdminMap);
+  const showStatusBadge = !isAdmin(user);
 
   const [listings, setListings] = useState([]);
   const [loading, setLoading] = useState(true);
