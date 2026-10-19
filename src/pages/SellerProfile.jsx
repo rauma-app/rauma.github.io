@@ -29,7 +29,7 @@ export default function SellerProfile() {
   const [soldUnits, setSoldUnits] = useState(0);
   const [usernameNotFound, setUsernameNotFound] = useState(false);
   // Filter iklan (khusus profil akun centang biru/kuning)
-  const [locFilter, setLocFilter] = useState('all'); // 'all' | 'kab::x' | 'kec::x|y'
+  const [locFilter, setLocFilter] = useState('all'); // 'all' | nama kota/kabupaten (huruf kecil)
   const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'cheapest' | 'priciest'
 
   // Tahap 1: kalau diakses lewat /u/:username, resolve dulu jadi uid.
@@ -80,53 +80,32 @@ export default function SellerProfile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid]);
 
-  // Daftar pilihan lokasi + jumlah iklan, dihitung dari data yang SUDAH
-  // dimuat (tanpa request tambahan ke server). Kota/kabupaten dan
-  // kecamatan dipisah dalam 2 grup supaya "Cimahi (3)" maupun
-  // "Batujajar (10)" sama-sama ada.
+  // Daftar pilihan kota/kabupaten + jumlah iklan, dihitung dari data yang
+  // SUDAH dimuat (tanpa request tambahan ke server). Kecamatan sengaja
+  // tidak dipisah supaya dropdown tetap ringkas.
   const locationOptions = useMemo(() => {
     const kabMap = new Map();
-    const kecMap = new Map();
     const clean = (v) => String(v || '').trim().replace(/\s+/g, ' ');
     for (const l of listings) {
       const kab = clean(l.kabupaten || l.location);
-      const kec = clean(l.kecamatan);
-      if (kab) {
-        const k = kab.toLowerCase();
-        const cur = kabMap.get(k) || { value: `kab::${k}`, label: kab, count: 0 };
-        cur.count += 1;
-        kabMap.set(k, cur);
-      }
-      if (kec) {
-        const k = `${kec.toLowerCase()}|${kab.toLowerCase()}`;
-        const cur = kecMap.get(k) || {
-          value: `kec::${k}`,
-          label: kab ? `${kec}, ${kab}` : kec,
-          count: 0,
-        };
-        cur.count += 1;
-        kecMap.set(k, cur);
-      }
+      if (!kab) continue;
+      const k = kab.toLowerCase();
+      const cur = kabMap.get(k) || { value: k, label: kab, count: 0 };
+      cur.count += 1;
+      kabMap.set(k, cur);
     }
-    const byCount = (a, b) => b.count - a.count || a.label.localeCompare(b.label, 'id');
-    return {
-      kabupaten: [...kabMap.values()].sort(byCount),
-      kecamatan: [...kecMap.values()].sort(byCount),
-    };
+    // Terbanyak di atas, sama banyak -> urut abjad
+    return [...kabMap.values()].sort(
+      (a, b) => b.count - a.count || a.label.localeCompare(b.label, 'id')
+    );
   }, [listings]);
 
   const visibleListings = useMemo(() => {
     const norm = (v) => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
     let result = listings;
 
-    if (locFilter.startsWith('kab::')) {
-      const target = locFilter.slice(5);
-      result = result.filter((l) => norm(l.kabupaten || l.location) === target);
-    } else if (locFilter.startsWith('kec::')) {
-      const [kec, kab] = locFilter.slice(5).split('|');
-      result = result.filter(
-        (l) => norm(l.kecamatan) === kec && norm(l.kabupaten || l.location) === (kab || '')
-      );
+    if (locFilter !== 'all') {
+      result = result.filter((l) => norm(l.kabupaten || l.location) === locFilter);
     }
 
     if (sortBy === 'cheapest' || sortBy === 'priciest') {
@@ -239,24 +218,11 @@ export default function SellerProfile() {
               className="w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink focus:border-navy focus:outline-none"
             >
               <option value="all">Semua lokasi ({listings.length})</option>
-              {locationOptions.kabupaten.length > 0 && (
-                <optgroup label="Kota / Kabupaten">
-                  {locationOptions.kabupaten.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label} ({o.count})
-                    </option>
-                  ))}
-                </optgroup>
-              )}
-              {locationOptions.kecamatan.length > 0 && (
-                <optgroup label="Kecamatan">
-                  {locationOptions.kecamatan.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label} ({o.count})
-                    </option>
-                  ))}
-                </optgroup>
-              )}
+              {locationOptions.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label} ({o.count})
+                </option>
+              ))}
             </select>
 
             <select
