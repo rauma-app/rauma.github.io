@@ -1007,6 +1007,75 @@ export default {
           return json(withDistance.slice(0, limit));
         }
 
+        // GET /api/listings/:id/related -- publik. Rekomendasi "Rumah Lain".
+        // Aturan: (1) WAJIB satu kota/kabupaten yang sama -- ini dikunci di
+        // SQL, jadi iklan kabupaten lain gak akan pernah muncul.
+        // (2) Di dalam kabupaten itu, urutan: harga 0.7x-1.5x dari iklan
+        // yang dibuka dulu, lalu satu kecamatan, lalu harga paling dekat,
+        // lalu paling baru. Kalau yang cocok harga kurang dari `limit`,
+        // otomatis diisi iklan kabupaten sama yang harganya terdekat.
+        if (pathParts.length === 4 && pathParts[3] === "related" && method === "GET") {
+          const id = pathParts[2];
+          const limit = Math.min(parseInt(url.searchParams.get("limit") || "4", 10) || 4, 12);
+
+          const base = await env.DB.prepare(
+            "SELECT id, kabupaten, kecamatan, location, price FROM listings WHERE id = ?"
+          ).bind(id).first();
+          if (!base) return json([]);
+
+          const kab = base.kabupaten || base.location;
+          if (!kab) return json([]);
+
+          const basePrice = Number(base.price);
+          const hasPrice = Number.isFinite(basePrice) && basePrice > 0;
+
+          // Ambil 40 kandidat di kabupaten yang sama. Kalau harga acuan ada,
+          // urut dari yang harganya paling dekat supaya yang relevan gak
+          // terlewat; kalau tidak, urut terbaru.
+          const orderBy = hasPrice
+            ? "ABS(CAST(price AS REAL) - ?) ASC, created_at DESC"
+            : "created_at DESC";
+          const binds = [id, kab, kab];
+          if (hasPrice) binds.push(basePrice);
+
+          const { results } = await env.DB.prepare(
+            `SELECT * FROM listings
+             WHERE status = 'approved'
+               AND CAST(id AS TEXT) != ?
+               AND (kabupaten = ? OR location = ?)
+             ORDER BY ${orderBy}
+             LIMIT 40`
+          ).bind(...binds).all();
+
+          const LOW = 0.7;
+          const HIGH = 1.5;
+          const ranked = (results || []).map((row) => {
+            const price = Number(row.price);
+            const validPrice = Number.isFinite(price) && price > 0;
+            const inRange = hasPrice && validPrice && price >= basePrice * LOW && price <= basePrice * HIGH;
+            const sameKecamatan = Boolean(base.kecamatan) && row.kecamatan === base.kecamatan;
+            const closeness = hasPrice && validPrice ? Math.abs(Math.log(price / basePrice)) : Infinity;
+            return { row, inRange, sameKecamatan, closeness };
+          });
+
+          ranked.sort((a, b) => {
+            if (a.inRange !== b.inRange) return a.inRange ? -1 : 1;
+            if (a.sameKecamatan !== b.sameKecamatan) return a.sameKecamatan ? -1 : 1;
+            if (a.closeness !== b.closeness) return a.closeness - b.closeness;
+            return (b.row.created_at || 0) > (a.row.created_at || 0) ? 1 : -1;
+          });
+
+          return new Response(JSON.stringify(ranked.slice(0, limit).map((r) => r.row)), {
+            status: 200,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+              // Cache 5 menit di edge Cloudflare -- hemat read D1.
+              "Cache-Control": "public, max-age=300",
+            },
+          });
+        }
+
         // GET /api/listings/slug/:slug -- publik. Buat URL SEO listing
         // perumahan, misal rauma.id/perumahan/green-residen-parahyangan.
         if (pathParts.length === 4 && pathParts[2] === "slug" && method === "GET") {
