@@ -320,6 +320,16 @@ export default function Listing() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
+      {/* Garis loading tipis di paling atas layar -- muncul SELAMA data
+          listing baru masih diambil (misal abis klik kartu "Rumah Lain").
+          Konten listing LAMA sengaja tetap ditampilkan di bawahnya (gak
+          di-collapse) biar gak kasar/jedag-jedug, tapi garis ini yang
+          kasih tahu "lagi proses pindah ke listing lain", biar gak
+          kelihatan kayak macet/gagal padahal cuma masih loading. */}
+      {loading && (
+        <div className="fixed inset-x-0 top-0 z-40 h-1 animate-pulse bg-forest" />
+      )}
+
       {Seo && (
         <Seo
           title={seoTitle}
