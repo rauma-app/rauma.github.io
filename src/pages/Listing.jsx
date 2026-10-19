@@ -80,12 +80,24 @@ export default function Listing() {
   // manggil hook-nya.
   useEffect(() => {
     if (!listing || listing.perumahanSlug) return;
+    // JANGAN rapihin URL kalau data yang tampil BUKAN milik URL saat ini.
+    // Pas user klik kartu "Rumah Lain", URL sudah berubah ke listing B
+    // tapi `listing` di state masih listing A (sengaja dipertahankan biar
+    // gak jedag-jedug). Tanpa guard ini, efek di bawah menganggap URL
+    // "salah" lalu navigate() balik ke listing A -- itu penyebab klik
+    // iklan lain cuma scroll ke atas dan tetap di iklan yang sama.
+    if (loading) return;
+    if (!id || String(listing.id) !== String(id)) return;
     const titleSlug = slugifyTitle(listing.title);
     const canonical = titleSlug ? `/id/${listing.id}/${titleSlug}` : `/id/${listing.id}`;
     if (window.location.pathname !== canonical) {
-      navigate(canonical, { replace: true });
+      // window.history.replaceState (bukan navigate) supaya cuma ganti
+      // teks di address bar: gak memicu render ulang router & gak
+      // memicu ScrollToTop lagi.
+      window.history.replaceState(window.history.state, '', canonical + window.location.search + window.location.hash);
     }
-  }, [listing, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listing, loading, id]);
 
   useEffect(() => {
     // Penanda "request ini masih berlaku?" -- kepake di bawah buat nolak
