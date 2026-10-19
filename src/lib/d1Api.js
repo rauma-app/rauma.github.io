@@ -321,40 +321,6 @@ export const d1Api = {
     return result;
   },
 
-  // Ambil semua akun Admin Perumahan (centang kuning terbatas) -- publik
-  async getPerumahanAdmins() {
-    try {
-      const res = await fetch(`${API_BASE_URL}/perumahan-admins`);
-      if (!res.ok) return [];
-      return await res.json();
-    } catch (err) {
-      console.error('Error d1Api.getPerumahanAdmins:', err);
-      return [];
-    }
-  },
-
-  // Tambah/update 1 akun jadi Admin Perumahan. ADMIN ONLY di server.
-  async addPerumahanAdmin(uid, label) {
-    const headers = { 'Content-Type': 'application/json', ...(await authHeaders()) };
-    const res = await fetch(`${API_BASE_URL}/perumahan-admins`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ uid, label }),
-    });
-    const result = await res.json();
-    if (!res.ok) throw new Error(result?.error || 'Gagal menambah admin perumahan');
-    return result;
-  },
-
-  // Cabut status Admin Perumahan 1 akun. ADMIN ONLY di server.
-  async removePerumahanAdmin(uid) {
-    const headers = await authHeaders();
-    const res = await fetch(`${API_BASE_URL}/perumahan-admins/${uid}`, { method: 'DELETE', headers });
-    const result = await res.json();
-    if (!res.ok) throw new Error(result?.error || 'Gagal mencabut admin perumahan');
-    return result;
-  },
-
   // Hapus properti -- pemilik iklan ATAU admin (dicek server)
   async deleteListing(id) {
     try {
