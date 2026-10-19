@@ -88,12 +88,21 @@ export default function Listing() {
   }, [listing, navigate]);
 
   useEffect(() => {
+    // Penanda "request ini masih berlaku?" -- kepake di bawah buat nolak
+    // hasil fetch yang telat nyampe SETELAH user udah pindah ke listing
+    // lain (misal klik cepat 2 listing berturut-turut, request pertama
+    // belum tentu selesai duluan). Tanpa ini, data listing LAMA yang baru
+    // nyampe belakangan bisa nimpa listing BARU yang lagi ditampilkan --
+    // itu penyebab sebenarnya dari bug "kadang gagal pindah listing".
+    let cancelled = false;
+
     async function load() {
       setLoading(true);
       setSelectedTypeIndex(0);
       setDescExpanded(false);
       try {
         const data = slug ? await d1Api.getListingBySlug(slug) : await d1Api.getListingById(id);
+        if (cancelled) return; // request ini sudah basi, abaikan hasilnya
         if (data) {
           // Parse gambar dengan aman
           let parsedImages = [];
@@ -137,17 +146,22 @@ export default function Listing() {
           if (!user || user.uid !== ownerUid) {
             d1Api.recordListingView(data.id);
           }
-        } else {
+        } else if (!cancelled) {
           setNotFound(true);
         }
       } catch (err) {
-        console.error('Gagal mengambil data listing:', err);
-        setNotFound(true);
+        if (!cancelled) {
+          console.error('Gagal mengambil data listing:', err);
+          setNotFound(true);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     load();
+    return () => {
+      cancelled = true;
+    };
   }, [id, slug]);
 
   useEffect(() => {
