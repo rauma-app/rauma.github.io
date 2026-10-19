@@ -335,6 +335,41 @@ export default {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
 
+    // Cache EDGE beneran (Cache API, jalan karena API ada di custom domain
+    // cdn.rauma.id). Hasil dihitung sekali, lalu dipakai ulang semua
+    // pengunjung selama `ttl` detik TANPA menyentuh D1 -> hemat rows read.
+    // Body saja yang di-cache; header CORS dibuat ulang per request supaya
+    // gak nyangkut ke origin pengunjung pertama.
+    const edgeCached = async (ttl, keyUrl, build) => {
+      const cache = caches.default;
+      const key = new Request(keyUrl, { method: "GET" });
+      const headersFor = (state) => ({
+        ...corsHeaders,
+        "Content-Type": "application/json",
+        "Cache-Control": `public, max-age=${ttl}`,
+        "X-Edge-Cache": state,
+      });
+      try {
+        const hit = await cache.match(key);
+        if (hit) return new Response(await hit.text(), { status: 200, headers: headersFor("HIT") });
+      } catch (e) {
+        // cache error jangan sampai bikin request gagal
+      }
+      const data = await build();
+      const body = JSON.stringify(data);
+      try {
+        ctx.waitUntil(
+          cache.put(
+            key,
+            new Response(body, {
+              headers: { "Content-Type": "application/json", "Cache-Control": `public, max-age=${ttl}` },
+            })
+          )
+        );
+      } catch (e) {}
+      return new Response(body, { status: 200, headers: headersFor("MISS") });
+    };
+
     const unauthorized = (msg = "Kamu harus login dulu") => json({ error: msg }, 401);
     const forbidden = (msg = "Kamu tidak punya akses untuk aksi ini") => json({ error: msg }, 403);
 
@@ -968,6 +1003,15 @@ export default {
             return json({ error: "Parameter lat & lon wajib diisi angka" }, 400);
           }
 
+          // Koordinat dibulatkan ke 2 desimal (~1 km) supaya orang di area
+          // yang sama berbagi hasil cache. Selisih jarak gak terasa user.
+          const latQ = Math.round(lat * 100) / 100;
+          const lonQ = Math.round(lon * 100) / 100;
+          const nearbyKey =
+            `${url.origin}/api/listings/nearby?lat=${latQ}&lon=${lonQ}&limit=${limit}` +
+            `&type=${type || ""}&min=${minPrice || ""}&max=${maxPrice || ""}`;
+
+          return edgeCached(300, nearbyKey, async () => {
           const nearbyConditions = ["status = 'approved'", "lat IS NOT NULL", "lon IS NOT NULL"];
           const nearbyParams = [];
           if (type) {
@@ -999,12 +1043,13 @@ export default {
 
           const withDistance = (results || []).map((row) => ({
             ...row,
-            distanceKm: Math.round(haversineKm(lat, lon, row.lat, row.lon) * 10) / 10,
+            distanceKm: Math.round(haversineKm(latQ, lonQ, row.lat, row.lon) * 10) / 10,
           }));
 
           withDistance.sort((a, b) => a.distanceKm - b.distanceKm);
 
-          return json(withDistance.slice(0, limit));
+          return withDistance.slice(0, limit);
+          });
         }
 
         // GET /api/listings/:id/related -- publik. Rekomendasi "Rumah Lain".
@@ -1018,13 +1063,14 @@ export default {
           const id = pathParts[2];
           const limit = Math.min(parseInt(url.searchParams.get("limit") || "4", 10) || 4, 12);
 
+          return edgeCached(300, `${url.origin}/api/listings/${encodeURIComponent(id)}/related?limit=${limit}`, async () => {
           const base = await env.DB.prepare(
             "SELECT id, kabupaten, kecamatan, location, price FROM listings WHERE id = ?"
           ).bind(id).first();
-          if (!base) return json([]);
+          if (!base) return [];
 
           const kab = base.kabupaten || base.location;
-          if (!kab) return json([]);
+          if (!kab) return [];
 
           const basePrice = Number(base.price);
           const hasPrice = Number.isFinite(basePrice) && basePrice > 0;
@@ -1065,14 +1111,7 @@ export default {
             return (b.row.created_at || 0) > (a.row.created_at || 0) ? 1 : -1;
           });
 
-          return new Response(JSON.stringify(ranked.slice(0, limit).map((r) => r.row)), {
-            status: 200,
-            headers: {
-              ...corsHeaders,
-              "Content-Type": "application/json",
-              // Cache 5 menit di edge Cloudflare -- hemat read D1.
-              "Cache-Control": "public, max-age=300",
-            },
+          return ranked.slice(0, limit).map((r) => r.row);
           });
         }
 
@@ -1275,7 +1314,10 @@ export default {
           const conditions = [];
           const params = [];
 
-          if (type) {
+          if (type === "pribadi") {
+            // Rumah pribadi = type 'pribadi' ATAU kosong (iklan lama).
+            conditions.push("(type = 'pribadi' OR type IS NULL OR type = '')");
+          } else if (type) {
             conditions.push("type = ?");
             params.push(type);
           }
@@ -1323,8 +1365,26 @@ export default {
           }
           query += " ORDER BY created_at DESC";
 
-          const { results } = await env.DB.prepare(query).bind(...params).all();
-          return json(results || []);
+          // Paging opsional (?limit=&offset=). Tanpa limit = perilaku lama.
+          const limitParam = Math.min(parseInt(url.searchParams.get("limit") || "0", 10) || 0, 100);
+          const offsetParam = Math.max(parseInt(url.searchParams.get("offset") || "0", 10) || 0, 0);
+          const pageParams = [];
+          if (limitParam > 0) {
+            query += " LIMIT ? OFFSET ?";
+            pageParams.push(limitParam, offsetParam);
+          }
+
+          const runList = async () => {
+            const { results } = await env.DB.prepare(query).bind(...params, ...pageParams).all();
+            return results || [];
+          };
+
+          // Daftar PUBLIK (approved, tanpa cek WA) di-cache 60 detik di edge.
+          // Daftar privat (status lain / owner lihat punya sendiri) tidak.
+          if (!status && !whatsapp) {
+            return edgeCached(60, url.href, runList);
+          }
+          return json(await runList());
         }
 
         // POST /api/listings (POSTING BARU / EDIT) -- wajib login. Non-admin
