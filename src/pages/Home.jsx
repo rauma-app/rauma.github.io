@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 // Impor API Helper D1
 import { d1Api } from '../lib/d1Api';
@@ -31,15 +31,14 @@ export default function Home() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [perumahan, setPerumahan] = useState([]);
-  const [allPerumahanData, setAllPerumahanData] = useState([]);
   const [pagePerumahan, setPagePerumahan] = useState(1);
   const [hasMorePerumahan, setHasMorePerumahan] = useState(true);
   const [pribadi, setPribadi] = useState([]);
-  const [allPribadiData, setAllPribadiData] = useState([]);
   const [pagePribadi, setPagePribadi] = useState(1);
   const [hasMorePribadi, setHasMorePribadi] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [userLoc, setUserLoc] = useState(null); // cuma keisi kalau user izinkan GPS
+  const userLocRef = useRef(null); // salinan userLoc buat dicek di callback async
   const [loading, setLoading] = useState(true);
 
   // Begitu user izinkan lokasi GPS, Perumahan & Rumah Pribadi otomatis
@@ -47,6 +46,7 @@ export default function Home() {
   // database, per kategori), gantiin isi yang tadinya "terbaru".
   async function handleLocationGranted(loc) {
     setUserLoc(loc);
+    userLocRef.current = loc;
     setLoadingMore(true);
     try {
       const [nearestPerumahan, nearestPribadi] = await Promise.all([
@@ -66,45 +66,47 @@ export default function Home() {
     }
   }
 
-  // Load data dari Cloudflare D1
+  // Rapikan 1 iklan dari D1 supaya aman dipakai ListingCard
+  function normalizeHome(item) {
+    let parsedImages = [];
+    try {
+      if (typeof item.images === 'string') {
+        parsedImages = JSON.parse(item.images);
+      } else if (Array.isArray(item.images)) {
+        parsedImages = item.images;
+      }
+    } catch (e) {
+      parsedImages = [];
+    }
+    return {
+      ...item,
+      images: parsedImages,
+      imageUrls: parsedImages,
+      coverImage: parsedImages[0] || item.coverImage || '/placeholder.jpg',
+      price: Number(item.price) || 0,
+    };
+  }
+
+  // Muat HANYA iklan terbaru per kategori (8 + 1 buat cek "masih ada lagi"),
+  // bukan seluruh iklan. Hemat read D1. Kalau user pakai GPS, jalur
+  // "terdekat" yang dipakai (dihitung server dari SELURUH data), jadi
+  // rumah terdekat gak akan terlewat gara-gara batas ini.
   const loadInitial = useCallback(async () => {
     setLoading(true);
     try {
-      const rawListings = await d1Api.getListings();
+      const [perumahanRaw, pribadiRaw] = await Promise.all([
+        d1Api.getListings({ type: 'perumahan', limit: PERUMAHAN_ROW_LIMIT + 1 }),
+        d1Api.getListings({ type: 'pribadi', limit: PRIBADI_PAGE_SIZE + 1 }),
+      ]);
+      // GPS sudah keburu kasih hasil "terdekat" -> jangan ditimpa "terbaru"
+      if (userLocRef.current) return;
 
-      // Normalisasi data dari D1 agar sesuai dengan kebutuhan ListingCard
-      const allListings = (rawListings || []).map((item) => {
-        let parsedImages = [];
-        try {
-          // Parse string JSON images dari D1 menjadi Array
-          if (typeof item.images === 'string') {
-            parsedImages = JSON.parse(item.images);
-          } else if (Array.isArray(item.images)) {
-            parsedImages = item.images;
-          }
-        } catch (e) {
-          parsedImages = [];
-        }
+      const perumahanData = (perumahanRaw || []).map(normalizeHome);
+      const pribadiData = (pribadiRaw || []).map(normalizeHome);
 
-        return {
-          ...item,
-          // Pastikan properti gambar aman dipakai ListingCard
-          images: parsedImages,
-          imageUrls: parsedImages,
-          coverImage: parsedImages[0] || item.coverImage || '/placeholder.jpg',
-          price: Number(item.price) || 0,
-        };
-      });
-
-      // Filter perumahan vs rumah pribadi
-      const perumahanData = allListings.filter(item => item.type === 'perumahan');
-      const pribadiData = allListings.filter(item => item.type === 'pribadi' || !item.type);
-
-      setAllPerumahanData(perumahanData);
       setPerumahan(perumahanData.slice(0, PERUMAHAN_ROW_LIMIT));
       setHasMorePerumahan(perumahanData.length > PERUMAHAN_ROW_LIMIT);
       setPagePerumahan(1);
-      setAllPribadiData(pribadiData);
       setPribadi(pribadiData.slice(0, PRIBADI_PAGE_SIZE));
       setHasMorePribadi(pribadiData.length > PRIBADI_PAGE_SIZE);
       setPagePribadi(1);
@@ -126,54 +128,79 @@ export default function Home() {
   async function loadMorePerumahan() {
     if (loadingMore || !hasMorePerumahan) return;
     setLoadingMore(true);
+    try {
+      const nextPage = pagePerumahan + 1;
+      const nextLimit = nextPage * PERUMAHAN_ROW_LIMIT;
 
-    const nextPage = pagePerumahan + 1;
-    const nextLimit = nextPage * PERUMAHAN_ROW_LIMIT;
+      if (userLoc) {
+        const data = await d1Api.getNearbyListings({
+          lat: userLoc.lat,
+          lon: userLoc.lon,
+          limit: nextLimit,
+          type: 'perumahan',
+        });
+        setPerumahan(data);
+        setHasMorePerumahan(data.length === nextLimit);
+      } else {
+        // Tanpa GPS: minta batch berikutnya saja ke server (bukan semua)
+        const raw = await d1Api.getListings({
+          type: 'perumahan',
+          limit: PERUMAHAN_ROW_LIMIT + 1,
+          offset: perumahan.length,
+        });
+        const batch = (raw || []).map(normalizeHome);
+        setPerumahan((prev) => {
+          const seen = new Set(prev.map((x) => x.id));
+          return [...prev, ...batch.slice(0, PERUMAHAN_ROW_LIMIT).filter((x) => !seen.has(x.id))];
+        });
+        setHasMorePerumahan(batch.length > PERUMAHAN_ROW_LIMIT);
+      }
 
-    if (userLoc) {
-      const data = await d1Api.getNearbyListings({
-        lat: userLoc.lat,
-        lon: userLoc.lon,
-        limit: nextLimit,
-        type: 'perumahan',
-      });
-      setPerumahan(data);
-      setHasMorePerumahan(data.length === nextLimit);
-    } else {
-      const nextBatch = allPerumahanData.slice(0, nextLimit);
-      setPerumahan(nextBatch);
-      setHasMorePerumahan(allPerumahanData.length > nextLimit);
+      setPagePerumahan(nextPage);
+    } catch (err) {
+      console.error('Gagal memuat perumahan berikutnya:', err);
+    } finally {
+      setLoadingMore(false);
     }
-
-    setPagePerumahan(nextPage);
-    setLoadingMore(false);
   }
 
   // Sama seperti di atas, tapi buat Rumah Pribadi
   async function loadMorePribadi() {
     if (loadingMore || !hasMorePribadi) return;
     setLoadingMore(true);
+    try {
+      const nextPage = pagePribadi + 1;
+      const nextLimit = nextPage * PRIBADI_PAGE_SIZE;
 
-    const nextPage = pagePribadi + 1;
-    const nextLimit = nextPage * PRIBADI_PAGE_SIZE;
+      if (userLoc) {
+        const data = await d1Api.getNearbyListings({
+          lat: userLoc.lat,
+          lon: userLoc.lon,
+          limit: nextLimit,
+          type: 'pribadi',
+        });
+        setPribadi(data);
+        setHasMorePribadi(data.length === nextLimit);
+      } else {
+        const raw = await d1Api.getListings({
+          type: 'pribadi',
+          limit: PRIBADI_PAGE_SIZE + 1,
+          offset: pribadi.length,
+        });
+        const batch = (raw || []).map(normalizeHome);
+        setPribadi((prev) => {
+          const seen = new Set(prev.map((x) => x.id));
+          return [...prev, ...batch.slice(0, PRIBADI_PAGE_SIZE).filter((x) => !seen.has(x.id))];
+        });
+        setHasMorePribadi(batch.length > PRIBADI_PAGE_SIZE);
+      }
 
-    if (userLoc) {
-      const data = await d1Api.getNearbyListings({
-        lat: userLoc.lat,
-        lon: userLoc.lon,
-        limit: nextLimit,
-        type: 'pribadi',
-      });
-      setPribadi(data);
-      setHasMorePribadi(data.length === nextLimit);
-    } else {
-      const nextBatch = allPribadiData.slice(0, nextLimit);
-      setPribadi(nextBatch);
-      setHasMorePribadi(allPribadiData.length > nextLimit);
+      setPagePribadi(nextPage);
+    } catch (err) {
+      console.error('Gagal memuat rumah berikutnya:', err);
+    } finally {
+      setLoadingMore(false);
     }
-
-    setPagePribadi(nextPage);
-    setLoadingMore(false);
   }
 
   // Kalau izin GPS UDAH pernah diizinkan sebelumnya (browser masih ingat),
