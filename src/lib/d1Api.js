@@ -53,6 +53,8 @@ export const d1Api = {
       if (params.minPrice) qs.set('minPrice', params.minPrice);
       if (params.maxPrice) qs.set('maxPrice', params.maxPrice);
       if (params.location) qs.set('location', params.location);
+      if (params.limit) qs.set('limit', params.limit);
+      if (params.offset) qs.set('offset', params.offset);
 
       const query = qs.toString();
       const url = `${API_BASE_URL}/listings${query ? `?${query}` : ''}`;
