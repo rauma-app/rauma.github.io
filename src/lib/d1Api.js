@@ -239,6 +239,20 @@ export const d1Api = {
     }
   },
 
+  // Keyword pencarian pengunjung per periode. ADMIN ONLY di server.
+  async getSearchKeywords(period = 'today') {
+    try {
+      const headers = await authHeaders();
+      const res = await fetch(`${API_BASE_URL}/admin/search-keywords?period=${period}`, { headers });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return Array.isArray(data?.keywords) ? data.keywords : [];
+    } catch (err) {
+      console.error('Error d1Api.getSearchKeywords:', err);
+      return null;
+    }
+  },
+
   // Ambil semua akun Premium (buat dipakai di seluruh situs & halaman Admin) -- publik
   async getPremiumAccounts() {
     try {
