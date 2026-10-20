@@ -875,6 +875,39 @@ export default {
         });
       }
 
+      // GET /api/admin/search-keywords?period=today|month|lastmonth -- ADMIN-ONLY
+      // Daftar keyword yang diketik pengunjung di kolom pencarian, dikelompokkan
+      // (huruf kecil) + jumlah pencarian + jumlah pengunjung + waktu terakhir.
+      // Hanya dipanggil saat admin klik kartu "Pencarian" (bukan tiap buka Statistik).
+      if (path === "/api/admin/search-keywords" && method === "GET") {
+        const authed = await getAuthedUser();
+        if (!authed) return unauthorized();
+        if (!isAdminUid(authed.uid)) return forbidden("Hanya admin yang bisa melihat statistik");
+
+        const period = url.searchParams.get("period") || "today";
+        const { start, end } = getPeriodRange(period);
+        const endClause = end ? "AND created_at < ?" : "";
+        const binds = end ? [start, end] : [start];
+
+        const { results } = await env.DB.prepare(
+          `SELECT LOWER(TRIM(query_text)) AS keyword,
+                  COUNT(*) AS total,
+                  COUNT(DISTINCT anon_id) AS visitors,
+                  MAX(created_at) AS last_at
+           FROM analytics_events
+           WHERE event_type = 'search'
+             AND query_text IS NOT NULL AND TRIM(query_text) != ''
+             AND created_at >= ? ${endClause}
+           GROUP BY LOWER(TRIM(query_text))
+           ORDER BY total DESC, last_at DESC
+           LIMIT 100`
+        )
+          .bind(...binds)
+          .all();
+
+        return json({ period, keywords: results || [] });
+      }
+
       // =============================================================
       // 2b. ENDPOINT SELLERS (statistik unit terjual per penjual) -- publik
       // =============================================================
