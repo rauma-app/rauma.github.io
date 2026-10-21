@@ -14,7 +14,7 @@ import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
 const PREMIUM_WHATSAPP = '6285156222635';
 const PREMIUM_PRICE_LABEL = 'Rp299.000/tahun';
 
-const SERTIFIKAT_OPTIONS = ['SHM', 'SHM & IMB', 'SHGB', 'HGB', 'AJB', 'Girik', 'PPJB', 'Lainnya'];
+const SERTIFIKAT_OPTIONS = ['SHM', 'SHM & IMB', 'SHM & PGB', 'SHGB', 'HGB', 'AJB', 'Girik', 'PPJB', 'Lainnya'];
 const AIR_OPTIONS = ['PDAM',
   'PAM Desa',
   'Sumur Gali',
