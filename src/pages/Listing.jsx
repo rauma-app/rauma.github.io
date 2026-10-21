@@ -36,17 +36,16 @@ const MATERIAL_ROWS = [
   { key: 'materialKloset', label: 'Kloset' },
 ];
 
-// Kartu kecil buat grid Spesifikasi (icon + label + value). Icon sengaja
-// warna polos (text-ink, sama kayak warna teks biasa) -- bukan
-// dikasih warna macem-macem kayak emoji dulu, biar konsisten & otomatis
-// ikut kebalik jadi putih kalau HP/browser lagi mode gelap, sama kayak
-// teks lain di halaman ini.
+// Baris Spesifikasi: label di kiri (abu), nilai di kanan (tebal), dipisah
+// garis tipis. Tanpa icon & tanpa kartu -> ringkas, 1 layar HP muat semua.
+// `Icon` masih diterima di props supaya pemanggil lama tidak perlu diubah,
+// tapi sengaja tidak ditampilkan.
+// eslint-disable-next-line no-unused-vars
 function SpecCard({ Icon, label, value }) {
   return (
-    <div className="rounded-2xl border border-line bg-white p-4">
-      <Icon className="text-ink/70" size={18} />
-      <p className="mt-2.5 text-xs text-ink/50">{label}</p>
-      <p className="text-sm font-semibold text-ink">{value}</p>
+    <div className="flex items-baseline justify-between gap-4 border-b border-line py-3">
+      <span className="shrink-0 text-sm text-ink/60">{label}</span>
+      <span className="text-right text-sm font-semibold text-ink">{value}</span>
     </div>
   );
 }
@@ -408,7 +407,9 @@ export default function Listing() {
           (bukan list panjang ke bawah), lebih cepat discan mata. */}
       <section className="mt-8">
         <h2 className="font-display text-xl font-semibold text-navy mb-3">Spesifikasi</h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {/* 1 kolom di HP; 2 kolom mulai layar sedang (md) supaya di desktop
+            label & nilai tidak terpisah jauh. */}
+        <div className="grid grid-cols-1 gap-x-10 md:grid-cols-2">
           {activeSpec.luasBangunan && (
             <SpecCard Icon={FaRulerCombined} label="Luas Bangunan" value={`${activeSpec.luasBangunan}m²`} />
           )}
