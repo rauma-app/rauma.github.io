@@ -36,16 +36,21 @@ const MATERIAL_ROWS = [
   { key: 'materialKloset', label: 'Kloset' },
 ];
 
-// Baris Spesifikasi: label di kiri (abu), nilai di kanan (tebal), dipisah
-// garis tipis. Tanpa icon & tanpa kartu -> ringkas, 1 layar HP muat semua.
-// `Icon` masih diterima di props supaya pemanggil lama tidak perlu diubah,
-// tapi sengaja tidak ditampilkan.
+// Baris Spesifikasi: label di kiri (abu), lalu ": nilai" mulai di titik
+// yang SAMA di setiap baris (kolom label lebar tetap), dipisah garis tipis.
+// Tanpa icon & tanpa kartu. `Icon` masih diterima di props supaya pemanggil
+// lama tidak perlu diubah, tapi sengaja tidak ditampilkan.
+// Kolom label: 9.5rem di HP, 11rem di layar sedang ke atas -- jadi di
+// desktop pun titik dua tetap rapi sejajar & dekat dengan labelnya.
 // eslint-disable-next-line no-unused-vars
 function SpecCard({ Icon, label, value }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-line py-3">
-      <span className="shrink-0 text-sm text-ink/60">{label}</span>
-      <span className="text-right text-sm font-semibold text-ink">{value}</span>
+    <div className="grid grid-cols-[9.5rem_1fr] items-baseline gap-x-2 border-b border-line py-3 md:grid-cols-[11rem_1fr]">
+      <span className="text-sm text-ink/60">{label}</span>
+      <span className="flex gap-2 text-base font-medium text-ink">
+        <span aria-hidden="true">:</span>
+        <span className="min-w-0">{value}</span>
+      </span>
     </div>
   );
 }
@@ -407,9 +412,8 @@ export default function Listing() {
           (bukan list panjang ke bawah), lebih cepat discan mata. */}
       <section className="mt-8">
         <h2 className="font-display text-xl font-semibold text-navy mb-3">Spesifikasi</h2>
-        {/* 1 kolom di HP; 2 kolom mulai layar sedang (md) supaya di desktop
-            label & nilai tidak terpisah jauh. */}
-        <div className="grid grid-cols-1 gap-x-10 md:grid-cols-2">
+        {/* 1 kolom di semua ukuran layar; lebar kolom label diatur di SpecCard. */}
+        <div>
           {activeSpec.luasBangunan && (
             <SpecCard Icon={FaRulerCombined} label="Luas Bangunan" value={`${activeSpec.luasBangunan}m²`} />
           )}
