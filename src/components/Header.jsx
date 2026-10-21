@@ -11,7 +11,7 @@ export default function Header() {
   const menuRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
-  // Ditandai true persis pas tombol "Pasang Iklan" diklik, sampai halaman
+  // Ditandai true persis pas tombol "Masuk" diklik, sampai halaman
   // beneran berpindah ke Google. Tanpa ini, jeda sebelum sampai ke Google
   // (rauma.id -> proxy Worker -> firebaseapp.com -> Google) kelihatan
   // kayak tombolnya gak ngapa-ngapain/macet, padahal proses login lagi
@@ -57,38 +57,31 @@ export default function Header() {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
-  // Login pakai redirect: halaman pindah total ke Google lalu balik lagi
-  // (reload), jadi `navigate('/posting')` di baris berikutnya gak akan
-  // sempat jalan kalau ditaruh langsung setelah await loginWithGoogle().
-  // Simpan dulu niatnya di sessionStorage, baru dieksekusi di useEffect di
-  // bawah begitu `user` beneran terisi (setelah balik dari Google).
-  const POST_LOGIN_REDIRECT_KEY = 'rauma_post_login_redirect';
-
+  // Login pakai redirect: halaman pindah total ke Google lalu balik lagi.
+  // Setelah masuk, user TIDAK diarahkan ke halaman lain -- tetap di halaman
+  // tempat dia menekan "Masuk" (kalau dari beranda ya tetap di beranda).
+  // Bersihkan sisa penanda redirect lama (/posting) kalau masih ada di
+  // sessionStorage dari versi sebelumnya, supaya tidak ikut kebawa.
   useEffect(() => {
-    if (!user) return;
-    const target = sessionStorage.getItem(POST_LOGIN_REDIRECT_KEY);
-    if (!target) return;
-    sessionStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
-    navigate(target);
-  }, [user, navigate]);
+    try {
+      sessionStorage.removeItem('rauma_post_login_redirect');
+    } catch (e) {
+      // sessionStorage bisa diblok di mode privat -- abaikan
+    }
+  }, []);
 
-  async function handlePostingClick() {
-    if (!user) {
-      setLoggingIn(true);
-      try {
-        sessionStorage.setItem(POST_LOGIN_REDIRECT_KEY, '/posting');
-        await loginWithGoogle();
-        // Kalau berhasil, browser udah pindah ke halaman Google duluan
-        // sebelum baris ini sempat jalan -- jadi setLoggingIn(false) di
-        // sini cuma kepake kalau redirect-nya gagal duluan sebelum
-        // sempat pindah halaman.
-      } catch (err) {
-        console.error('Login gagal:', err);
-        alert(`Login gagal: ${err.code || err.message}`);
-        setLoggingIn(false);
-      }
-    } else {
-      navigate('/posting');
+  async function handleLoginClick() {
+    setLoggingIn(true);
+    try {
+      await loginWithGoogle();
+      // Kalau berhasil, browser udah pindah ke halaman Google duluan
+      // sebelum baris ini sempat jalan -- jadi setLoggingIn(false) di
+      // sini cuma kepake kalau redirect-nya gagal duluan sebelum
+      // sempat pindah halaman.
+    } catch (err) {
+      console.error('Login gagal:', err);
+      alert(`Login gagal: ${err.code || err.message}`);
+      setLoggingIn(false);
     }
   }
 
@@ -105,11 +98,11 @@ export default function Header() {
 
         {!user ? (
           <button
-            onClick={handlePostingClick}
+            onClick={handleLoginClick}
             disabled={loggingIn}
             className="rounded-full bg-forest px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-forest-dark disabled:opacity-70"
           >
-            {loggingIn ? 'Membuka Google...' : '+ Pasang Iklan'}
+            {loggingIn ? 'Membuka Google...' : 'Masuk'}
           </button>
         ) : (
           <div className="relative" ref={menuRef}>
