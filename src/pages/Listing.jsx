@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { slugifyTitle } from '../lib/slugify';
+import { cleanOverview, overviewLabel } from '../lib/overview';
 import { d1Api } from '../lib/d1Api';
 import ImageSlider from '../components/ImageSlider';
 import ListingCard from '../components/ListingCard';
@@ -65,6 +66,7 @@ export default function Listing() {
   const { user } = useAuth();
   const [related, setRelated] = useState([]);
   const [materialOpen, setMaterialOpen] = useState(false);
+  const [overviewOpen, setOverviewOpen] = useState(false); // tertutup di awal
   const [selectedTypeIndex, setSelectedTypeIndex] = useState(0);
   const [descExpanded, setDescExpanded] = useState(false);
 
@@ -233,6 +235,9 @@ export default function Listing() {
   // baru dipotong & dikasih tombol "Selengkapnya" kalau salah satu kepenuhi.
   const isDescLong =
     (listing.description || '').length > 280 || (listing.description || '').split('\n').length > 6;
+  // Overview: hanya key yang dikenal, urut sesuai daftar
+  const overviewKeys = cleanOverview(listing.overview);
+
   // Pecah deskripsi jadi paragraf (dipisah baris kosong) supaya jarak antar
   // paragraf konsisten & rapi. ISI TEKS TIDAK DIUBAH; baris tunggal di dalam
   // paragraf (mis. "Tipe 7x12 / Mulai dari 1.6M") tetap utuh.
@@ -459,6 +464,40 @@ export default function Listing() {
           </a>
         )}
       </section>
+
+      {/* Overview (hanya tampil kalau penjual mencentang sesuatu). Tertutup di
+          awal; isinya label kecil polos tanpa centang. */}
+      {overviewKeys.length > 0 && (
+        <section className="mt-4">
+          <div className="rounded-2xl border border-line bg-white">
+            <button
+              type="button"
+              onClick={() => setOverviewOpen((o) => !o)}
+              aria-expanded={overviewOpen}
+              className="flex w-full items-center justify-between px-4 py-3.5 text-left"
+            >
+              <span className="font-display text-base font-semibold text-navy">Overview</span>
+              {overviewOpen ? (
+                <FaChevronUp className="text-ink/50" size={14} />
+              ) : (
+                <FaChevronDown className="text-ink/50" size={14} />
+              )}
+            </button>
+            {overviewOpen && (
+              <div className="flex flex-wrap gap-2 border-t border-line px-4 py-4">
+                {overviewKeys.map((key) => (
+                  <span
+                    key={key}
+                    className="rounded-full border border-line bg-cream px-3 py-1.5 text-sm text-ink/80"
+                  >
+                    {overviewLabel(key)}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Material Bangunan (opsional, hanya tampil kalau ada isinya) */}
       {MATERIAL_ROWS.some((row) => listing[row.key]) && (

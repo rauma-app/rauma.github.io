@@ -10,6 +10,7 @@ import { usePremium } from '../context/PremiumContext';
 import LocationAutocomplete from '../components/LocationAutocomplete';
 import InfoTip from '../components/InfoTip';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { OVERVIEW_SECTIONS, isOverviewLocked, toggleOverview, cleanOverview } from '../lib/overview';
 
 const PREMIUM_WHATSAPP = '6285156222635';
 const PREMIUM_PRICE_LABEL = 'Rp299.000/tahun';
@@ -78,6 +79,7 @@ const emptyForm = {
   air: '',
   sertifikat: '',
   videoUrl: '',
+  overview: [],
   description: '',
   whatsapp: '',
   materialPondasi: '',
@@ -141,6 +143,7 @@ export default function Posting() {
   const [listingCount, setListingCount] = useState(null);
   const [phoneLimitReached, setPhoneLimitReached] = useState(false);
   const [materialOpen, setMaterialOpen] = useState(false);
+  const [overviewOpen, setOverviewOpen] = useState(true);
   const [perumahanPhotoFile, setPerumahanPhotoFile] = useState(null);
   const [perumahanPhotoPreview, setPerumahanPhotoPreview] = useState('');
   // Tipe unit (khusus kategori Perumahan, misal "Tipe 36/72" / "Tipe 45/90"),
@@ -239,6 +242,7 @@ export default function Posting() {
           air: data.air || '',
           sertifikat: data.sertifikat || '',
           videoUrl: data.videoUrl || '',
+          overview: cleanOverview(data.overview),
           description: data.description || '',
           whatsapp: data.whatsapp || data.seller_phone || '',
           materialPondasi: data.materialPondasi || '',
@@ -630,6 +634,7 @@ export default function Posting() {
 
         // Detail Tambahan
         videoUrl: form.videoUrl ? form.videoUrl.trim() : null,
+        overview: cleanOverview(form.overview),
         description: form.description || '',
         phone: form.whatsapp || '',
         seller_phone: form.whatsapp || '',
@@ -1137,6 +1142,66 @@ export default function Posting() {
             className="input"
           />
         </Field>
+
+        {/* Overview: pilihan yang dicentang tampil sebagai label kecil di halaman iklan */}
+        <div className="rounded-xl border border-line bg-white">
+          <button
+            type="button"
+            onClick={() => setOverviewOpen((o) => !o)}
+            className="flex w-full items-center justify-between px-4 py-3.5 text-left"
+          >
+            <span className="text-sm font-semibold text-ink">
+              Overview <span className="font-normal text-ink/40">(opsional)</span>
+              {form.overview.length > 0 && (
+                <span className="ml-2 rounded-full bg-forest/10 px-2 py-0.5 text-xs font-medium text-forest">
+                  {form.overview.length} dipilih
+                </span>
+              )}
+            </span>
+            {overviewOpen ? (
+              <FaChevronUp className="text-ink/50" size={14} />
+            ) : (
+              <FaChevronDown className="text-ink/50" size={14} />
+            )}
+          </button>
+          {overviewOpen && (
+            <div className="space-y-5 border-t border-line px-4 py-4">
+              {OVERVIEW_SECTIONS.map((section) => (
+                <div key={section.title}>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">{section.title}</p>
+                  {section.hint && <p className="mt-0.5 text-[11px] text-ink/40">{section.hint}</p>}
+                  <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {section.items.map((item) => {
+                      const checked = form.overview.includes(item.key);
+                      const locked = isOverviewLocked(form.overview, item.key);
+                      return (
+                        <label
+                          key={item.key}
+                          className={`flex items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition ${
+                            checked
+                              ? 'cursor-pointer border-forest bg-forest/10 font-medium text-navy'
+                              : locked
+                              ? 'cursor-not-allowed border-line bg-cream/60 text-ink/30'
+                              : 'cursor-pointer border-line bg-white text-ink/80'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={locked}
+                            onChange={() => update('overview', toggleOverview(form.overview, item.key))}
+                            className="h-4 w-4 shrink-0 accent-forest"
+                          />
+                          <span className="leading-tight">{item.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="rounded-xl border border-line bg-white">
           <button
