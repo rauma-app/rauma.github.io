@@ -34,7 +34,19 @@ function normalizeListing(raw) {
     }
   }
   if (!Array.isArray(images)) images = [];
-  return { ...raw, images };
+
+  // Overview disimpan sebagai teks JSON di D1 -> jadikan array
+  let overview = raw.overview;
+  if (typeof overview === 'string') {
+    try {
+      overview = JSON.parse(overview);
+    } catch {
+      overview = [];
+    }
+  }
+  if (!Array.isArray(overview)) overview = [];
+
+  return { ...raw, images, overview };
 }
 
 export const d1Api = {
