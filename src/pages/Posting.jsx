@@ -143,7 +143,7 @@ export default function Posting() {
   const [listingCount, setListingCount] = useState(null);
   const [phoneLimitReached, setPhoneLimitReached] = useState(false);
   const [materialOpen, setMaterialOpen] = useState(false);
-  const [overviewOpen, setOverviewOpen] = useState(true);
+  const [overviewOpen, setOverviewOpen] = useState(false); // tertutup di awal, seperti Material
   const [perumahanPhotoFile, setPerumahanPhotoFile] = useState(null);
   const [perumahanPhotoPreview, setPerumahanPhotoPreview] = useState('');
   // Tipe unit (khusus kategori Perumahan, misal "Tipe 36/72" / "Tipe 45/90"),
@@ -313,6 +313,10 @@ export default function Posting() {
         // section-nya otomatis biar user langsung lihat & bisa ubah.
         if (data.materialPondasi || data.materialDinding || data.materialAtap || data.materialKusen || data.materialLantai || data.materialKloset) {
           setMaterialOpen(true);
+        }
+        // Sama untuk Overview: kalau iklan lama sudah punya pilihan, buka otomatis.
+        if (cleanOverview(data.overview).length > 0) {
+          setOverviewOpen(true);
         }
 
         setPriceDisplay(formatThousands(String(data.price || '')));

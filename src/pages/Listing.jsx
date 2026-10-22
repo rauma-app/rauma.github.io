@@ -466,36 +466,34 @@ export default function Listing() {
       </section>
 
       {/* Overview (hanya tampil kalau penjual mencentang sesuatu). Tertutup di
-          awal; isinya label kecil polos tanpa centang. */}
+          awal; polos tanpa kotak putih, tiap label punya latar navy tipis. */}
       {overviewKeys.length > 0 && (
         <section className="mt-4">
-          <div className="rounded-2xl border border-line bg-white">
-            <button
-              type="button"
-              onClick={() => setOverviewOpen((o) => !o)}
-              aria-expanded={overviewOpen}
-              className="flex w-full items-center justify-between px-4 py-3.5 text-left"
-            >
-              <span className="font-display text-base font-semibold text-navy">Overview</span>
-              {overviewOpen ? (
-                <FaChevronUp className="text-ink/50" size={14} />
-              ) : (
-                <FaChevronDown className="text-ink/50" size={14} />
-              )}
-            </button>
-            {overviewOpen && (
-              <div className="flex flex-wrap gap-2 border-t border-line px-4 py-4">
-                {overviewKeys.map((key) => (
-                  <span
-                    key={key}
-                    className="rounded-full border border-line bg-cream px-3 py-1.5 text-sm text-ink/80"
-                  >
-                    {overviewLabel(key)}
-                  </span>
-                ))}
-              </div>
+          <button
+            type="button"
+            onClick={() => setOverviewOpen((o) => !o)}
+            aria-expanded={overviewOpen}
+            className="flex w-full items-center justify-between border-b border-line py-3.5 text-left"
+          >
+            <span className="font-display text-base font-semibold text-navy">Overview</span>
+            {overviewOpen ? (
+              <FaChevronUp className="text-ink/50" size={14} />
+            ) : (
+              <FaChevronDown className="text-ink/50" size={14} />
             )}
-          </div>
+          </button>
+          {overviewOpen && (
+            <div className="flex flex-wrap gap-2 pt-4">
+              {overviewKeys.map((key) => (
+                <span
+                  key={key}
+                  className="rounded-full bg-navy/10 px-3.5 py-1.5 text-sm font-medium text-navy"
+                >
+                  {overviewLabel(key)}
+                </span>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
