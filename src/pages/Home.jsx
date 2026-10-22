@@ -27,6 +27,27 @@ const CATEGORY_SHORTCUTS = [
 const PRIBADI_PAGE_SIZE = 8;
 const PERUMAHAN_ROW_LIMIT = 8;
 
+// Ditampilkan kalau daftar GAGAL dimuat (beda dari "memang belum ada iklan"),
+// biar pengunjung tidak mengira situs kosong.
+function LoadErrorNotice({ message, onRetry }) {
+  return (
+    <div className="mt-4 rounded-2xl border border-line bg-white p-4">
+      <p className="text-sm font-medium text-ink/80">Iklan belum berhasil dimuat.</p>
+      <p className="mt-1 text-xs text-ink/40">
+        Cek koneksi internet, lalu coba lagi. Kalau dibuka dari Instagram, coba buka lewat Chrome.
+      </p>
+      <p className="mt-1 break-words text-[11px] text-ink/30">{message}</p>
+      <button
+        type="button"
+        onClick={onRetry}
+        className="mt-3 rounded-full bg-forest px-5 py-2 text-sm font-semibold text-white"
+      >
+        Coba lagi
+      </button>
+    </div>
+  );
+}
+
 export default function Home() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
@@ -39,6 +60,7 @@ export default function Home() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [userLoc, setUserLoc] = useState(null); // cuma keisi kalau user izinkan GPS
   const userLocRef = useRef(null); // salinan userLoc buat dicek di callback async
+  const [loadError, setLoadError] = useState(''); // pesan error kalau daftar gagal dimuat
   const [loading, setLoading] = useState(true);
 
   // Begitu user izinkan lokasi GPS, Perumahan & Rumah Pribadi otomatis
@@ -93,11 +115,23 @@ export default function Home() {
   // rumah terdekat gak akan terlewat gara-gara batas ini.
   const loadInitial = useCallback(async () => {
     setLoading(true);
-    try {
-      const [perumahanRaw, pribadiRaw] = await Promise.all([
-        d1Api.getListings({ type: 'perumahan', limit: PERUMAHAN_ROW_LIMIT + 1 }),
-        d1Api.getListings({ type: 'pribadi', limit: PRIBADI_PAGE_SIZE + 1 }),
+    setLoadError('');
+    const fetchBoth = () =>
+      Promise.all([
+        d1Api.getListings({ type: 'perumahan', limit: PERUMAHAN_ROW_LIMIT + 1, throwOnError: true }),
+        d1Api.getListings({ type: 'pribadi', limit: PRIBADI_PAGE_SIZE + 1, throwOnError: true }),
       ]);
+    try {
+      let result;
+      try {
+        result = await fetchBoth();
+      } catch (firstErr) {
+        // Browser dalam aplikasi (Instagram, dll.) kadang gagal di percobaan
+        // pertama -> coba sekali lagi sebelum menyerah.
+        await new Promise((r) => setTimeout(r, 1200));
+        result = await fetchBoth();
+      }
+      const [perumahanRaw, pribadiRaw] = result;
       // GPS sudah keburu kasih hasil "terdekat" -> jangan ditimpa "terbaru"
       if (userLocRef.current) return;
 
@@ -112,6 +146,9 @@ export default function Home() {
       setPagePribadi(1);
     } catch (err) {
       console.error('Gagal memuat listing dari D1:', err);
+      if (!userLocRef.current) {
+        setLoadError(err?.message || 'Koneksi bermasalah');
+      }
     } finally {
       setLoading(false);
     }
@@ -305,7 +342,11 @@ export default function Home() {
         <section className="mt-8">
           <h2 className="font-display text-xl font-semibold text-navy">Perumahan</h2>
           {perumahan.length === 0 && !loading ? (
-            <p className="mt-4 text-sm text-ink/40">Belum ada listing perumahan.</p>
+            loadError ? (
+              <LoadErrorNotice message={loadError} onRetry={loadInitial} />
+            ) : (
+              <p className="mt-4 text-sm text-ink/40">Belum ada listing perumahan.</p>
+            )
           ) : (
             <div className="-mx-4 mt-4 overflow-x-auto px-4 pb-2">
               <div className="flex gap-4" style={{ width: 'max-content' }}>
@@ -336,7 +377,11 @@ export default function Home() {
         <section className="mt-10">
           <h2 className="font-display text-xl font-semibold text-navy">Rumah Pribadi</h2>
           {pribadi.length === 0 && !loading ? (
-            <p className="mt-4 text-sm text-ink/40">Belum ada listing rumah pribadi.</p>
+            loadError ? (
+              <LoadErrorNotice message={loadError} onRetry={loadInitial} />
+            ) : (
+              <p className="mt-4 text-sm text-ink/40">Belum ada listing rumah pribadi.</p>
+            )
           ) : (
             <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
               {pribadi.map((l) => (
