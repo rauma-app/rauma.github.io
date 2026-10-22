@@ -60,11 +60,14 @@ export const d1Api = {
       const url = `${API_BASE_URL}/listings${query ? `?${query}` : ''}`;
       const headers = params.status && params.status !== 'approved' ? await authHeaders() : {};
       const res = await fetch(url, { headers });
-      if (!res.ok) throw new Error('Gagal mengambil data properti');
+      if (!res.ok) throw new Error(`Gagal mengambil data properti (HTTP ${res.status})`);
       const data = await res.json();
       return Array.isArray(data) ? data.map(normalizeListing) : [];
     } catch (err) {
       console.error('Error d1Api.getListings:', err);
+      // Halaman yang perlu membedakan "kosong" vs "gagal" (mis. Beranda)
+      // minta lewat { throwOnError: true }. Yang lain tetap dapat [] seperti biasa.
+      if (params.throwOnError) throw err;
       return [];
     }
   },
