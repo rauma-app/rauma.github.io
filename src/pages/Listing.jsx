@@ -233,6 +233,20 @@ export default function Listing() {
   // baru dipotong & dikasih tombol "Selengkapnya" kalau salah satu kepenuhi.
   const isDescLong =
     (listing.description || '').length > 280 || (listing.description || '').split('\n').length > 6;
+  // Pecah deskripsi jadi paragraf (dipisah baris kosong) supaya jarak antar
+  // paragraf konsisten & rapi. ISI TEKS TIDAK DIUBAH; baris tunggal di dalam
+  // paragraf (mis. "Tipe 7x12 / Mulai dari 1.6M") tetap utuh.
+  const descParagraphs = (listing.description || '')
+    .replace(/\r\n/g, '\n')
+    .split(/\n{2,}/)
+    .map((para) => para.trim())
+    .filter(Boolean);
+  // Paragraf pertama yang pendek & tidak diakhiri tanda baca = judul/pembuka
+  // -> ditampilkan lebih besar dengan font serif.
+  const descHasHeadline =
+    descParagraphs.length > 1 &&
+    descParagraphs[0].length <= 100 &&
+    !/[.!?:]$/.test(descParagraphs[0]);
   const activeType =
     Array.isArray(listing.unitTypes) && listing.unitTypes.length > 0
       ? listing.unitTypes[selectedTypeIndex] || listing.unitTypes[0]
@@ -411,7 +425,7 @@ export default function Listing() {
           gaya minimalis kayak Rumah123/99.co. Tiap kartu berdiri sendiri
           (bukan list panjang ke bawah), lebih cepat discan mata. */}
       <section className="mt-8">
-        <h2 className="font-display text-xl font-semibold text-navy mb-3">Spesifikasi</h2>
+        <h2 className="section-rule font-display text-xl font-semibold text-navy">Spesifikasi</h2>
         {/* 1 kolom di semua ukuran layar; lebar kolom label diatur di SpecCard. */}
         <div>
           {activeSpec.luasBangunan && (
@@ -476,33 +490,45 @@ export default function Listing() {
         </section>
       )}
 
-      {/* Deskripsi */}
+      {/* Deskripsi -- gaya editorial: tanpa kotak, huruf lega, pembuka serif */}
       {listing.description && (
-        <section className="mt-8">
-          <h2 className="font-display text-xl font-semibold text-navy mb-3">Deskripsi</h2>
-          <div className="rounded-2xl border border-line bg-white p-4">
-            <div className="relative">
-              <p
-                className={`whitespace-pre-line text-sm leading-relaxed text-ink/80 ${
-                  !descExpanded && isDescLong ? 'max-h-[7.5rem] overflow-hidden' : ''
-                }`}
-              >
-                {listing.description}
-              </p>
-              {!descExpanded && isDescLong && (
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" />
+        <section className="mt-10">
+          <h2 className="section-rule font-display text-xl font-semibold text-navy">Deskripsi</h2>
+          <div className="relative sm:max-w-[68ch]">
+            <div
+              className={`space-y-5 text-[15px] leading-[1.85] text-ink/85 sm:text-base sm:leading-[1.9] ${
+                !descExpanded && isDescLong ? 'max-h-[14rem] overflow-hidden' : ''
+              }`}
+            >
+              {descParagraphs.map((para, i) =>
+                i === 0 && descHasHeadline ? (
+                  <p
+                    key={i}
+                    className="font-display text-lg font-medium leading-snug text-navy sm:text-xl"
+                  >
+                    {para}
+                  </p>
+                ) : (
+                  <p key={i} className="whitespace-pre-line">
+                    {para}
+                  </p>
+                )
               )}
             </div>
-            {isDescLong && (
-              <button
-                type="button"
-                onClick={() => setDescExpanded((v) => !v)}
-                className="mt-2 text-sm font-semibold text-forest hover:underline"
-              >
-                {descExpanded ? 'Sembunyikan' : 'Selengkapnya'}
-              </button>
+            {!descExpanded && isDescLong && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-cream via-cream/90 to-transparent" />
             )}
           </div>
+          {isDescLong && (
+            <button
+              type="button"
+              onClick={() => setDescExpanded((v) => !v)}
+              className="mt-4 inline-flex items-center gap-2 rounded-full border border-navy/25 px-5 py-2 text-sm font-semibold text-navy transition hover:bg-navy hover:text-white"
+            >
+              {descExpanded ? 'Sembunyikan' : 'Selengkapnya'}
+              {descExpanded ? <FaChevronUp size={11} /> : <FaChevronDown size={11} />}
+            </button>
+          )}
         </section>
       )}
 
