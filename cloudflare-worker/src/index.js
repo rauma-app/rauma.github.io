@@ -86,6 +86,38 @@ const ALLOWED_ORIGINS = [
   "http://localhost:3000",
 ];
 
+// Daftar pilihan "Overview" yang diizinkan. SALINAN dari src/lib/overview.js
+// di frontend -- kalau salah satu diubah, ubah yang lain juga.
+// `lock` sama = hanya boleh salah satu.
+const OVERVIEW_ITEMS = [
+  ["siap_huni"], ["furnished", "furnish"], ["semi_furnished", "furnish"], ["unfurnished", "furnish"],
+  ["nego", "harga"], ["harga_net", "harga"], ["kpr"],
+  ["cctv"], ["security_24"], ["one_gate"], ["perumahan"], ["cluster"], ["bebas_banjir"],
+  ["jalan_1_mobil", "jalan"], ["jalan_2_mobil", "jalan"], ["jalan_3_mobil", "jalan"],
+  ["dekat_pasar"], ["dekat_tol"], ["dekat_sekolah"], ["dekat_rs"], ["dekat_transportasi"],
+  ["carport"], ["taman"], ["balkon"], ["smart_home"],
+  ["hadap_utara", "hadap"], ["hadap_timur", "hadap"], ["hadap_selatan", "hadap"], ["hadap_barat", "hadap"],
+];
+
+// Bersihkan kiriman klien: buang key asing & duplikat, tegakkan aturan
+// "salah satu" per grup, urut sesuai daftar. Mengembalikan teks JSON, atau
+// null kalau klien TIDAK mengirim overview (supaya data lama tidak terhapus).
+function sanitizeOverview(value) {
+  if (!Array.isArray(value)) return null;
+  const lockOf = new Map(OVERVIEW_ITEMS.map(([k, lock]) => [k, lock || null]));
+  const picked = [];
+  const usedLocks = new Set();
+  for (const key of value) {
+    if (typeof key !== "string" || !lockOf.has(key) || picked.includes(key)) continue;
+    const lock = lockOf.get(key);
+    if (lock && usedLocks.has(lock)) continue;
+    if (lock) usedLocks.add(lock);
+    picked.push(key);
+  }
+  const ordered = OVERVIEW_ITEMS.map(([k]) => k).filter((k) => picked.includes(k));
+  return JSON.stringify(ordered);
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -1502,8 +1534,8 @@ export default {
               phone, seller_phone, whatsapp, seller_uid, ownerUid, ownerName, ownerPhoto,
               images, status,
               materialPondasi, materialDinding, materialAtap, materialKusen, materialLantai, materialKloset,
-              perumahanName, perumahanPhoto, unitTypes, perumahanSlug
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              perumahanName, perumahanPhoto, unitTypes, perumahanSlug, overview
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               title=excluded.title, type=excluded.type, category=excluded.category, price=excluded.price,
               cicilanPerBulan=excluded.cicilanPerBulan, location=excluded.location, kabupaten=excluded.kabupaten,
@@ -1518,7 +1550,8 @@ export default {
               materialAtap=excluded.materialAtap, materialKusen=excluded.materialKusen,
               materialLantai=excluded.materialLantai, materialKloset=excluded.materialKloset,
               perumahanName=excluded.perumahanName, perumahanPhoto=excluded.perumahanPhoto,
-              unitTypes=excluded.unitTypes`
+              unitTypes=excluded.unitTypes,
+              overview=COALESCE(excluded.overview, listings.overview)`
           )
             .bind(
               idToSave,
@@ -1560,7 +1593,8 @@ export default {
               body.perumahanName || null,
               body.perumahanPhoto || null,
               unitTypesJson,
-              perumahanSlug
+              perumahanSlug,
+              sanitizeOverview(body.overview)
             )
             .run();
 
