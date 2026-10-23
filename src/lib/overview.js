@@ -55,10 +55,6 @@ export const OVERVIEW_SECTIONS = [
     ],
   },
   {
-    title: 'Posisi',
-    items: [{ key: 'hook', label: 'Hook' }],
-  },
-  {
     title: 'Fasilitas',
     items: [
       { key: 'carport', label: 'Carport' },
@@ -69,9 +65,10 @@ export const OVERVIEW_SECTIONS = [
     ],
   },
   {
-    title: 'Arah Hadap',
-    hint: 'Pilih salah satu',
+    title: 'Arah Hadap & Posisi',
+    hint: 'Arah hadap: pilih salah satu',
     items: [
+      { key: 'hook', label: 'Hook' },
       { key: 'hadap_utara', label: 'Hadap Utara', lock: 'hadap' },
       { key: 'hadap_timur', label: 'Hadap Timur', lock: 'hadap' },
       { key: 'hadap_selatan', label: 'Hadap Selatan', lock: 'hadap' },
