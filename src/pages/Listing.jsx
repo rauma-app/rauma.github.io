@@ -399,7 +399,7 @@ export default function Listing() {
           <p className="text-xs font-medium uppercase tracking-wide text-ink/40">{activeType.name}</p>
         )}
         <div className="flex flex-wrap items-baseline gap-x-2">
-          <p className="font-display text-3xl font-bold text-navy">{formattedPriceShort}</p>
+          <p className="text-3xl font-bold text-navy">{formattedPriceShort}</p>
           {activeSpec.cicilanPerBulan && formatMonthlyShort && (
             <p className="text-sm text-ink/50">
               Mulai {formatMonthlyShort(activeSpec.cicilanPerBulan)}
@@ -443,7 +443,7 @@ export default function Listing() {
           gaya minimalis kayak Rumah123/99.co. Tiap kartu berdiri sendiri
           (bukan list panjang ke bawah), lebih cepat discan mata. */}
       <section className="mt-8">
-        <h2 className="section-rule font-display text-xl font-semibold text-navy">Spesifikasi</h2>
+        <h2 className="section-rule text-xl font-semibold text-navy">Spesifikasi</h2>
         {/* 1 kolom di semua ukuran layar; lebar kolom label diatur di SpecCard. */}
         <div>
           {activeSpec.luasBangunan && (
@@ -492,7 +492,7 @@ export default function Listing() {
             aria-expanded={overviewOpen}
             className="flex w-full items-center justify-between border-b border-line py-3.5 text-left"
           >
-            <span className="font-display text-base font-semibold text-navy">Overview</span>
+            <span className="text-base font-semibold text-navy">Overview</span>
             {overviewOpen ? (
               <FaChevronUp className="text-ink/50" size={14} />
             ) : (
@@ -523,7 +523,7 @@ export default function Listing() {
               onClick={() => setMaterialOpen((o) => !o)}
               className="flex w-full items-center justify-between px-4 py-3.5 text-left"
             >
-              <span className="font-display text-base font-semibold text-navy">Material</span>
+              <span className="text-base font-semibold text-navy">Material</span>
               {materialOpen ? (
                 <FaChevronUp className="text-ink/50" size={14} />
               ) : (
@@ -547,7 +547,7 @@ export default function Listing() {
       {/* Deskripsi -- gaya editorial: tanpa kotak, huruf lega, pembuka serif */}
       {listing.description && (
         <section className="mt-10">
-          <h2 className="section-rule font-display text-xl font-semibold text-navy">Deskripsi</h2>
+          <h2 className="section-rule text-xl font-semibold text-navy">Deskripsi</h2>
           <div className="relative sm:max-w-[68ch]">
             <div
               className={`space-y-5 text-[15px] leading-[1.85] text-ink/85 sm:text-base sm:leading-[1.9] ${
@@ -656,7 +656,7 @@ export default function Listing() {
       {/* Rekomendasi Terkait */}
       {related.length > 0 && ListingCard && (
         <section className="mt-8">
-          <h2 className="font-display text-xl font-semibold text-navy mb-3">
+          <h2 className="text-xl font-semibold text-navy mb-3">
             Rumah Lain di {listing.kabupaten}
           </h2>
           <div className="grid grid-cols-2 gap-4">
