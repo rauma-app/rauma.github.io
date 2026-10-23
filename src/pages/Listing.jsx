@@ -38,17 +38,14 @@ const MATERIAL_ROWS = [
 ];
 
 // Jumlah kamar di halaman iklan. Disimpan sebagai TOTAL (mis. 5) + jumlah
-// kamar pembantu (mis. 1) -> ditampilkan "4+1". Tanpa kamar pembantu tampil
-// angka biasa. (Kartu iklan tetap menampilkan total supaya ringkas.)
+// kamar tambahan (mis. 1) -> ditampilkan "4+1" tanpa keterangan tambahan.
+// Tanpa kamar tambahan tampil angka biasa. (Kartu iklan tetap menampilkan
+// total supaya ringkas.)
 function formatRooms(total, extra) {
   const t = Number(total) || 0;
   const e = Math.min(Math.max(Number(extra) || 0, 0), t);
   if (!e) return String(total);
-  return (
-    <>
-      {t - e}+{e} <span className="text-sm font-normal text-ink/50">(kamar pembantu)</span>
-    </>
-  );
+  return `${t - e}+${e}`;
 }
 
 // Baris Spesifikasi: label di kiri (abu), lalu ": nilai" mulai di titik
