@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { d1Api } from '../lib/d1Api';
 import { r2Uploader } from '../lib/r2Uploader';
@@ -75,6 +75,8 @@ const emptyForm = {
   unitTersedia: '',
   bedrooms: '',
   bathrooms: '',
+  bedroomsExtra: '',
+  bathroomsExtra: '',
   electricity: '',
   air: '',
   sertifikat: '',
@@ -95,6 +97,21 @@ const emptyForm = {
 const MAX_PHOTOS = 10;
 const MAX_UNIT_TYPES = 5;
 
+// Kamar disimpan sebagai TOTAL + jumlah kamar pembantu, tapi di form diisi
+// terpisah (mis. 4 dan 1). Dua fungsi ini menerjemahkan bolak-balik.
+function splitRooms(total, extra) {
+  const t = Number(total) || 0;
+  const e = Math.min(Math.max(Number(extra) || 0, 0), t);
+  return { main: t ? String(t - e) : '', extra: e ? String(e) : '' };
+}
+function totalRooms(main, extra) {
+  const total = (Number(main) || 0) + (Number(extra) || 0);
+  return total > 0 ? total : null;
+}
+function extraRooms(extra) {
+  return Math.max(Number(extra) || 0, 0);
+}
+
 function emptyUnitType() {
   return {
     key: `t${Date.now()}${Math.random().toString(36).slice(2)}`,
@@ -107,6 +124,8 @@ function emptyUnitType() {
     luasBangunan: '',
     bedrooms: '',
     bathrooms: '',
+    bedroomsExtra: '',
+    bathroomsExtra: '',
     electricity: '',
     // Foto khusus tipe ini (opsional). Kalau kosong, halaman detail
     // otomatis pakai foto rumah utama di atas.
@@ -134,9 +153,17 @@ export default function Posting() {
   const isMultiType = form.type === 'perumahan';
   const [priceDisplay, setPriceDisplay] = useState('');
   const [cicilanDisplay, setCicilanDisplay] = useState('');
-  const [files, setFiles] = useState([]);
-  const [existingImages, setExistingImages] = useState([]);
-  const [previews, setPreviews] = useState([]);
+  // Foto utama: SATU daftar berurutan (foto lama + foto baru bercampur) supaya
+  // bisa ditahan lalu ditarik untuk mengubah urutan. Foto pertama = foto utama.
+  // { id, kind: 'existing' | 'new', src, file? }
+  const [photos, setPhotos] = useState([]);
+  const [draggingId, setDraggingId] = useState(null);
+  const photosRef = useRef(photos);
+  photosRef.current = photos;
+  const photoRefs = useRef({});
+  const photoCounter = useRef(0);
+  const dragCleanupRef = useRef(null);
+  useEffect(() => () => dragCleanupRef.current?.(), []);
   const [submitting, setSubmitting] = useState(false);
   const [loadingExisting, setLoadingExisting] = useState(isEditMode);
   const [error, setError] = useState('');
@@ -236,8 +263,10 @@ export default function Posting() {
           luasTanah: data.luasTanah ?? '',
           luasBangunan: data.luasBangunan ?? '',
           unitTersedia: data.unitTersedia ?? '',
-          bedrooms: data.bedrooms ?? '',
-          bathrooms: data.bathrooms ?? '',
+          bedrooms: splitRooms(data.bedrooms, data.bedroomsExtra).main,
+          bedroomsExtra: splitRooms(data.bedrooms, data.bedroomsExtra).extra,
+          bathrooms: splitRooms(data.bathrooms, data.bathroomsExtra).main,
+          bathroomsExtra: splitRooms(data.bathrooms, data.bathroomsExtra).extra,
           electricity: data.electricity || '',
           air: data.air || '',
           sertifikat: data.sertifikat || '',
@@ -282,8 +311,10 @@ export default function Posting() {
                 cicilanDisplay: t.cicilanPerBulan ? formatThousands(String(t.cicilanPerBulan)) : '',
                 luasTanah: t.luasTanah ?? '',
                 luasBangunan: t.luasBangunan ?? '',
-                bedrooms: t.bedrooms ?? '',
-                bathrooms: t.bathrooms ?? '',
+                bedrooms: splitRooms(t.bedrooms, t.bedroomsExtra).main,
+                bedroomsExtra: splitRooms(t.bedrooms, t.bedroomsExtra).extra,
+                bathrooms: splitRooms(t.bathrooms, t.bathroomsExtra).main,
+                bathroomsExtra: splitRooms(t.bathrooms, t.bathroomsExtra).extra,
                 electricity: t.electricity || '',
                 files: [],
                 previews: typeImages,
@@ -302,8 +333,10 @@ export default function Posting() {
               cicilanDisplay: data.cicilanPerBulan ? formatThousands(String(data.cicilanPerBulan)) : '',
               luasTanah: data.luasTanah ?? '',
               luasBangunan: data.luasBangunan ?? '',
-              bedrooms: data.bedrooms ?? '',
-              bathrooms: data.bathrooms ?? '',
+              bedrooms: splitRooms(data.bedrooms, data.bedroomsExtra).main,
+              bedroomsExtra: splitRooms(data.bedrooms, data.bedroomsExtra).extra,
+              bathrooms: splitRooms(data.bathrooms, data.bathroomsExtra).main,
+              bathroomsExtra: splitRooms(data.bathrooms, data.bathroomsExtra).extra,
               electricity: data.electricity || '',
             },
           ]);
@@ -321,8 +354,7 @@ export default function Posting() {
 
         setPriceDisplay(formatThousands(String(data.price || '')));
         setCicilanDisplay(data.cicilanPerBulan ? formatThousands(String(data.cicilanPerBulan)) : '');
-        setExistingImages(Array.isArray(imgs) ? imgs : []);
-        setPreviews(Array.isArray(imgs) ? imgs : []);
+        setPhotos((Array.isArray(imgs) ? imgs : []).map((url, i) => ({ id: `e${i}`, kind: 'existing', src: url })));
       } catch (err) {
         console.error('Gagal memuat data iklan:', err);
         setError('Gagal memuat data iklan.');
@@ -432,32 +464,98 @@ export default function Posting() {
   }
 
   function totalPhotoCount() {
-    return existingImages.length + files.length;
+    return photos.length;
   }
 
   function handleFiles(e) {
     const incoming = Array.from(e.target.files || []);
-    const room = MAX_PHOTOS - totalPhotoCount();
+    const room = MAX_PHOTOS - photos.length;
     const accepted = incoming.slice(0, Math.max(room, 0));
-    setFiles((prev) => {
-      const combined = [...prev, ...accepted];
-      setPreviews([...existingImages, ...combined.map((f) => URL.createObjectURL(f))]);
-      return combined;
-    });
+    if (accepted.length > 0) {
+      const added = accepted.map((file) => ({
+        id: `n${Date.now()}_${photoCounter.current++}`,
+        kind: 'new',
+        src: URL.createObjectURL(file),
+        file,
+      }));
+      // Foto yang BARU ditambahkan ditaruh di DEPAN (yang terbaru = paling
+      // depan). Kalau memilih beberapa sekaligus, urutan pilihan tetap.
+      setPhotos((prev) => [...added, ...prev]);
+    }
     e.target.value = '';
   }
 
-  function removePhoto(index) {
-    if (index < existingImages.length) {
-      const updatedExisting = existingImages.filter((_, i) => i !== index);
-      setExistingImages(updatedExisting);
-      setPreviews([...updatedExisting, ...files.map((f) => URL.createObjectURL(f))]);
-    } else {
-      const fileIndex = index - existingImages.length;
-      const updatedFiles = files.filter((_, i) => i !== fileIndex);
-      setFiles(updatedFiles);
-      setPreviews([...existingImages, ...updatedFiles.map((f) => URL.createObjectURL(f))]);
-    }
+  function removePhoto(id) {
+    setPhotos((prev) => {
+      const target = prev.find((p) => p.id === id);
+      if (target?.kind === 'new') URL.revokeObjectURL(target.src);
+      return prev.filter((p) => p.id !== id);
+    });
+  }
+
+  function movePhoto(id, toIndex) {
+    setPhotos((prev) => {
+      const from = prev.findIndex((p) => p.id === id);
+      if (from < 0 || from === toIndex) return prev;
+      const next = [...prev];
+      const [item] = next.splice(from, 1);
+      next.splice(toIndex, 0, item);
+      return next;
+    });
+  }
+
+  // Tahan ~0,3 detik lalu tarik ke posisi lain. Gerak sebelum itu dianggap
+  // scroll biasa. Jalan untuk jari (HP) maupun mouse.
+  function startPhotoPress(e, id) {
+    if (e.target.closest('[data-photo-action]')) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    dragCleanupRef.current?.();
+
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let dragging = false;
+    let timer = null;
+
+    const blockScroll = (ev) => {
+      if (dragging && ev.cancelable) ev.preventDefault();
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', cleanup);
+      window.removeEventListener('pointercancel', cleanup);
+      window.removeEventListener('touchmove', blockScroll);
+      dragCleanupRef.current = null;
+      setDraggingId(null);
+    };
+    const onMove = (ev) => {
+      if (!dragging) {
+        // jari bergeser sebelum tahan cukup lama -> itu scroll, batalkan
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) > 8) cleanup();
+        return;
+      }
+      for (const [pid, el] of Object.entries(photoRefs.current)) {
+        if (!el || pid === id) continue;
+        const r = el.getBoundingClientRect();
+        if (ev.clientX >= r.left && ev.clientX <= r.right && ev.clientY >= r.top && ev.clientY <= r.bottom) {
+          const to = photosRef.current.findIndex((p) => p.id === pid);
+          if (to >= 0) movePhoto(id, to);
+          break;
+        }
+      }
+    };
+
+    timer = setTimeout(() => {
+      dragging = true;
+      setDraggingId(id);
+      if (navigator.vibrate) navigator.vibrate(15);
+    }, 300);
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', cleanup);
+    window.addEventListener('pointercancel', cleanup);
+    window.addEventListener('touchmove', blockScroll, { passive: false });
+    dragCleanupRef.current = cleanup;
   }
 
     async function handleSubmit(e) {
@@ -521,16 +619,21 @@ export default function Posting() {
     setSubmitting(true);
     try {
       // 1. Upload Foto Baru ke R2
+      const newFiles = photos.filter((p) => p.kind === 'new').map((p) => p.file);
       let newImageUrls = [];
-      if (files.length > 0) {
+      if (newFiles.length > 0) {
         if (typeof r2Uploader?.uploadMany === 'function') {
-          newImageUrls = await r2Uploader.uploadMany(files);
+          newImageUrls = await r2Uploader.uploadMany(newFiles);
         } else if (typeof r2Uploader?.uploadFile === 'function') {
-          newImageUrls = await Promise.all(files.map((f) => r2Uploader.uploadFile(f)));
+          newImageUrls = await Promise.all(newFiles.map((f) => r2Uploader.uploadFile(f)));
         }
       }
 
-      const imageUrls = [...existingImages, ...newImageUrls];
+      // Susun sesuai URUTAN di layar (foto lama & baru bisa bercampur)
+      let nextNew = 0;
+      const imageUrls = photos
+        .map((p) => (p.kind === 'existing' ? p.src : newImageUrls[nextNew++]))
+        .filter(Boolean);
 
       // Safe Extraction untuk Lokasi
       const locObj = typeof form.location === 'object' && form.location !== null ? form.location : {};
@@ -568,8 +671,10 @@ export default function Posting() {
               cicilanPerBulan: t.cicilanRaw ? Number(t.cicilanRaw) : null,
               luasTanah: t.luasTanah ? Number(t.luasTanah) : null,
               luasBangunan: t.luasBangunan ? Number(t.luasBangunan) : null,
-              bedrooms: t.bedrooms ? Number(t.bedrooms) : null,
-              bathrooms: t.bathrooms ? Number(t.bathrooms) : null,
+              bedrooms: totalRooms(t.bedrooms, t.bedroomsExtra),
+              bedroomsExtra: extraRooms(t.bedroomsExtra),
+              bathrooms: totalRooms(t.bathrooms, t.bathroomsExtra),
+              bathroomsExtra: extraRooms(t.bathroomsExtra),
               electricity: t.electricity || null,
               // Foto khusus tipe ini. Kosong berarti pakai foto rumah
               // utama (fallback ditangani di halaman detail/Listing.jsx).
@@ -619,8 +724,10 @@ export default function Posting() {
             ? Number(form.luasBangunan)
             : null,
         unitTersedia: form.type === 'perumahan' && form.unitTersedia ? Number(form.unitTersedia) : null,
-        bedrooms: isMultiType ? cheapestType?.bedrooms ?? null : form.bedrooms ? Number(form.bedrooms) : null,
-        bathrooms: isMultiType ? cheapestType?.bathrooms ?? null : form.bathrooms ? Number(form.bathrooms) : null,
+        bedrooms: isMultiType ? cheapestType?.bedrooms ?? null : totalRooms(form.bedrooms, form.bedroomsExtra),
+        bedroomsExtra: isMultiType ? cheapestType?.bedroomsExtra ?? 0 : extraRooms(form.bedroomsExtra),
+        bathrooms: isMultiType ? cheapestType?.bathrooms ?? null : totalRooms(form.bathrooms, form.bathroomsExtra),
+        bathroomsExtra: isMultiType ? cheapestType?.bathroomsExtra ?? 0 : extraRooms(form.bathroomsExtra),
         electricity: isMultiType ? cheapestType?.electricity ?? null : form.electricity || null,
         air: form.air || null,
         sertifikat: form.sertifikat || null,
@@ -788,22 +895,57 @@ export default function Posting() {
               <input type="file" accept="image/*" multiple onChange={handleFiles} className="hidden" />
             </label>
           )}
-          {previews.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {previews.map((src, i) => (
-                <div key={i} className="relative h-20 w-20">
-                  <img src={src} alt={`preview ${i + 1}`} className="h-20 w-20 rounded-lg object-cover" />
-                  <button
-                    type="button"
-                    onClick={() => removePhoto(i)}
-                    aria-label="Hapus foto"
-                    className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink text-xs text-white"
+          {photos.length > 0 && (
+            <>
+              <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
+                {photos.map((p, i) => (
+                  <div
+                    key={p.id}
+                    ref={(el) => {
+                      photoRefs.current[p.id] = el;
+                    }}
+                    onPointerDown={(e) => startPhotoPress(e, p.id)}
+                    onContextMenu={(e) => e.preventDefault()}
+                    className={`relative aspect-square select-none rounded-lg transition-transform [-webkit-touch-callout:none] ${
+                      draggingId === p.id ? 'z-10 scale-105 opacity-80 shadow-lg ring-2 ring-forest' : ''
+                    }`}
                   >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
+                    <img
+                      src={p.src}
+                      alt={`foto ${i + 1}`}
+                      draggable={false}
+                      className="pointer-events-none h-full w-full rounded-lg object-cover"
+                    />
+                    {i === 0 ? (
+                      <span className="absolute bottom-1 left-1 rounded bg-forest px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                        Utama
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        data-photo-action
+                        onClick={() => movePhoto(p.id, 0)}
+                        className="absolute bottom-1 left-1 rounded bg-ink/70 px-1.5 py-0.5 text-[10px] text-white"
+                      >
+                        Jadikan utama
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      data-photo-action
+                      onClick={() => removePhoto(p.id)}
+                      aria-label="Hapus foto"
+                      className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-ink text-xs text-white"
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-2 text-xs text-ink/40">
+                Tahan lalu tarik foto untuk mengubah urutan. Foto pertama jadi foto utama.
+              </p>
+            </>
           )}
         </div>
 
@@ -956,24 +1098,23 @@ export default function Posting() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="Kamar Tidur">
-                    <input
-                      type="number"
-                      value={t.bedrooms}
-                      onChange={(e) => updateUnitType(idx, 'bedrooms', e.target.value)}
-                      placeholder="Masukkan jumlah"
-                      className="input"
+                    <RoomInput
+                      main={t.bedrooms}
+                      extra={t.bedroomsExtra}
+                      onMain={(v) => updateUnitType(idx, 'bedrooms', v)}
+                      onExtra={(v) => updateUnitType(idx, 'bedroomsExtra', v)}
                     />
                   </Field>
                   <Field label="Kamar Mandi">
-                    <input
-                      type="number"
-                      value={t.bathrooms}
-                      onChange={(e) => updateUnitType(idx, 'bathrooms', e.target.value)}
-                      placeholder="Masukkan jumlah"
-                      className="input"
+                    <RoomInput
+                      main={t.bathrooms}
+                      extra={t.bathroomsExtra}
+                      onMain={(v) => updateUnitType(idx, 'bathrooms', v)}
+                      onExtra={(v) => updateUnitType(idx, 'bathroomsExtra', v)}
                     />
                   </Field>
                 </div>
+                <p className="-mt-2 text-[11px] text-ink/40">Kolom kecil di kanan = kamar pembantu (opsional). Contoh 4+1.</p>
 
                 <Field label="Daya Listrik">
                   <select
@@ -1070,25 +1211,26 @@ export default function Posting() {
         )}
 
         {!isMultiType && (
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="Kamar Tidur">
-              <input
-                type="number"
-                value={form.bedrooms}
-                onChange={(e) => update('bedrooms', e.target.value)}
-                placeholder="Masukkan jumlah"
-                className="input"
-              />
-            </Field>
-            <Field label="Kamar Mandi">
-              <input
-                type="number"
-                value={form.bathrooms}
-                onChange={(e) => update('bathrooms', e.target.value)}
-                placeholder="Masukkan jumlah"
-                className="input"
-              />
-            </Field>
+          <div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Kamar Tidur">
+                <RoomInput
+                  main={form.bedrooms}
+                  extra={form.bedroomsExtra}
+                  onMain={(v) => update('bedrooms', v)}
+                  onExtra={(v) => update('bedroomsExtra', v)}
+                />
+              </Field>
+              <Field label="Kamar Mandi">
+                <RoomInput
+                  main={form.bathrooms}
+                  extra={form.bathroomsExtra}
+                  onMain={(v) => update('bathrooms', v)}
+                  onExtra={(v) => update('bathroomsExtra', v)}
+                />
+              </Field>
+            </div>
+            <p className="mt-2 text-[11px] text-ink/40">Kolom kecil di kanan = kamar pembantu (opsional). Contoh 4+1.</p>
           </div>
         )}
 
@@ -1270,6 +1412,34 @@ export default function Posting() {
           {submitting ? 'Menyimpan...' : isEditMode ? 'SIMPAN PERUBAHAN' : 'POSTING'}
         </button>
       </form>
+    </div>
+  );
+}
+
+// Input jumlah kamar: kolom utama + kolom kecil opsional untuk kamar pembantu
+function RoomInput({ main, extra, onMain, onExtra }) {
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="number"
+        min="0"
+        value={main}
+        onChange={(e) => onMain(e.target.value)}
+        placeholder="0"
+        className="input"
+        style={{ minWidth: 0, flex: 1 }}
+      />
+      <span className="text-ink/40">+</span>
+      <input
+        type="number"
+        min="0"
+        value={extra}
+        onChange={(e) => onExtra(e.target.value)}
+        placeholder="0"
+        aria-label="Kamar pembantu (opsional)"
+        className="input"
+        style={{ width: '3.75rem', flex: 'none' }}
+      />
     </div>
   );
 }

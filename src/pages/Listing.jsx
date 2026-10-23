@@ -37,6 +37,20 @@ const MATERIAL_ROWS = [
   { key: 'materialKloset', label: 'Kloset' },
 ];
 
+// Jumlah kamar di halaman iklan. Disimpan sebagai TOTAL (mis. 5) + jumlah
+// kamar pembantu (mis. 1) -> ditampilkan "4+1". Tanpa kamar pembantu tampil
+// angka biasa. (Kartu iklan tetap menampilkan total supaya ringkas.)
+function formatRooms(total, extra) {
+  const t = Number(total) || 0;
+  const e = Math.min(Math.max(Number(extra) || 0, 0), t);
+  if (!e) return String(total);
+  return (
+    <>
+      {t - e}+{e} <span className="text-sm font-normal text-ink/50">(kamar pembantu)</span>
+    </>
+  );
+}
+
 // Baris Spesifikasi: label di kiri (abu), lalu ": nilai" mulai di titik
 // yang SAMA di setiap baris (kolom label lebar tetap), dipisah garis tipis.
 // Tanpa icon & tanpa kartu. `Icon` masih diterima di props supaya pemanggil
@@ -263,6 +277,8 @@ export default function Listing() {
     luasBangunan: activeType ? activeType.luasBangunan : listing.luasBangunan,
     bedrooms: activeType ? activeType.bedrooms : listing.bedrooms,
     bathrooms: activeType ? activeType.bathrooms : listing.bathrooms,
+    bedroomsExtra: activeType ? activeType.bedroomsExtra : listing.bedroomsExtra,
+    bathroomsExtra: activeType ? activeType.bathroomsExtra : listing.bathroomsExtra,
     electricity: activeType ? activeType.electricity : listing.electricity,
   };
   // Foto khusus tipe yang lagi dipilih (kalau diisi penjual). Kalau tipe
@@ -439,8 +455,12 @@ export default function Listing() {
           {activeSpec.luasTanah && (
             <SpecCard Icon={FaVectorSquare} label="Luas Tanah" value={`${activeSpec.luasTanah}m²`} />
           )}
-          {activeSpec.bedrooms && <SpecCard Icon={FaBed} label="Kamar Tidur" value={activeSpec.bedrooms} />}
-          {activeSpec.bathrooms && <SpecCard Icon={FaBath} label="Kamar Mandi" value={activeSpec.bathrooms} />}
+          {activeSpec.bedrooms && (
+            <SpecCard Icon={FaBed} label="Kamar Tidur" value={formatRooms(activeSpec.bedrooms, activeSpec.bedroomsExtra)} />
+          )}
+          {activeSpec.bathrooms && (
+            <SpecCard Icon={FaBath} label="Kamar Mandi" value={formatRooms(activeSpec.bathrooms, activeSpec.bathroomsExtra)} />
+          )}
           {SPEC_ROWS.filter((row) => (row.key === 'electricity' ? activeSpec.electricity : listing[row.key])).map(
             (row) => (
               <SpecCard
