@@ -55,9 +55,14 @@ export const OVERVIEW_SECTIONS = [
     ],
   },
   {
+    title: 'Posisi',
+    items: [{ key: 'hook', label: 'Hook' }],
+  },
+  {
     title: 'Fasilitas',
     items: [
       { key: 'carport', label: 'Carport' },
+      { key: 'garasi', label: 'Garasi' },
       { key: 'taman', label: 'Taman' },
       { key: 'balkon', label: 'Balkon' },
       { key: 'smart_home', label: 'Smart Home' },
