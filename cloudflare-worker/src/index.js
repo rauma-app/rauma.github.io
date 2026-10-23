@@ -95,7 +95,7 @@ const OVERVIEW_ITEMS = [
   ["cctv"], ["security_24"], ["one_gate"], ["perumahan"], ["cluster"], ["bebas_banjir"],
   ["jalan_1_mobil", "jalan"], ["jalan_2_mobil", "jalan"], ["jalan_3_mobil", "jalan"],
   ["dekat_pasar"], ["dekat_tol"], ["dekat_sekolah"], ["dekat_rs"], ["dekat_transportasi"],
-  ["carport"], ["taman"], ["balkon"], ["smart_home"],
+  ["carport"], ["garasi"], ["hook"], ["taman"], ["balkon"], ["smart_home"],
   ["hadap_utara", "hadap"], ["hadap_timur", "hadap"], ["hadap_selatan", "hadap"], ["hadap_barat", "hadap"],
 ];
 
@@ -1534,8 +1534,8 @@ export default {
               phone, seller_phone, whatsapp, seller_uid, ownerUid, ownerName, ownerPhoto,
               images, status,
               materialPondasi, materialDinding, materialAtap, materialKusen, materialLantai, materialKloset,
-              perumahanName, perumahanPhoto, unitTypes, perumahanSlug, overview
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              perumahanName, perumahanPhoto, unitTypes, perumahanSlug, overview, bedroomsExtra, bathroomsExtra
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               title=excluded.title, type=excluded.type, category=excluded.category, price=excluded.price,
               cicilanPerBulan=excluded.cicilanPerBulan, location=excluded.location, kabupaten=excluded.kabupaten,
@@ -1551,7 +1551,9 @@ export default {
               materialLantai=excluded.materialLantai, materialKloset=excluded.materialKloset,
               perumahanName=excluded.perumahanName, perumahanPhoto=excluded.perumahanPhoto,
               unitTypes=excluded.unitTypes,
-              overview=COALESCE(excluded.overview, listings.overview)`
+              overview=COALESCE(excluded.overview, listings.overview),
+              bedroomsExtra=COALESCE(excluded.bedroomsExtra, listings.bedroomsExtra),
+              bathroomsExtra=COALESCE(excluded.bathroomsExtra, listings.bathroomsExtra)`
           )
             .bind(
               idToSave,
@@ -1594,7 +1596,9 @@ export default {
               body.perumahanPhoto || null,
               unitTypesJson,
               perumahanSlug,
-              sanitizeOverview(body.overview)
+              sanitizeOverview(body.overview),
+              toNumberOrNull(src.bedroomsExtra),
+              toNumberOrNull(src.bathroomsExtra)
             )
             .run();
 
