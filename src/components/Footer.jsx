@@ -5,10 +5,10 @@ import rauLogo2 from '../assets/logo/rauma-logo2.svg';
 import { usePwaInstall } from '../lib/usePwaInstall';
 
 const SOCIAL_LINKS = [
-  { label: 'Instagram', Icon: FaInstagram, href: 'https://www.instagram.com/rauma.id' },
-  { label: 'Facebook', Icon: FaFacebook, href: 'https://www.facebook.com/share/1LCqxTSf8M/' },
-  { label: 'TikTok', Icon: FaTiktok, href: 'https://tiktok.com/@rauma.id' },
-  { label: 'YouTube', Icon: FaYoutube, href: 'https://youtube.com/@rauma_id?si=OZ_FgC_Wgjhgypsq' },
+  { label: 'Instagram', Icon: FaInstagram, href: 'https://www.instagram.com/alamproper.ty' },
+  { label: 'Facebook', Icon: FaFacebook, href: 'https://www.facebook.com/jhonson.gans.35' },
+  { label: 'TikTok', Icon: FaTiktok, href: 'https://tiktok.com/@alamproper.ty' },
+  { label: 'YouTube', Icon: FaYoutube, href: 'https://youtube.com/@alamproperti?si=ri-H4skpOuZg9djI' },
 ];
 
 // Dikelompokkan per kategori (bukan 1 daftar panjang) biar lebih gampang
