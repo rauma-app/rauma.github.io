@@ -338,6 +338,12 @@ export default function Listing() {
       ? `${listing.title} - ${formattedPriceShort}`
       : `Rumah Dijual di ${lokasiText} - ${formattedPriceShort}`;
 
+  // Judul untuk <title> (hasil Google & tab browser): polos, TANPA harga dan
+  // TANPA nama situs. Harus sama dengan `pageTitle` di cloudflare-worker.
+  const pageTitle = listing.perumahanName
+    ? `${listing.perumahanName} - Rumah Dijual di ${lokasiText}`
+    : listing.title || `Rumah Dijual di ${lokasiText}`;
+
   const seoDescription = listing.perumahanName
     ? `${listing.perumahanName} - hunian di ${lokasiText} mulai ${formattedPriceShort}.${
         daftarTipe ? ` Tersedia tipe ${daftarTipe}.` : ''
@@ -371,6 +377,7 @@ export default function Listing() {
       {Seo && (
         <Seo
           title={seoTitle}
+          pageTitle={pageTitle}
           description={seoDescription}
           path={canonicalPath}
           image={activeImages?.[0]}
