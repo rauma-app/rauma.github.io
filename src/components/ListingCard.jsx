@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { FaBed, FaBath, FaVectorSquare, FaRulerCombined } from 'react-icons/fa';
+import { FaBed, FaBath, FaArrowsAlt, FaHome } from 'react-icons/fa';
 import ImageSlider from './ImageSlider';
 import { formatRupiahShort, formatMonthlyShort } from '../lib/kpr';
 import { slugifyTitle } from '../lib/slugify';
@@ -13,13 +13,7 @@ export default function ListingCard({ listing }) {
 
   return (
     <Link
-      to={
-        listing.perumahanSlug
-          ? `/perumahan/${listing.perumahanSlug}`
-          : titleSlug
-            ? `/id/${listing.id}/${titleSlug}`
-            : `/id/${listing.id}`
-      }
+      to={titleSlug ? `/id/${listing.id}/${titleSlug}` : `/id/${listing.id}`}
       className="group block overflow-hidden rounded-2xl border border-line bg-paper transition-shadow hover:shadow-lg"
     >
       <ImageSlider
@@ -62,12 +56,12 @@ export default function ListingCard({ listing }) {
             ) : null}
             {listing.luasTanah ? (
               <span className="flex items-center gap-1">
-                <FaVectorSquare size={10} /> LT {listing.luasTanah}m²
+                <FaArrowsAlt size={11} /> {listing.luasTanah}m²
               </span>
             ) : null}
             {listing.luasBangunan ? (
               <span className="flex items-center gap-1">
-                <FaRulerCombined size={10} /> LB {listing.luasBangunan}m²
+                <FaHome size={11} /> {listing.luasBangunan}m²
               </span>
             ) : null}
           </div>
