@@ -1,5 +1,5 @@
 import React, { useEffect, Suspense, lazy } from 'react';
-import { Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import ScrollToTop from './components/ScrollToTop';
@@ -13,7 +13,6 @@ import { useAuth } from './context/AuthContext';
 // browser pas beneran dibuka, bukan semua sekaligus di awal. Ini yang
 // bikin ukuran JS awal jauh lebih kecil (dampak ke skor PageSpeed).
 const Home = lazy(() => import('./pages/Home'));
-const PerumahanList = lazy(() => import('./pages/PerumahanList'));
 const PriceSortedList = lazy(() => import('./pages/PriceSortedList'));
 const TakeOverKPRPage = lazy(() => import('./pages/TakeOverKPRPage'));
 const CariProperti = lazy(() => import('./pages/CariProperti'));
@@ -100,7 +99,9 @@ export default function App() {
         <Suspense fallback={<PageLoading />}>
           <Routes>
             <Route path="/" element={<Home />} />
-            <Route path="/perumahan" element={<PerumahanList />} />
+            {/* Fitur /perumahan (daftar & /perumahan/nama) sudah dihapus -> beranda,
+                supaya link lama tidak 404. */}
+            <Route path="/perumahan/*" element={<Navigate to="/" replace />} />
             <Route path="/termurah" element={<PriceSortedList />} />
             <Route path="/termahal" element={<PriceSortedList />} />
             <Route path="/subsidi" element={<SubsidiList />} />
@@ -118,17 +119,12 @@ export default function App() {
             <Route path="/alat/penjernih-foto" element={<PenjernihFoto />} />
             <Route path="/blog" element={<Blog />} />
             <Route path="/blog/:slug" element={<BlogArticle />} />
-            {/* /id/:id/:titleSlug -- format baru (SEO friendly). Sengaja
-                dinamai "titleSlug" (bukan "slug") biar gak ketuker sama
-                :slug di route /perumahan/:slug di bawah -- itu kunci
-                pencarian data (perumahanSlug), punya kita di sini cuma
-                hiasan URL, gak pernah dipakai buat fetch data.
-                /id/:id tanpa titleSlug tetap didukung (link lama yang
-                sudah disebar jangan sampai jadi link mati), keduanya
-                render komponen yang sama. */}
+            {/* /id/:id/:titleSlug -- format SEO friendly. titleSlug cuma hiasan
+                URL, gak pernah dipakai buat fetch data. /id/:id tanpa titleSlug
+                tetap didukung (link lama yang sudah disebar jangan jadi mati),
+                keduanya render komponen yang sama. */}
             <Route path="/id/:id" element={<Listing />} />
             <Route path="/id/:id/:titleSlug" element={<Listing />} />
-            <Route path="/perumahan/:slug" element={<Listing />} />
             <Route path="/penjual/:uid" element={<SellerProfile />} />
             <Route path="/u/:username" element={<SellerProfile />} />
             <Route path="/tanah" element={<Tanah />} />
