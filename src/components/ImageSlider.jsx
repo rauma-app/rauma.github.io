@@ -58,7 +58,9 @@ export default function ImageSlider({
       <div className="relative">
         <Swiper
           modules={[Pagination]}
-          pagination={{ clickable: true }}
+          // dynamicBullets: dengan sampai 15 foto, titik biasa tidak muat di
+          // lebar kartu; mode ini menampilkan beberapa titik saja yang bergeser.
+          pagination={{ clickable: true, dynamicBullets: true }}
           style={{ aspectRatio: ratio }}
           className={`w-full ${rounded} overflow-hidden`}
         >

@@ -30,7 +30,7 @@ export default function ListingCard({ listing }) {
       />
       <div className="p-3 sm:p-4">
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-          <span className="font-display text-base font-semibold text-navy sm:text-xl">
+          <span className="text-base font-semibold text-navy sm:text-xl">
             {formatRupiahShort(listing.price)}
           </span>
           {listing.cicilanPerBulan ? (
