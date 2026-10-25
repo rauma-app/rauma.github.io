@@ -63,10 +63,13 @@ function setRobotsTag(content) {
  * halaman kosong itu -- begitu ada listing yang cocok, cukup render
  * ulang dengan noindex={false} dan Google akan index otomatis.
  */
-export default function Seo({ title, description, path, jsonLd, image, noindex }) {
+export default function Seo({ title, pageTitle, description, path, jsonLd, image, noindex }) {
   useEffect(() => {
     const fullTitle = title ? `${title} | ${SITE_NAME}` : `${SITE_NAME} — Jual Beli Rumah KPR`;
-    document.title = fullTitle;
+    // pageTitle (opsional): isi <title> yang dibaca Google & tampil di tab =
+    // judul polos tanpa harga/nama situs. Judul untuk preview share (og/twitter)
+    // tetap `fullTitle`.
+    document.title = pageTitle || fullTitle;
 
     setMetaTag('name', 'description', description);
     setMetaTag('property', 'og:title', fullTitle);
