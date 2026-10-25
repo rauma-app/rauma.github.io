@@ -94,7 +94,7 @@ const emptyForm = {
   perumahanPhoto: '', // URL foto lama (mode edit); file barunya di state perumahanPhotoFile
 };
 
-const MAX_PHOTOS = 10;
+const MAX_PHOTOS = 15;
 const MAX_UNIT_TYPES = 5;
 
 // Kamar disimpan sebagai TOTAL + jumlah kamar pembantu, tapi di form diisi
@@ -619,20 +619,27 @@ export default function Posting() {
     setSubmitting(true);
     try {
       // 1. Upload Foto Baru ke R2
-      const newFiles = photos.filter((p) => p.kind === 'new').map((p) => p.file);
-      let newImageUrls = [];
-      if (newFiles.length > 0) {
-        if (typeof r2Uploader?.uploadMany === 'function') {
-          newImageUrls = await r2Uploader.uploadMany(newFiles);
-        } else if (typeof r2Uploader?.uploadFile === 'function') {
-          newImageUrls = await Promise.all(newFiles.map((f) => r2Uploader.uploadFile(f)));
-        }
+      // Foto baru yang SUDAH berhasil terunggah di percobaan kirim sebelumnya
+      // (uploadedUrl) tidak diunggah lagi -- hemat kuota & batas upload per jam.
+      const uploadedById = {};
+      photos.forEach((p) => {
+        if (p.kind === 'new' && p.uploadedUrl) uploadedById[p.id] = p.uploadedUrl;
+      });
+      const pending = photos.filter((p) => p.kind === 'new' && !uploadedById[p.id]);
+      if (pending.length > 0) {
+        await r2Uploader.uploadMany(
+          pending.map((p) => p.file),
+          (i, url) => {
+            const pid = pending[i].id;
+            uploadedById[pid] = url;
+            setPhotos((prev) => prev.map((p) => (p.id === pid ? { ...p, uploadedUrl: url } : p)));
+          }
+        );
       }
 
       // Susun sesuai URUTAN di layar (foto lama & baru bisa bercampur)
-      let nextNew = 0;
       const imageUrls = photos
-        .map((p) => (p.kind === 'existing' ? p.src : newImageUrls[nextNew++]))
+        .map((p) => (p.kind === 'existing' ? p.src : uploadedById[p.id]))
         .filter(Boolean);
 
       // Safe Extraction untuk Lokasi
