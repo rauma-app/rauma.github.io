@@ -145,7 +145,7 @@ export default {
 
     // =============================================================
     // SEO UNTUK BOT (Googlebot, WhatsApp, Facebook, dll) DI HALAMAN
-    // LISTING (/id/:id, /id/:id/:slug, /perumahan/:slug)
+    // LISTING (/id/:id, /id/:id/:slug)
     // =============================================================
     // Situs ini SPA (React) -- isi halaman (judul, deskripsi, foto listing)
     // baru muncul SETELAH JavaScript jalan di browser. Googlebot & terutama
@@ -179,10 +179,15 @@ export default {
     const BOT_UA_PATTERN =
       /bot|crawl|spider|facebookexternalhit|whatsapp|telegrambot|slackbot|discordbot|linkedinbot|twitterbot|pinterest|applebot|skypeuripreview|redditbot|qwantify|vkshare|embedly|w3c_validator/i;
 
-    const idMatch = path.match(/^\/id\/([^/]+)(?:\/.*)?$/);
-    const perumahanMatch = path.match(/^\/perumahan\/([^/]+)\/?$/);
+    // Fitur /perumahan (halaman daftar & alamat /perumahan/nama-perumahan)
+    // sudah dihapus -> 301 ke beranda supaya link lama tidak jadi 404.
+    if (path === "/perumahan" || path.startsWith("/perumahan/")) {
+      return Response.redirect("https://rauma.id/", 301);
+    }
 
-    if (idMatch || perumahanMatch) {
+    const idMatch = path.match(/^\/id\/([^/]+)(?:\/.*)?$/);
+
+    if (idMatch) {
       const userAgent = request.headers.get("User-Agent") || "";
       const isBot = BOT_UA_PATTERN.test(userAgent);
 
@@ -203,21 +208,14 @@ export default {
       }
 
       try {
-        let listing = null;
-        if (idMatch) {
-          listing = await env.DB.prepare(
-            `SELECT listings.*, user_profiles.username AS ownerUsername
-             FROM listings
-             LEFT JOIN user_profiles ON user_profiles.uid = listings.ownerUid
-             WHERE listings.id = ?`
-          )
-            .bind(idMatch[1])
-            .first();
-        } else {
-          listing = await env.DB.prepare("SELECT * FROM listings WHERE perumahanSlug = ?")
-            .bind(perumahanMatch[1])
-            .first();
-        }
+        const listing = await env.DB.prepare(
+          `SELECT listings.*, user_profiles.username AS ownerUsername
+           FROM listings
+           LEFT JOIN user_profiles ON user_profiles.uid = listings.ownerUid
+           WHERE listings.id = ?`
+        )
+          .bind(idMatch[1])
+          .first();
 
         // Listing gak ketemu (mis. sudah dihapus) -- jangan kasih bot
         // error aneh, tetap kasih HTML asli apa adanya.
@@ -262,6 +260,13 @@ export default {
           seoDescription = `Rumah dijual di ${lokasiText} harga ${priceShort}. Lihat detail & hubungi penjual di Rauma.`;
         }
         const fullTitle = `${seoTitle} | Rauma`;
+        // <title> yang dibaca Google: judul polos, TANPA harga & nama situs.
+        // (og:title/twitter:title di bawah tetap pakai fullTitle supaya preview
+        // saat dibagikan ke WhatsApp dll. masih menampilkan harga.)
+        // Samakan dengan `pageTitle` di src/pages/Listing.jsx.
+        const pageTitle = listing.perumahanName
+          ? `${listing.perumahanName} - Rumah Dijual di ${lokasiText}`
+          : listing.title || `Rumah Dijual di ${lokasiText}`;
 
         let image = null;
         try {
@@ -287,7 +292,7 @@ export default {
         const originRes = await fetch(`${SITE_ORIGIN}/index.html`);
         let html = await originRes.text();
 
-        html = html.replace(/<title>.*?<\/title>/s, `<title>${esc(fullTitle)}</title>`);
+        html = html.replace(/<title>.*?<\/title>/s, `<title>${esc(pageTitle)}</title>`);
         html = html.replace(
           /<meta name="description" content=".*?"\s*\/>/s,
           `<meta name="description" content="${esc(seoDescription)}" />\n` +
@@ -448,34 +453,6 @@ export default {
       return request.headers.get("CF-Connecting-IP") || "unknown";
     }
 
-    // --- Slug URL SEO buat listing perumahan, misal "Green Residen
-    // Parahyangan" -> "green-residen-parahyangan". Dibuat SEKALI waktu
-    // listing perumahan pertama kali dibuat, lalu dikunci selamanya
-    // (lihat catatan di endpoint POST /api/listings).
-    function slugify(str) {
-      return String(str || "")
-        .toLowerCase()
-        .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "") // buang aksen
-        .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "")
-        .slice(0, 80);
-    }
-
-    async function generateUniqueSlug(base) {
-      const cleanBase = slugify(base) || "perumahan";
-      let slug = cleanBase;
-      let n = 2;
-      // Coba maks 50x biar gak infinite loop kalau ada hal aneh
-      for (let i = 0; i < 50; i++) {
-        const row = await env.DB.prepare("SELECT id FROM listings WHERE perumahanSlug = ?").bind(slug).first();
-        if (!row) return slug;
-        slug = `${cleanBase}-${n}`;
-        n++;
-      }
-      return `${cleanBase}-${Date.now()}`; // fallback super jarang kepake
-    }
-
     try {
       // =============================================================
       // 0b. SITEMAP DINAMIS UNTUK HALAMAN DETAIL LISTING
@@ -485,17 +462,14 @@ export default {
       // apa adanya -- jadi listing di lokasi manapun (misal Cililin) tetap
       // punya jalur pasti buat ditemukan Google, walau belum pernah ada
       // yang search lokasi itu di web. Route-nya ikut src/App.jsx:
-      //   - listing dengan perumahanSlug -> /perumahan/:slug
-      //   - listing biasa (rumah individu)-> /id/:id
+      //   - semua listing -> /id/:id (URL /perumahan/:slug sudah tidak dipakai)
       if (path === "/sitemap-detail.xml" && method === "GET") {
         const rows = await env.DB.prepare(
-          `SELECT id, perumahanSlug, created_at FROM listings WHERE status = 'approved' ORDER BY created_at DESC LIMIT 45000`
+          `SELECT id, created_at FROM listings WHERE status = 'approved' ORDER BY created_at DESC LIMIT 45000`
         ).all();
 
         const urlEntries = (rows.results || []).map((row) => {
-          const loc = row.perumahanSlug
-            ? `https://rauma.id/perumahan/${row.perumahanSlug}`
-            : `https://rauma.id/id/${row.id}`;
+          const loc = `https://rauma.id/id/${row.id}`;
           const lastmod = row.created_at ? String(row.created_at).slice(0, 10) : "";
           return `  <url><loc>${loc}</loc>${lastmod ? `<lastmod>${lastmod}</lastmod>` : ""}<priority>0.6</priority></url>`;
         });
@@ -689,7 +663,7 @@ export default {
         // Admin (centang kuning) dikecualikan dari limit ini -- mereka
         // akun terpercaya, dan sering butuh upload banyak foto berkali-
         // kali pas testing/posting banyak listing sekaligus.
-        if (!isAdminUid(authed.uid) && (await tooManyRequests(`upload:${authed.uid}`, 40, 3600))) {
+        if (!isAdminUid(authed.uid) && (await tooManyRequests(`upload:${authed.uid}`, 100, 3600))) {
           return json({ error: "Terlalu banyak upload, coba lagi nanti" }, 429);
         }
 
@@ -775,44 +749,7 @@ export default {
         return json({ success: true });
       }
 
-      // =============================================================
-      // 2b. ENDPOINT ADMIN PERUMAHAN -- sama seperti Premium: GET publik,
-      // POST/DELETE admin-only.
-      // =============================================================
-      if (path === "/api/perumahan-admins" && method === "GET") {
-        const { results } = await env.DB.prepare(
-          "SELECT uid, label, created_at FROM perumahan_admins ORDER BY created_at DESC"
-        ).all();
-        return json(results || []);
-      }
-
-      if (path === "/api/perumahan-admins" && method === "POST") {
-        const authed = await getAuthedUser();
-        if (!authed) return unauthorized();
-        if (!isAdminUid(authed.uid)) return forbidden("Hanya admin yang bisa mengelola Admin Perumahan");
-
-        const body = await request.json().catch(() => ({}));
-        if (!body.uid) {
-          return json({ error: "Field 'uid' wajib diisi" }, 400);
-        }
-        await env.DB.prepare(
-          `INSERT INTO perumahan_admins (uid, label, created_at) VALUES (?, ?, datetime('now'))
-           ON CONFLICT(uid) DO UPDATE SET label = excluded.label`
-        )
-          .bind(body.uid, body.label || null)
-          .run();
-        return json({ success: true });
-      }
-
-      if (path.startsWith("/api/perumahan-admins/") && method === "DELETE") {
-        const authed = await getAuthedUser();
-        if (!authed) return unauthorized();
-        if (!isAdminUid(authed.uid)) return forbidden("Hanya admin yang bisa mengelola Admin Perumahan");
-
-        const uid = path.split("/").filter(Boolean)[2];
-        await env.DB.prepare("DELETE FROM perumahan_admins WHERE uid = ?").bind(uid).run();
-        return json({ success: true });
-      }
+      // (Endpoint /api/perumahan-admins dihapus: akun admin perumahan tidak dipakai lagi.)
 
       // =============================================================
       // 2c. ENDPOINT ANALYTICS (pageview, klik whatsapp, pencarian)
@@ -1180,19 +1117,6 @@ export default {
           });
         }
 
-        // GET /api/listings/slug/:slug -- publik. Buat URL SEO listing
-        // perumahan, misal rauma.id/perumahan/green-residen-parahyangan.
-        if (pathParts.length === 4 && pathParts[2] === "slug" && method === "GET") {
-          const slug = pathParts[3];
-          const result = await env.DB.prepare("SELECT * FROM listings WHERE perumahanSlug = ?")
-            .bind(slug)
-            .first();
-          if (!result) {
-            return json({ error: "Properti tidak ditemukan" }, 404);
-          }
-          return json(result);
-        }
-
         // GET /api/listings/:id -- publik (detail 1 properti)
         if (pathParts.length === 3 && method === "GET") {
           const id = pathParts[2];
@@ -1463,13 +1387,6 @@ export default {
           const body = await request.json();
           const idToSave = body.id || `item_${Date.now()}`;
           const admin = isAdminUid(authed.uid);
-          // Admin Perumahan (tabel perumahan_admins): iklan yang mereka
-          // posting langsung approved otomatis, gak perlu tinjauan Admin
-          // Utama -- soalnya mereka sendiri yang mengelola perumahannya.
-          const perumahanAdminRow = admin
-            ? null
-            : await env.DB.prepare("SELECT uid FROM perumahan_admins WHERE uid = ?").bind(authed.uid).first();
-          const isPerumahanAdmin = admin || Boolean(perumahanAdminRow);
 
           const existing = await env.DB.prepare("SELECT ownerUid FROM listings WHERE id = ?")
             .bind(idToSave)
@@ -1483,11 +1400,7 @@ export default {
           }
 
           const finalOwnerUid = admin ? body.ownerUid || body.seller_uid || authed.uid : authed.uid;
-          const finalStatus = admin
-            ? body.status || "pending"
-            : isPerumahanAdmin
-              ? "approved"
-              : "pending";
+          const finalStatus = admin ? body.status || "pending" : "pending";
 
           const imagesJson = typeof body.images === "string" ? body.images : JSON.stringify(body.images || []);
           const toNumberOrNull = (v) => (v === undefined || v === null || v === "" ? null : Number(v));
@@ -1505,26 +1418,6 @@ export default {
           const unitTypesJson = unitTypesArr.length ? JSON.stringify(unitTypesArr) : null;
           const src = cheapestType || body;
 
-          // Slug URL SEO ("green-residen-parahyangan") -- CUMA dibuat &
-          // dikunci untuk listing kategori 'perumahan'. Kalau ini listing
-          // BARU (belum ada di DB), generate slug unik dari perumahanName.
-          // Kalau ini EDIT listing yang sudah ada, pertahankan slug lama
-          // apa adanya (TIDAK dibuat ulang) -- makanya perumahanSlug juga
-          // sengaja TIDAK ada di klausa "ON CONFLICT DO UPDATE SET" di
-          // bawah, biar walau kolom lain ke-update, URL-nya tetap sama
-          // persis walau nama perumahannya diedit nanti.
-          let perumahanSlug = null;
-          if (body.type === "perumahan" && body.perumahanName) {
-            if (existing) {
-              const existingRow = await env.DB.prepare("SELECT perumahanSlug FROM listings WHERE id = ?")
-                .bind(idToSave)
-                .first();
-              perumahanSlug = existingRow?.perumahanSlug || (await generateUniqueSlug(body.perumahanName));
-            } else {
-              perumahanSlug = await generateUniqueSlug(body.perumahanName);
-            }
-          }
-
           await env.DB.prepare(
             `INSERT INTO listings (
               id, title, type, category, price, cicilanPerBulan,
@@ -1534,8 +1427,8 @@ export default {
               phone, seller_phone, whatsapp, seller_uid, ownerUid, ownerName, ownerPhoto,
               images, status,
               materialPondasi, materialDinding, materialAtap, materialKusen, materialLantai, materialKloset,
-              perumahanName, perumahanPhoto, unitTypes, perumahanSlug, overview, bedroomsExtra, bathroomsExtra
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              perumahanName, perumahanPhoto, unitTypes, overview, bedroomsExtra, bathroomsExtra
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               title=excluded.title, type=excluded.type, category=excluded.category, price=excluded.price,
               cicilanPerBulan=excluded.cicilanPerBulan, location=excluded.location, kabupaten=excluded.kabupaten,
@@ -1595,14 +1488,13 @@ export default {
               body.perumahanName || null,
               body.perumahanPhoto || null,
               unitTypesJson,
-              perumahanSlug,
               sanitizeOverview(body.overview),
               toNumberOrNull(src.bedroomsExtra),
               toNumberOrNull(src.bathroomsExtra)
             )
             .run();
 
-          return json({ success: true, id: idToSave, perumahanSlug }, 201);
+          return json({ success: true, id: idToSave }, 201);
         }
       }
 
