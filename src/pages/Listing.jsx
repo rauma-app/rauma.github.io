@@ -68,7 +68,7 @@ function SpecCard({ Icon, label, value }) {
 }
 
 export default function Listing() {
-  const { id, slug } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -96,7 +96,7 @@ export default function Listing() {
   // makanya logic-nya di-guard di DALAM body-nya, bukan dengan skip
   // manggil hook-nya.
   useEffect(() => {
-    if (!listing || listing.perumahanSlug) return;
+    if (!listing) return;
     // JANGAN rapihin URL kalau data yang tampil BUKAN milik URL saat ini.
     // Pas user klik kartu "Rumah Lain", URL sudah berubah ke listing B
     // tapi `listing` di state masih listing A (sengaja dipertahankan biar
@@ -104,9 +104,9 @@ export default function Listing() {
     // "salah" lalu navigate() balik ke listing A -- itu penyebab klik
     // iklan lain cuma scroll ke atas dan tetap di iklan yang sama.
     if (loading) return;
-    if (!id || String(listing.id) !== String(id)) return;
     const titleSlug = slugifyTitle(listing.title);
     const canonical = titleSlug ? `/id/${listing.id}/${titleSlug}` : `/id/${listing.id}`;
+    if (!id || String(listing.id) !== String(id)) return;
     if (window.location.pathname !== canonical) {
       // window.history.replaceState (bukan navigate) supaya cuma ganti
       // teks di address bar: gak memicu render ulang router & gak
@@ -130,7 +130,7 @@ export default function Listing() {
       setSelectedTypeIndex(0);
       setDescExpanded(false);
       try {
-        const data = slug ? await d1Api.getListingBySlug(slug) : await d1Api.getListingById(id);
+        const data = await d1Api.getListingById(id);
         if (cancelled) return; // request ini sudah basi, abaikan hasilnya
         if (data) {
           // Parse gambar dengan aman
@@ -191,7 +191,7 @@ export default function Listing() {
     return () => {
       cancelled = true;
     };
-  }, [id, slug]);
+  }, [id]);
 
   useEffect(() => {
     if (!listing?.id || !(listing.kabupaten || listing.location)) {
@@ -356,11 +356,7 @@ export default function Listing() {
   const isOwnerVerified = isOwnerAdmin || isOwnerPremium;
 
   const titleSlug = slugifyTitle(listing.title);
-  const canonicalPath = listing.perumahanSlug
-    ? `/perumahan/${listing.perumahanSlug}`
-    : titleSlug
-      ? `/id/${listing.id}/${titleSlug}`
-      : `/id/${listing.id}`;
+  const canonicalPath = titleSlug ? `/id/${listing.id}/${titleSlug}` : `/id/${listing.id}`;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
