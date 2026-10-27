@@ -9,7 +9,8 @@ import ShareButton from '../components/ShareButton';
 import { ADMIN_UIDS } from '../lib/admin';
 import { usePremium } from '../context/PremiumContext';
 
-const PROFILE_PAGE_SIZE = 12;
+const PROFILE_PAGE_SIZE = 12; // jumlah iklan di awal
+const PROFILE_LOAD_MORE = 8; // tiap klik "Muat lainnya" menambah segini
 
 // Harga bisa string / kosong / 0 di data lama -> anggap "tanpa harga"
 function priceOf(listing) {
@@ -34,7 +35,7 @@ export default function SellerProfile() {
   const [locFilter, setLocFilter] = useState('all'); // 'all' | nama kota/kabupaten (huruf kecil)
   const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'cheapest' | 'priciest'
   // Berapa iklan yang ditampilkan sekarang. Awalnya 12, tombol "Muat lainnya"
-  // menambah 12 lagi. Pengurutan & filter tetap dihitung dari SEMUA iklan
+  // menambah 8 lagi, terus sampai iklan habis. Pengurutan & filter tetap dihitung dari SEMUA iklan
   // penjual, baru dipotong -> "termurah" = termurah dari semuanya.
   const [shownCount, setShownCount] = useState(PROFILE_PAGE_SIZE);
 
@@ -282,10 +283,10 @@ export default function SellerProfile() {
         <div className="mt-6 text-center">
           <button
             type="button"
-            onClick={() => setShownCount((n) => n + PROFILE_PAGE_SIZE)}
+            onClick={() => setShownCount((n) => n + PROFILE_LOAD_MORE)}
             className="rounded-full border border-navy/25 px-6 py-2.5 text-sm font-semibold text-navy transition hover:bg-navy hover:text-white"
           >
-            Muat lainnya ({visibleListings.length - shownCount} iklan lagi)
+            Muat lainnya
           </button>
         </div>
       )}
