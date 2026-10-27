@@ -9,6 +9,8 @@ import ShareButton from '../components/ShareButton';
 import { ADMIN_UIDS } from '../lib/admin';
 import { usePremium } from '../context/PremiumContext';
 
+const PROFILE_PAGE_SIZE = 12;
+
 // Harga bisa string / kosong / 0 di data lama -> anggap "tanpa harga"
 function priceOf(listing) {
   const n = Number(listing?.price);
@@ -31,6 +33,10 @@ export default function SellerProfile() {
   // Filter iklan (khusus profil akun centang biru/kuning)
   const [locFilter, setLocFilter] = useState('all'); // 'all' | nama kota/kabupaten (huruf kecil)
   const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'cheapest' | 'priciest'
+  // Berapa iklan yang ditampilkan sekarang. Awalnya 12, tombol "Muat lainnya"
+  // menambah 12 lagi. Pengurutan & filter tetap dihitung dari SEMUA iklan
+  // penjual, baru dipotong -> "termurah" = termurah dari semuanya.
+  const [shownCount, setShownCount] = useState(PROFILE_PAGE_SIZE);
 
   // Tahap 1: kalau diakses lewat /u/:username, resolve dulu jadi uid.
   useEffect(() => {
@@ -79,6 +85,11 @@ export default function SellerProfile() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid]);
+
+  // Ganti filter / urutan / penjual -> mulai lagi dari 12 teratas
+  useEffect(() => {
+    setShownCount(PROFILE_PAGE_SIZE);
+  }, [locFilter, sortBy, uid]);
 
   // Daftar pilihan kota/kabupaten + jumlah iklan, dihitung dari data yang
   // SUDAH dimuat (tanpa request tambahan ke server). Kecamatan sengaja
@@ -239,7 +250,7 @@ export default function SellerProfile() {
 
           {(locFilter !== 'all' || sortBy !== 'newest') && (
             <p className="mt-2 text-xs text-ink/50">
-              Menampilkan {visibleListings.length} dari {listings.length} iklan
+              Hasil filter: {visibleListings.length} dari {listings.length} iklan
               <button
                 type="button"
                 onClick={() => {
@@ -262,10 +273,22 @@ export default function SellerProfile() {
       )}
 
       <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {visibleListings.map((listing) => (
+        {visibleListings.slice(0, shownCount).map((listing) => (
           <ListingCard key={listing.id} listing={listing} />
         ))}
       </div>
+
+      {visibleListings.length > shownCount && (
+        <div className="mt-6 text-center">
+          <button
+            type="button"
+            onClick={() => setShownCount((n) => n + PROFILE_PAGE_SIZE)}
+            className="rounded-full border border-navy/25 px-6 py-2.5 text-sm font-semibold text-navy transition hover:bg-navy hover:text-white"
+          >
+            Muat lainnya ({visibleListings.length - shownCount} iklan lagi)
+          </button>
+        </div>
+      )}
     </div>
   );
 }
