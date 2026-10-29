@@ -106,12 +106,17 @@ function sanitizeOverview(value) {
   if (!Array.isArray(value)) return null;
   const lockOf = new Map(OVERVIEW_ITEMS.map(([k, lock]) => [k, lock || null]));
   const picked = [];
-  const usedLocks = new Set();
+  const lockCount = new Map();
+  // Arah hadap: maks 1, atau 2 kalau Hook dipilih (sama dengan frontend).
+  const maxFor = (lock) => (lock === "hadap" && value.includes("hook") ? 2 : 1);
   for (const key of value) {
     if (typeof key !== "string" || !lockOf.has(key) || picked.includes(key)) continue;
     const lock = lockOf.get(key);
-    if (lock && usedLocks.has(lock)) continue;
-    if (lock) usedLocks.add(lock);
+    if (lock) {
+      const used = lockCount.get(lock) || 0;
+      if (used >= maxFor(lock)) continue;
+      lockCount.set(lock, used + 1);
+    }
     picked.push(key);
   }
   const ordered = OVERVIEW_ITEMS.map(([k]) => k).filter((k) => picked.includes(k));
@@ -1427,8 +1432,8 @@ export default {
               phone, seller_phone, whatsapp, seller_uid, ownerUid, ownerName, ownerPhoto,
               images, status,
               materialPondasi, materialDinding, materialAtap, materialKusen, materialLantai, materialKloset,
-              perumahanName, perumahanPhoto, unitTypes, overview, bedroomsExtra, bathroomsExtra
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+              perumahanName, perumahanPhoto, unitTypes, overview, bedroomsExtra, bathroomsExtra, lebarMuka, tahunBangun
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(id) DO UPDATE SET
               title=excluded.title, type=excluded.type, category=excluded.category, price=excluded.price,
               cicilanPerBulan=excluded.cicilanPerBulan, location=excluded.location, kabupaten=excluded.kabupaten,
@@ -1446,7 +1451,9 @@ export default {
               unitTypes=excluded.unitTypes,
               overview=COALESCE(excluded.overview, listings.overview),
               bedroomsExtra=COALESCE(excluded.bedroomsExtra, listings.bedroomsExtra),
-              bathroomsExtra=COALESCE(excluded.bathroomsExtra, listings.bathroomsExtra)`
+              bathroomsExtra=COALESCE(excluded.bathroomsExtra, listings.bathroomsExtra),
+              lebarMuka=excluded.lebarMuka,
+              tahunBangun=excluded.tahunBangun`
           )
             .bind(
               idToSave,
@@ -1490,7 +1497,11 @@ export default {
               unitTypesJson,
               sanitizeOverview(body.overview),
               toNumberOrNull(src.bedroomsExtra),
-              toNumberOrNull(src.bathroomsExtra)
+              toNumberOrNull(src.bathroomsExtra),
+              // Lebar muka & tahun bangun: satu nilai per iklan (bukan per tipe unit).
+              // Angka tak valid -> NULL; tahun dibulatkan jadi bilangan bulat.
+              Number.isFinite(toNumberOrNull(body.lebarMuka)) ? toNumberOrNull(body.lebarMuka) : null,
+              Number.isFinite(toNumberOrNull(body.tahunBangun)) ? Math.round(toNumberOrNull(body.tahunBangun)) : null
             )
             .run();
 
