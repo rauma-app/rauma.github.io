@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { slugifyTitle } from '../lib/slugify';
-import { cleanOverview, overviewLabel } from '../lib/overview';
+import { cleanOverview, overviewLabel, normalizeAir } from '../lib/overview';
 import { d1Api } from '../lib/d1Api';
 import ImageSlider from '../components/ImageSlider';
 import ListingCard from '../components/ListingCard';
@@ -21,9 +21,7 @@ import { FaChevronDown, FaChevronUp, FaWhatsapp, FaRulerCombined, FaVectorSquare
 // biar tampilannya konsisten & otomatis kebalik jadi putih kalau HP/
 // browser orang lagi mode gelap (sama kayak teks lain di halaman ini).
 const SPEC_ROWS = [
-  { key: 'electricity', label: 'Daya Listrik', Icon: FaBolt, suffix: '' },
-  { key: 'air', label: 'Air', Icon: FaTint, suffix: '' },
-  { key: 'sertifikat', label: 'Sertifikat', Icon: FaFileContract, suffix: '' },
+  // Sertifikat, listrik, dan air dipindah ke kartu Overview (lihat overviewChips).
   { key: 'unitTersedia', label: 'Unit Tersedia', Icon: FaCity, suffix: ' unit' },
 ];
 
@@ -278,6 +276,20 @@ export default function Listing() {
     bathroomsExtra: activeType ? activeType.bathroomsExtra : listing.bathroomsExtra,
     electricity: activeType ? activeType.electricity : listing.electricity,
   };
+
+  // Isi kartu Overview, urut: sertifikat, listrik (ikut tipe unit yang dipilih),
+  // air, lebar muka, bangunan tahun, lalu pilihan centang penjual.
+  // Teks polos tanpa awalan (mis. "SHM", "1300 VA", "Jet Pump").
+  const lebarMukaNum = Number(listing.lebarMuka);
+  const tahunNum = Number(listing.tahunBangun);
+  const overviewChips = [
+    listing.sertifikat,
+    activeSpec.electricity,
+    normalizeAir(listing.air),
+    lebarMukaNum > 0 ? `Lebar Muka ${String(lebarMukaNum).replace('.', ',')}` : null,
+    tahunNum > 0 ? `Bangunan ${tahunNum}` : null,
+    ...overviewKeys.map((key) => overviewLabel(key)),
+  ].filter(Boolean);
   // Foto khusus tipe yang lagi dipilih (kalau diisi penjual). Kalau tipe
   // ini gak punya foto sendiri, tetap pakai foto rumah utama -- listing
   // lama / kategori lain (yang gak punya konsep tipe) otomatis pakai ini juga.
@@ -449,11 +461,11 @@ export default function Listing() {
         <h2 className="section-rule text-xl font-semibold text-navy">Spesifikasi</h2>
         {/* 1 kolom di semua ukuran layar; lebar kolom label diatur di SpecCard. */}
         <div>
-          {activeSpec.luasBangunan && (
-            <SpecCard Icon={FaRulerCombined} label="Luas Bangunan" value={`${activeSpec.luasBangunan}m²`} />
-          )}
           {activeSpec.luasTanah && (
             <SpecCard Icon={FaVectorSquare} label="Luas Tanah" value={`${activeSpec.luasTanah}m²`} />
+          )}
+          {activeSpec.luasBangunan && (
+            <SpecCard Icon={FaRulerCombined} label="Luas Bangunan" value={`${activeSpec.luasBangunan}m²`} />
           )}
           {activeSpec.bedrooms && (
             <SpecCard Icon={FaBed} label="Kamar Tidur" value={formatRooms(activeSpec.bedrooms, activeSpec.bedroomsExtra)} />
@@ -461,16 +473,9 @@ export default function Listing() {
           {activeSpec.bathrooms && (
             <SpecCard Icon={FaBath} label="Kamar Mandi" value={formatRooms(activeSpec.bathrooms, activeSpec.bathroomsExtra)} />
           )}
-          {SPEC_ROWS.filter((row) => (row.key === 'electricity' ? activeSpec.electricity : listing[row.key])).map(
-            (row) => (
-              <SpecCard
-                key={row.key}
-                Icon={row.Icon}
-                label={row.label}
-                value={`${row.key === 'electricity' ? activeSpec.electricity : listing[row.key]}${row.suffix}`}
-              />
-            )
-          )}
+          {SPEC_ROWS.filter((row) => listing[row.key]).map((row) => (
+            <SpecCard key={row.key} Icon={row.Icon} label={row.label} value={`${listing[row.key]}${row.suffix}`} />
+          ))}
         </div>
 
         {listing.videoUrl && (
@@ -487,7 +492,7 @@ export default function Listing() {
 
       {/* Overview (hanya tampil kalau penjual mencentang sesuatu). Tertutup di
           awal; polos tanpa kotak putih, tiap label punya latar navy tipis. */}
-      {overviewKeys.length > 0 && (
+      {overviewChips.length > 0 && (
         <section className="mt-4">
           <button
             type="button"
@@ -504,12 +509,12 @@ export default function Listing() {
           </button>
           {overviewOpen && (
             <div className="flex flex-wrap gap-2 pt-4">
-              {overviewKeys.map((key) => (
+              {overviewChips.map((text, i) => (
                 <span
-                  key={key}
+                  key={`${text}-${i}`}
                   className="rounded-full bg-navy/10 px-3.5 py-1.5 text-sm font-medium text-navy"
                 >
-                  {overviewLabel(key)}
+                  {text}
                 </span>
               ))}
             </div>

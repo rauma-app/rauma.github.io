@@ -10,20 +10,13 @@ import { usePremium } from '../context/PremiumContext';
 import LocationAutocomplete from '../components/LocationAutocomplete';
 import InfoTip from '../components/InfoTip';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
-import { OVERVIEW_SECTIONS, isOverviewLocked, toggleOverview, cleanOverview } from '../lib/overview';
+import { OVERVIEW_SECTIONS, isOverviewLocked, toggleOverview, cleanOverview, normalizeAir } from '../lib/overview';
 
 const PREMIUM_WHATSAPP = '6285156222635';
 const PREMIUM_PRICE_LABEL = 'Rp299.000/tahun';
 
 const SERTIFIKAT_OPTIONS = ['SHM', 'SHM & IMB', 'SHM & PGB', 'SHGB', 'HGB', 'AJB', 'Girik', 'PPJB', 'Lainnya'];
-const AIR_OPTIONS = ['PDAM',
-  'PAM Desa',
-  'Sumur Gali',
-  'Sumur Bor (Dangkal)',
-  'Sumur Bor (Jet Pump)',
-  'Sumur Bor (Submersible)',
-  'Sumur Artesis',
-  'Lainnya'];
+const AIR_OPTIONS = ['PDAM', 'PAM Desa', 'Sumur Dangkal', 'Jet Pump', 'Submersible', 'Artesis', 'Lainnya'];
 // Daya listrik PLN yang umum dipakai di rumah tinggal Indonesia, dari yang
 // terkecil sampai yang biasa dipakai rumah besar/mewah.
 const ELECTRICITY_OPTIONS = [
@@ -77,6 +70,8 @@ const emptyForm = {
   bathrooms: '',
   bedroomsExtra: '',
   bathroomsExtra: '',
+  lebarMuka: '',
+  tahunBangun: '',
   electricity: '',
   air: '',
   sertifikat: '',
@@ -268,7 +263,9 @@ export default function Posting() {
           bathrooms: splitRooms(data.bathrooms, data.bathroomsExtra).main,
           bathroomsExtra: splitRooms(data.bathrooms, data.bathroomsExtra).extra,
           electricity: data.electricity || '',
-          air: data.air || '',
+          air: normalizeAir(data.air),
+          lebarMuka: data.lebarMuka ?? '',
+          tahunBangun: data.tahunBangun ?? '',
           sertifikat: data.sertifikat || '',
           videoUrl: data.videoUrl || '',
           overview: cleanOverview(data.overview),
@@ -738,6 +735,8 @@ export default function Posting() {
         electricity: isMultiType ? cheapestType?.electricity ?? null : form.electricity || null,
         air: form.air || null,
         sertifikat: form.sertifikat || null,
+        lebarMuka: form.lebarMuka !== '' && Number.isFinite(Number(form.lebarMuka)) ? Number(form.lebarMuka) : null,
+        tahunBangun: form.tahunBangun !== '' && Number.isFinite(Number(form.tahunBangun)) ? Math.round(Number(form.tahunBangun)) : null,
 
         // Tipe unit (array, khusus kategori Perumahan)
         unitTypes: isMultiType ? cleanUnitTypes : undefined,
@@ -772,16 +771,12 @@ export default function Posting() {
       // 3. Simpan ke Cloudflare D1
       const saveResult = await d1Api.createListing(payload);
 
-      // URL final: kalau ini listing perumahan dan sudah dapat slug SEO
-      // dari server, pakai /perumahan/slug -- kalau tidak, pakai /id/id
-      // plus slug dari judul (kalau ada judulnya) biar linknya sekalian
-      // SEO-friendly dari awal.
+      // URL final: /id/id plus slug dari judul (kalau ada judulnya) biar
+      // linknya sekalian SEO-friendly dari awal.
       const titleSlugForUrl = slugifyTitle(payload.title);
-      const finalUrl = saveResult?.perumahanSlug
-        ? `/perumahan/${saveResult.perumahanSlug}`
-        : titleSlugForUrl
-          ? `/id/${payload.id}/${titleSlugForUrl}`
-          : `/id/${payload.id}`;
+      const finalUrl = titleSlugForUrl
+        ? `/id/${payload.id}/${titleSlugForUrl}`
+        : `/id/${payload.id}`;
 
       // 4. Kirim notifikasi email ke admin tiap ada listing BARU (bukan edit)
       // biar gak perlu bolak-balik cek Tinjau Iklan. Pakai FormSubmit yang
@@ -1240,6 +1235,32 @@ export default function Posting() {
             <p className="mt-2 text-[11px] text-ink/40">Kolom kecil di kanan = kamar pembantu (opsional). Contoh 4+1.</p>
           </div>
         )}
+
+        {/* Satu nilai per iklan (juga untuk iklan multi-tipe). Tampil di Overview. */}
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Lebar Muka">
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={form.lebarMuka}
+              onChange={(e) => update('lebarMuka', e.target.value)}
+              placeholder="Contoh: 7"
+              className="input"
+            />
+          </Field>
+          <Field label="Bangunan Tahun">
+            <input
+              type="number"
+              inputMode="numeric"
+              min="0"
+              value={form.tahunBangun}
+              onChange={(e) => update('tahunBangun', e.target.value)}
+              placeholder="Contoh: 2015"
+              className="input"
+            />
+          </Field>
+        </div>
 
         {!isMultiType && (
           <Field label="Daya Listrik">
