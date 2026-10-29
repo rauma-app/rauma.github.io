@@ -66,7 +66,7 @@ export const OVERVIEW_SECTIONS = [
   },
   {
     title: 'Arah Hadap & Posisi',
-    hint: 'Arah hadap: pilih salah satu',
+    hint: 'Arah hadap: pilih salah satu. Kalau Hook dicentang, boleh pilih 2 arah',
     items: [
       { key: 'hook', label: 'Hook' },
       { key: 'hadap_utara', label: 'Hadap Utara', lock: 'hadap' },
@@ -80,28 +80,52 @@ export const OVERVIEW_SECTIONS = [
 export const OVERVIEW_ITEMS = OVERVIEW_SECTIONS.flatMap((s) => s.items);
 const ITEM_BY_KEY = Object.fromEntries(OVERVIEW_ITEMS.map((i) => [i.key, i]));
 
-// Item ini terkunci kalau item lain di grup `lock` yang sama sudah dipilih
+// Batas jumlah pilihan per grup `lock`. Biasanya 1. Khusus arah hadap: 1,
+// tapi 2 kalau Hook dicentang (rumah di sudut jalan menghadap 2 arah).
+function lockMax(lock, keys) {
+  if (lock === 'hadap') return keys.includes('hook') ? 2 : 1;
+  return 1;
+}
+
+// Item ini terkunci kalau grup `lock`-nya sudah penuh dan item ini belum dipilih
 export function isOverviewLocked(selected, key) {
   const item = ITEM_BY_KEY[key];
   if (!item || !item.lock || selected.includes(key)) return false;
-  return selected.some((k) => ITEM_BY_KEY[k]?.lock === item.lock);
+  const used = selected.filter((k) => ITEM_BY_KEY[k]?.lock === item.lock).length;
+  return used >= lockMax(item.lock, selected);
 }
 
 // Centang / lepas centang. Item yang terkunci tidak bisa dicentang.
 export function toggleOverview(selected, key) {
-  if (selected.includes(key)) return selected.filter((k) => k !== key);
+  if (selected.includes(key)) {
+    let next = selected.filter((k) => k !== key);
+    // Hook dilepas -> arah hadap tinggal 1 (yang dipilih pertama)
+    if (key === 'hook') {
+      let seen = 0;
+      next = next.filter((k) => {
+        if (ITEM_BY_KEY[k]?.lock !== 'hadap') return true;
+        seen += 1;
+        return seen <= 1;
+      });
+    }
+    return next;
+  }
   if (isOverviewLocked(selected, key) || !ITEM_BY_KEY[key]) return selected;
   return [...selected, key];
 }
 
 // Bersihkan data (mis. dari server): buang key tak dikenal & duplikat,
-// pastikan aturan kunci terjaga, urutkan sesuai urutan daftar.
+// pastikan batas per grup terjaga, urutkan sesuai urutan daftar.
 export function cleanOverview(value) {
   const input = Array.isArray(value) ? value : [];
   const picked = [];
   for (const key of input) {
-    if (!ITEM_BY_KEY[key] || picked.includes(key)) continue;
-    if (isOverviewLocked(picked, key)) continue;
+    const item = ITEM_BY_KEY[key];
+    if (!item || picked.includes(key)) continue;
+    if (item.lock) {
+      const used = picked.filter((k) => ITEM_BY_KEY[k]?.lock === item.lock).length;
+      if (used >= lockMax(item.lock, input)) continue;
+    }
     picked.push(key);
   }
   return OVERVIEW_ITEMS.filter((i) => picked.includes(i.key)).map((i) => i.key);
@@ -109,4 +133,19 @@ export function cleanOverview(value) {
 
 export function overviewLabel(key) {
   return ITEM_BY_KEY[key]?.label || key;
+}
+
+// Penulisan lama jenis air -> penulisan baru (kata "Sumur Bor" dihapus).
+// Dipakai saat menampilkan & saat mengedit iklan lama, jadi tetap benar
+// walau perintah SQL penyeragaman belum dijalankan.
+const AIR_LEGACY = {
+  'Sumur Gali': 'Sumur Dangkal',
+  'Sumur Bor (Dangkal)': 'Sumur Dangkal',
+  'Sumur Bor (Jet Pump)': 'Jet Pump',
+  'Sumur Bor (Submersible)': 'Submersible',
+  'Sumur Artesis': 'Artesis',
+};
+export function normalizeAir(value) {
+  if (!value) return '';
+  return AIR_LEGACY[value] || value;
 }
