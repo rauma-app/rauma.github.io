@@ -31,7 +31,6 @@ export default function TentangKami() {
           <h2 className="font-display text-lg font-semibold text-navy">Yang Kami Tawarkan</h2>
           <ul className="mt-3 space-y-2">
             <li>🏠 Pasang iklan rumah gratis, tanpa biaya tersembunyi</li>
-            <li>📍 Pencarian rumah berdasarkan lokasi terdekat</li>
             <li>💰 Kategori khusus rumah termurah, termahal, dan subsidi</li>
             <li>🔄 Listing rumah take over KPR bagi yang ingin oper-alihkan cicilan</li>
             <li>📊 Simulasi tabungan untuk membantu rencana pembelian rumah</li>

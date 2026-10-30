@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { d1Api } from '../lib/d1Api';
 import ListingCard from '../components/ListingCard';
+import Pagination from '../components/Pagination';
 import Seo from '../components/Seo';
 import VerifiedBadge from '../components/VerifiedBadge';
 import ProfilePhotoViewer from '../components/ProfilePhotoViewer';
@@ -9,8 +10,11 @@ import ShareButton from '../components/ShareButton';
 import { ADMIN_UIDS } from '../lib/admin';
 import { usePremium } from '../context/PremiumContext';
 
-const PROFILE_PAGE_SIZE = 12; // jumlah iklan di awal
-const PROFILE_LOAD_MORE = 8; // tiap klik "Muat lainnya" menambah segini
+const PROFILE_PAGE_SIZE = 12; // jumlah iklan per halaman
+
+// Nilai di URL (?urut=...) <-> nilai di dalam kode
+const SORT_TO_PARAM = { cheapest: 'termurah', priciest: 'termahal' };
+const PARAM_TO_SORT = { termurah: 'cheapest', termahal: 'priciest' };
 
 // Harga bisa string / kosong / 0 di data lama -> anggap "tanpa harga"
 function priceOf(listing) {
@@ -31,13 +35,35 @@ export default function SellerProfile() {
   const [loading, setLoading] = useState(true);
   const [soldUnits, setSoldUnits] = useState(0);
   const [usernameNotFound, setUsernameNotFound] = useState(false);
-  // Filter iklan (khusus profil akun centang biru/kuning)
-  const [locFilter, setLocFilter] = useState('all'); // 'all' | nama kota/kabupaten (huruf kecil)
-  const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'cheapest' | 'priciest'
-  // Berapa iklan yang ditampilkan sekarang. Awalnya 12, tombol "Muat lainnya"
-  // menambah 8 lagi, terus sampai iklan habis. Pengurutan & filter tetap dihitung dari SEMUA iklan
-  // penjual, baru dipotong -> "termurah" = termurah dari semuanya.
-  const [shownCount, setShownCount] = useState(PROFILE_PAGE_SIZE);
+  // Filter, urutan, dan nomor halaman disimpan di URL
+  // (?lokasi=bandung%20barat&urut=termurah&hal=2) supaya tombol Back dari
+  // halaman iklan kembali ke tampilan yang sama persis.
+  // Filter hanya berlaku untuk profil akun centang biru/kuning.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const locParam = searchParams.get('lokasi') || 'all'; // 'all' | nama kota/kabupaten (huruf kecil)
+  const sortBy = PARAM_TO_SORT[searchParams.get('urut')] || 'newest'; // 'newest' | 'cheapest' | 'priciest'
+  const rawPage = parseInt(searchParams.get('hal') || '1', 10);
+  const pageParam = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+  const gridRef = useRef(null);
+
+  function updateParams(changes, replace) {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(changes).forEach(([k, v]) => {
+      if (v === null || v === '') next.delete(k);
+      else next.set(k, v);
+    });
+    setSearchParams(next, { replace });
+  }
+  // Ganti filter / urutan -> kembali ke halaman 1 (tanpa menambah riwayat Back)
+  const setLocFilter = (v) => updateParams({ lokasi: v === 'all' ? null : v, hal: null }, true);
+  const setSortBy = (v) => updateParams({ urut: SORT_TO_PARAM[v] || null, hal: null }, true);
+  const resetFilters = () => updateParams({ lokasi: null, urut: null, hal: null }, true);
+  function goToPage(n) {
+    updateParams({ hal: n <= 1 ? null : String(n) }, false);
+    requestAnimationFrame(() => {
+      gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   // Tahap 1: kalau diakses lewat /u/:username, resolve dulu jadi uid.
   useEffect(() => {
@@ -65,8 +91,6 @@ export default function SellerProfile() {
     async function load() {
       if (!uid) return;
       setLoading(true);
-      setLocFilter('all');
-      setSortBy('newest');
       try {
         const [profileData, data, stats] = await Promise.all([
           profile ? Promise.resolve(profile) : d1Api.getProfile(uid),
@@ -87,11 +111,6 @@ export default function SellerProfile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid]);
 
-  // Ganti filter / urutan / penjual -> mulai lagi dari 12 teratas
-  useEffect(() => {
-    setShownCount(PROFILE_PAGE_SIZE);
-  }, [locFilter, sortBy, uid]);
-
   // Daftar pilihan kota/kabupaten + jumlah iklan, dihitung dari data yang
   // SUDAH dimuat (tanpa request tambahan ke server). Kecamatan sengaja
   // tidak dipisah supaya dropdown tetap ringkas.
@@ -111,6 +130,11 @@ export default function SellerProfile() {
       (a, b) => b.count - a.count || a.label.localeCompare(b.label, 'id')
     );
   }, [listings]);
+
+  // Nilai ?lokasi= di URL yang sudah tidak ada pilihannya (iklan dihapus, dll.)
+  // dianggap "semua lokasi".
+  const locFilter =
+    locParam === 'all' || locationOptions.some((o) => o.value === locParam) ? locParam : 'all';
 
   const visibleListings = useMemo(() => {
     const norm = (v) => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -135,6 +159,10 @@ export default function SellerProfile() {
     // 'newest' = urutan dari server (created_at terbaru dulu)
     return result;
   }, [listings, locFilter, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(visibleListings.length / PROFILE_PAGE_SIZE));
+  const currentPage = Math.min(pageParam, totalPages);
+  const pageListings = visibleListings.slice((currentPage - 1) * PROFILE_PAGE_SIZE, currentPage * PROFILE_PAGE_SIZE);
 
   if (usernameNotFound) {
     return (
@@ -254,10 +282,7 @@ export default function SellerProfile() {
               Hasil filter: {visibleListings.length} dari {listings.length} iklan
               <button
                 type="button"
-                onClick={() => {
-                  setLocFilter('all');
-                  setSortBy('newest');
-                }}
+                onClick={resetFilters}
                 className="ml-2 font-medium text-navy underline"
               >
                 Reset
@@ -273,23 +298,13 @@ export default function SellerProfile() {
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {visibleListings.slice(0, shownCount).map((listing) => (
+      <div ref={gridRef} className="mt-6 grid scroll-mt-28 grid-cols-2 gap-4 sm:grid-cols-4">
+        {pageListings.map((listing) => (
           <ListingCard key={listing.id} listing={listing} />
         ))}
       </div>
 
-      {visibleListings.length > shownCount && (
-        <div className="mt-6 text-center">
-          <button
-            type="button"
-            onClick={() => setShownCount((n) => n + PROFILE_LOAD_MORE)}
-            className="rounded-full border border-navy/25 px-6 py-2.5 text-sm font-semibold text-navy transition hover:bg-navy hover:text-white"
-          >
-            Muat lainnya
-          </button>
-        </div>
-      )}
+      <Pagination page={currentPage} totalPages={totalPages} onChange={goToPage} />
     </div>
   );
 }

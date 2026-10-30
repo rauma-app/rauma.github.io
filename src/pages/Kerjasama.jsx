@@ -15,11 +15,6 @@ const KEUNGGULAN = [
     desc: 'Cukup ketik kayak ngobrol biasa — misal "rumah 300jt an di Cimahi" — Rauma langsung ngerti maksudnya dan nunjukin hasil yang sesuai. Nggak perlu isi form filter berlapis-lapis (pilih kota, pilih rentang harga, pilih tipe, baru klik cari) seperti kebanyakan portal properti pada umumnya.',
   },
   {
-    icon: '📍',
-    title: 'Lokasi yang Benar-Benar Berdampak',
-    desc: 'Waktu user mengaktifkan izin lokasi di Rauma, hasil pencarian benar-benar diurutkan ulang berdasarkan jarak sebenarnya dari posisi mereka — bukan cuma formalitas minta izin doang. Beberapa platform properti besar juga punya fitur "aktifkan lokasi", tapi banyak pengguna yang merasa hasilnya tidak berubah signifikan setelah diaktifkan. Di Rauma, fitur ini benar-benar dipakai buat nyortir listing terdekat.',
-  },
-  {
     icon: '💬',
     title: 'Komunikasi Langsung, Tanpa Perantara',
     desc: 'Setiap listing terhubung langsung ke WhatsApp penjual/agen — tidak ada sistem chat internal platform yang bikin respons lambat atau harus login dulu. Calon pembeli serius bisa langsung tanya-tanya di WhatsApp dalam hitungan detik.',

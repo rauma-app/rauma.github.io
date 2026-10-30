@@ -3,7 +3,6 @@ import { useLocation } from 'react-router-dom';
 import { d1Api } from '../lib/d1Api';
 import ListingCard from '../components/ListingCard';
 import Seo from '../components/Seo';
-import LocationPermissionPopup from '../components/LocationPermissionPopup';
 
 const PAGE_SIZE = 12;
 const EXCLUDED_TYPES = ['subsidi', 'jual_cepat', 'take_over_kpr']; // kategori khusus, gak ikut daftar umum ini
@@ -39,65 +38,20 @@ export default function PriceSortedList() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
-  const [userLoc, setUserLoc] = useState(null);
 
-  function handleLocationGranted(loc) {
-    setUserLoc(loc);
-  }
-
-  // Kalau izin GPS sudah pernah diizinkan sebelumnya, ambil ulang lokasinya
-  // diam-diam begitu halaman dibuka/direload -- sama seperti di homepage.
-  useEffect(() => {
-    if (!navigator.permissions || !navigator.geolocation) return;
-    let cancelled = false;
-    navigator.permissions
-      .query({ name: 'geolocation' })
-      .then((status) => {
-        if (cancelled || status.state !== 'granted') return;
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            if (!cancelled) {
-              setUserLoc({ lat: pos.coords.latitude, lon: pos.coords.longitude });
-            }
-          },
-          () => {},
-          { enableHighAccuracy: false, timeout: 8000 }
-        );
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Default: urutan terbaru diposting duluan. Begitu lokasi (IP-permission
-  // GPS) aktif, isinya ganti jadi yang PALING DEKAT dari lokasi itu -- query
-  // langsung ke database, bukan cuma dari data yang sudah ke-load.
+  // Urutan terbaru diposting duluan.
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       setLoading(true);
       try {
-        if (userLoc) {
-          const nearby = await d1Api.getNearbyListings({
-            lat: userLoc.lat,
-            lon: userLoc.lon,
-            limit: PAGE_SIZE,
-            minPrice: program.minPrice,
-            maxPrice: program.maxPrice,
-          });
-          if (cancelled) return;
-          setListings(nearby);
-          setHasMore(nearby.length === PAGE_SIZE);
-        } else {
-          const data = await d1Api.getListings({ minPrice: program.minPrice, maxPrice: program.maxPrice });
-          const filtered = data.filter((l) => !EXCLUDED_TYPES.includes(l.type));
-          if (cancelled) return;
-          setAllData(filtered);
-          setListings(filtered.slice(0, PAGE_SIZE));
-          setHasMore(filtered.length > PAGE_SIZE);
-        }
+        const data = await d1Api.getListings({ minPrice: program.minPrice, maxPrice: program.maxPrice });
+        const filtered = data.filter((l) => !EXCLUDED_TYPES.includes(l.type));
+        if (cancelled) return;
+        setAllData(filtered);
+        setListings(filtered.slice(0, PAGE_SIZE));
+        setHasMore(filtered.length > PAGE_SIZE);
         setPage(1);
       } catch (err) {
         console.error(err);
@@ -110,33 +64,15 @@ export default function PriceSortedList() {
     return () => {
       cancelled = true;
     };
-  }, [pathname, userLoc, program.minPrice, program.maxPrice]);
+  }, [pathname, program.minPrice, program.maxPrice]);
 
-  async function loadMore() {
+  function loadMore() {
     if (loadingMore || !hasMore) return;
-    setLoadingMore(true);
-
     const nextPage = page + 1;
     const nextLimit = nextPage * PAGE_SIZE;
-
-    if (userLoc) {
-      const data = await d1Api.getNearbyListings({
-        lat: userLoc.lat,
-        lon: userLoc.lon,
-        limit: nextLimit,
-        minPrice: program.minPrice,
-        maxPrice: program.maxPrice,
-      });
-      setListings(data);
-      setHasMore(data.length === nextLimit);
-    } else {
-      const nextBatch = allData.slice(0, nextLimit);
-      setListings(nextBatch);
-      setHasMore(allData.length > nextLimit);
-    }
-
+    setListings(allData.slice(0, nextLimit));
+    setHasMore(allData.length > nextLimit);
     setPage(nextPage);
-    setLoadingMore(false);
   }
 
   return (
@@ -171,7 +107,6 @@ export default function PriceSortedList() {
         </div>
       )}
 
-      <LocationPermissionPopup onLocationGranted={handleLocationGranted} suppress={!!userLoc} />
     </div>
   );
 }
