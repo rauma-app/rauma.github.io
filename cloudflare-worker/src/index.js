@@ -997,65 +997,26 @@ export default {
       if (path.startsWith("/api/listings")) {
         const pathParts = path.split("/").filter(Boolean);
 
-        // GET /api/listings/nearby -- publik (cuma listing approved yang punya koordinat)
-        if (pathParts.length === 3 && pathParts[2] === "nearby" && method === "GET") {
-          const lat = parseFloat(url.searchParams.get("lat"));
-          const lon = parseFloat(url.searchParams.get("lon"));
-          const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 200);
+        // GET /api/listings/count?type=pribadi -- publik. Total iklan approved
+        // (dipakai untuk menghitung jumlah halaman di beranda). Di-cache 5 menit.
+        if (pathParts.length === 3 && pathParts[2] === "count" && method === "GET") {
           const type = url.searchParams.get("type");
-          const minPrice = url.searchParams.get("minPrice");
-          const maxPrice = url.searchParams.get("maxPrice");
-
-          if (Number.isNaN(lat) || Number.isNaN(lon)) {
-            return json({ error: "Parameter lat & lon wajib diisi angka" }, 400);
-          }
-
-          // Koordinat dibulatkan ke 2 desimal (~1 km) supaya orang di area
-          // yang sama berbagi hasil cache. Selisih jarak gak terasa user.
-          const latQ = Math.round(lat * 100) / 100;
-          const lonQ = Math.round(lon * 100) / 100;
-          const nearbyKey =
-            `${url.origin}/api/listings/nearby?lat=${latQ}&lon=${lonQ}&limit=${limit}` +
-            `&type=${type || ""}&min=${minPrice || ""}&max=${maxPrice || ""}`;
-
-          return edgeCached(300, nearbyKey, async () => {
-          const nearbyConditions = ["status = 'approved'", "lat IS NOT NULL", "lon IS NOT NULL"];
-          const nearbyParams = [];
-          if (type) {
-            nearbyConditions.push("type = ?");
-            nearbyParams.push(type);
-          }
-          if (minPrice) {
-            nearbyConditions.push("price >= ?");
-            nearbyParams.push(Number(minPrice));
-          }
-          if (maxPrice) {
-            nearbyConditions.push("price <= ?");
-            nearbyParams.push(Number(maxPrice));
-          }
-
-          const nearbyQuery = `SELECT * FROM listings WHERE ${nearbyConditions.join(" AND ")}`;
-          const { results } = await env.DB.prepare(nearbyQuery).bind(...nearbyParams).all();
-
-          const toRad = (deg) => (deg * Math.PI) / 180;
-          const haversineKm = (lat1, lon1, lat2, lon2) => {
-            const R = 6371;
-            const dLat = toRad(lat2 - lat1);
-            const dLon = toRad(lon2 - lon1);
-            const a =
-              Math.sin(dLat / 2) ** 2 +
-              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-          };
-
-          const withDistance = (results || []).map((row) => ({
-            ...row,
-            distanceKm: Math.round(haversineKm(latQ, lonQ, row.lat, row.lon) * 10) / 10,
-          }));
-
-          withDistance.sort((a, b) => a.distanceKm - b.distanceKm);
-
-          return withDistance.slice(0, limit);
+          const countKey = `${url.origin}/api/listings/count?type=${type || ""}`;
+          return edgeCached(300, countKey, async () => {
+            const conditions = ["status = 'approved'"];
+            const params = [];
+            if (type === "pribadi") {
+              conditions.push("(type = 'pribadi' OR type IS NULL OR type = '')");
+            } else if (type) {
+              conditions.push("type = ?");
+              params.push(type);
+            }
+            const row = await env.DB.prepare(
+              `SELECT COUNT(*) AS total FROM listings WHERE ${conditions.join(" AND ")}`
+            )
+              .bind(...params)
+              .first();
+            return { total: row?.total || 0 };
           });
         }
 
