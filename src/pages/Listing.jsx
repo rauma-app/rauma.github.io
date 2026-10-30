@@ -35,6 +35,25 @@ const MATERIAL_ROWS = [
   { key: 'materialKloset', label: 'Kloset' },
 ];
 
+// Nama penjual + centang. Kata TERAKHIR nama dan centang dikunci satu
+// kelompok (tidak boleh dipisah baris), jadi kalau nama harus turun baris,
+// centang ikut menempel di ujung nama -- tidak melayang jauh di kanan.
+function NameWithBadge({ name, badge }) {
+  const words = String(name || '').trim().split(/\s+/);
+  const last = words.pop() || '';
+  const rest = words.join(' ');
+  return (
+    <span className="min-w-0 flex-1 font-semibold leading-tight text-ink">
+      {rest}
+      {rest ? ' ' : ''}
+      <span className="whitespace-nowrap">
+        {last}
+        {badge ? <span className="ml-1.5 inline-block align-middle">{badge}</span> : null}
+      </span>
+    </span>
+  );
+}
+
 // Jumlah kamar di halaman iklan. Disimpan sebagai TOTAL (mis. 5) + jumlah
 // kamar tambahan (mis. 1) -> ditampilkan "4+1" tanpa keterangan tambahan.
 // Tanpa kamar tambahan tampil angka biasa. (Kartu iklan tetap menampilkan
@@ -595,7 +614,7 @@ export default function Listing() {
       )}
 
       {/* Kontak Penjual */}
-      <section className="mt-8 flex items-center justify-between gap-3 rounded-2xl border border-line bg-white p-4">
+      <section className="mt-8 flex items-center justify-between gap-2 rounded-2xl border border-line bg-white p-4">
         {listing.perumahanName ? (
           // Listing dari Admin Perumahan: tampilkan Nama Perumahan (bukan
           // nama akun), centang biru otomatis, TIDAK bisa diklik.
@@ -608,13 +627,7 @@ export default function Listing() {
                 className="h-11 w-11 shrink-0 rounded-full object-cover"
               />
             )}
-            {/* Nama + centang dalam satu baris flex: centang tidak akan turun ke
-                baris baru walau browser dalam aplikasi (Threads/Instagram) merender
-                teks sedikit lebih lebar; yang mengalah adalah nama (turun baris). */}
-            <span className="flex min-w-0 flex-1 items-center gap-1.5 font-semibold text-ink">
-              <span className="min-w-0 leading-tight">{listing.perumahanName}</span>
-              <VerifiedBadge color="blue" />
-            </span>
+            <NameWithBadge name={listing.perumahanName} badge={<VerifiedBadge color="blue" />} />
           </div>
         ) : (
           // Nama & foto SEMUA penjual (bukan cuma premium/admin) sekarang
@@ -624,7 +637,7 @@ export default function Listing() {
           // (lebih pendek). Kalau belum -> fallback ke /penjual/uid.
           <Link
             to={listing.ownerUsername ? `/u/${listing.ownerUsername}` : `/penjual/${listing.ownerUid}`}
-            className="flex min-w-0 flex-1 items-center gap-3 hover:opacity-80"
+            className="flex min-w-0 flex-1 items-center gap-2.5 hover:opacity-80"
           >
             {listing.ownerPhoto && (
               <img
@@ -634,10 +647,10 @@ export default function Listing() {
                 className="h-11 w-11 shrink-0 rounded-full object-cover"
               />
             )}
-            <span className="flex min-w-0 flex-1 items-center gap-1.5 font-semibold text-ink">
-              <span className="min-w-0 leading-tight">{listing.ownerName}</span>
-              {isOwnerVerified && <VerifiedBadge color={isOwnerAdmin ? 'gold' : 'blue'} />}
-            </span>
+            <NameWithBadge
+              name={listing.ownerName}
+              badge={isOwnerVerified ? <VerifiedBadge color={isOwnerAdmin ? 'gold' : 'blue'} /> : null}
+            />
           </Link>
         )}
 
@@ -647,7 +660,7 @@ export default function Listing() {
             target="_blank"
             rel="noreferrer"
             onClick={() => d1Api.logEvent('whatsapp_click', { anon_id: getAnonId(), listing_id: listing.id })}
-            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[#064734] px-3.5 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#053a2a]"
+            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[#064734] px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#053a2a]"
           >
             <FaWhatsapp size={16} /> WhatsApp
           </a>
