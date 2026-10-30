@@ -84,21 +84,18 @@ export const d1Api = {
     }
   },
 
-  // Ambil N listing terdekat dari koordinat tertentu, dihitung server-side
-  // dari SELURUH data di database (bukan cuma yang sudah ke-load di frontend)
-  async getNearbyListings({ lat, lon, limit = 20, type, minPrice, maxPrice }) {
+  // Total iklan approved per jenis (untuk jumlah halaman). null kalau gagal.
+  async getListingsCount({ type } = {}) {
     try {
-      const qs = new URLSearchParams({ lat, lon, limit });
+      const qs = new URLSearchParams();
       if (type) qs.set('type', type);
-      if (minPrice) qs.set('minPrice', minPrice);
-      if (maxPrice) qs.set('maxPrice', maxPrice);
-      const res = await fetch(`${API_BASE_URL}/listings/nearby?${qs.toString()}`);
-      if (!res.ok) throw new Error('Gagal mengambil listing terdekat');
+      const res = await fetch(`${API_BASE_URL}/listings/count?${qs.toString()}`);
+      if (!res.ok) throw new Error('Gagal menghitung iklan');
       const data = await res.json();
-      return Array.isArray(data) ? data.map(normalizeListing) : [];
+      return Number.isFinite(data?.total) ? data.total : null;
     } catch (err) {
-      console.error('Error d1Api.getNearbyListings:', err);
-      return [];
+      console.error('Error d1Api.getListingsCount:', err);
+      return null;
     }
   },
 
