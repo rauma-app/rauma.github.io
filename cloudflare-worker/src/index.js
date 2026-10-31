@@ -123,6 +123,15 @@ function sanitizeOverview(value) {
   return JSON.stringify(ordered);
 }
 
+// Escape teks sebelum ditaruh di atribut/isi HTML
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;");
+}
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -188,6 +197,79 @@ export default {
     // sudah dihapus -> 301 ke beranda supaya link lama tidak jadi 404.
     if (path === "/perumahan" || path.startsWith("/perumahan/")) {
       return Response.redirect("https://rauma.id/", 301);
+    }
+
+    // -------------------------------------------------------------
+    // Profil penjual (/u/:username): preview link (Threads, WhatsApp, dll.)
+    // dan judul Google = NAMA penjual saja, mis. "Alam Property".
+    // Manusia diteruskan apa adanya; hanya bot yang dapat meta tag khusus.
+    // CATATAN: agar Worker ini menerima permintaan ke /u/*, rute
+    // "rauma.id/u/*" harus ditambahkan di dashboard Cloudflare
+    // (Workers & Pages -> rauma-uploader -> Settings -> Domains & Routes).
+    // -------------------------------------------------------------
+    const profileMatch = path.match(/^\/u\/([^/]+)\/?$/);
+    if (profileMatch) {
+      const userAgent = request.headers.get("User-Agent") || "";
+      if (!BOT_UA_PATTERN.test(userAgent)) {
+        return fetch(`${SITE_ORIGIN}${path}${url.search}`);
+      }
+      try {
+        let username = profileMatch[1];
+        try {
+          username = decodeURIComponent(username);
+        } catch {}
+        const profile = await env.DB.prepare(
+          "SELECT uid, name, photo, description, username FROM user_profiles WHERE username = ?"
+        )
+          .bind(username.toLowerCase())
+          .first();
+        if (!profile) return fetch(`${SITE_ORIGIN}${path}${url.search}`);
+
+        // Nama profil kadang kosong -> pakai nama pemilik di iklannya
+        let name = (profile.name || "").trim();
+        if (!name) {
+          const row = await env.DB.prepare("SELECT ownerName FROM listings WHERE ownerUid = ? LIMIT 1")
+            .bind(profile.uid)
+            .first();
+          name = (row?.ownerName || "").trim();
+        }
+        if (!name) name = profile.username;
+
+        const bio = (profile.description || "").replace(/\s+/g, " ").trim();
+        const description = bio
+          ? bio.length > 160
+            ? `${bio.slice(0, 157)}...`
+            : bio
+          : `Lihat semua iklan rumah dari ${name} di Rauma.`;
+        const image = profile.photo || null;
+        const canonicalUrl = `https://rauma.id/u/${profile.username}`;
+
+        const originRes = await fetch(`${SITE_ORIGIN}/index.html`);
+        let html = await originRes.text();
+        html = html.replace(/<title>.*?<\/title>/s, `<title>${escHtml(name)}</title>`);
+        html = html.replace(
+          /<meta name="description" content=".*?"\s*\/>/s,
+          `<meta name="description" content="${escHtml(description)}" />\n` +
+            `    <meta property="og:title" content="${escHtml(name)}" />\n` +
+            `    <meta property="og:description" content="${escHtml(description)}" />\n` +
+            `    <meta property="og:type" content="profile" />\n` +
+            `    <meta property="og:url" content="${escHtml(canonicalUrl)}" />\n` +
+            (image ? `    <meta property="og:image" content="${escHtml(image)}" />\n` : "") +
+            `    <meta name="twitter:card" content="${image ? "summary_large_image" : "summary"}" />\n` +
+            `    <meta name="twitter:title" content="${escHtml(name)}" />\n` +
+            `    <meta name="twitter:description" content="${escHtml(description)}" />\n` +
+            (image ? `    <meta name="twitter:image" content="${escHtml(image)}" />\n` : "") +
+            `    <link rel="canonical" href="${escHtml(canonicalUrl)}" />`
+        );
+        return new Response(html, {
+          headers: {
+            "Content-Type": "text/html; charset=UTF-8",
+            "Cache-Control": "public, max-age=3600",
+          },
+        });
+      } catch (err) {
+        return fetch(`${SITE_ORIGIN}${path}${url.search}`);
+      }
     }
 
     const idMatch = path.match(/^\/id\/([^/]+)(?:\/.*)?$/);
