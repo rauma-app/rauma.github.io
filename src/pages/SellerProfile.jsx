@@ -202,6 +202,7 @@ export default function SellerProfile() {
     <div className="mx-auto max-w-6xl px-4 py-8">
       <Seo
         title={`Iklan dari ${displayName}`}
+        pageTitle={displayName}
         description="Lihat semua iklan rumah lain dari pengiklan ini di Rauma."
         path={usernameParam ? `/u/${usernameParam}` : `/penjual/${uid}`}
       />
