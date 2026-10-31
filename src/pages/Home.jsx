@@ -224,6 +224,7 @@ export default function Home() {
     <div>
       <Seo
         title="Platform Jual Beli Rumah"
+        pageTitle="Rauma - Platform jual beli rumah"
         description="Rauma adalah platform jual beli rumah Yang mudah digunakan — Temukan rumah subsidi, hingga rumah take over KPR sesuai lokasi dan budget kamu."
         path="/"
       />
