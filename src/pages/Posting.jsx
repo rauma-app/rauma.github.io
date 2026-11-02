@@ -10,12 +10,20 @@ import { usePremium } from '../context/PremiumContext';
 import LocationAutocomplete from '../components/LocationAutocomplete';
 import InfoTip from '../components/InfoTip';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
-import { OVERVIEW_SECTIONS, isOverviewLocked, toggleOverview, cleanOverview, normalizeAir } from '../lib/overview';
+import {
+  OVERVIEW_SECTIONS,
+  isOverviewLocked,
+  toggleOverview,
+  cleanOverview,
+  normalizeAir,
+  SERTIFIKAT_OPTIONS,
+  parseSertifikat,
+  toggleSertifikat,
+} from '../lib/overview';
 
 const PREMIUM_WHATSAPP = '6285156222635';
 const PREMIUM_PRICE_LABEL = 'Rp299.000/tahun';
 
-const SERTIFIKAT_OPTIONS = ['SHM', 'SHM & IMB', 'SHM & PGB', 'SHGB', 'HGB', 'AJB', 'Girik', 'PPJB', 'Lainnya'];
 const AIR_OPTIONS = ['PDAM', 'PAM Desa', 'Sumur Dangkal', 'Jet Pump', 'Submersible', 'Artesis', 'Lainnya'];
 // Daya listrik PLN yang umum dipakai di rumah tinggal Indonesia, dari yang
 // terkecil sampai yang biasa dipakai rumah besar/mewah.
@@ -266,7 +274,7 @@ export default function Posting() {
           air: normalizeAir(data.air),
           lebarMuka: data.lebarMuka ?? '',
           tahunBangun: data.tahunBangun ?? '',
-          sertifikat: data.sertifikat || '',
+          sertifikat: parseSertifikat(data.sertifikat).join(' & '),
           videoUrl: data.videoUrl || '',
           overview: cleanOverview(data.overview),
           description: data.description || '',
@@ -1287,12 +1295,30 @@ export default function Posting() {
         </Field>
 
         <Field label="Sertifikat">
-          <select value={form.sertifikat} onChange={(e) => update('sertifikat', e.target.value)} className="input">
-            <option value="">Pilih Sertifikat</option>
-            {SERTIFIKAT_OPTIONS.map((o) => (
-              <option key={o} value={o}>{o}</option>
-            ))}
-          </select>
+          <p className="-mt-1 mb-2 text-[11px] text-ink/40">Boleh pilih lebih dari satu, misalnya SHM + IMB.</p>
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
+            {SERTIFIKAT_OPTIONS.map((o) => {
+              const checked = parseSertifikat(form.sertifikat).includes(o);
+              return (
+                <label
+                  key={o}
+                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition ${
+                    checked
+                      ? 'border-forest bg-forest/10 font-medium text-navy'
+                      : 'border-line bg-white text-ink/80'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => update('sertifikat', toggleSertifikat(form.sertifikat, o))}
+                    className="h-4 w-4 shrink-0 accent-forest"
+                  />
+                  <span className="leading-tight">{o}</span>
+                </label>
+              );
+            })}
+          </div>
         </Field>
 
         {form.type === 'perumahan' && (
