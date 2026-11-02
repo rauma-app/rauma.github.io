@@ -149,3 +149,25 @@ export function normalizeAir(value) {
   if (!value) return '';
   return AIR_LEGACY[value] || value;
 }
+
+// ---- Sertifikat: bisa dipilih lebih dari satu (checkbox) ----
+// Disimpan sebagai SATU teks dipisah " & " (mis. "SHM & IMB"), sama dengan
+// penulisan lama, jadi iklan lama tetap terbaca dan tidak perlu ubah database.
+// Urutan di teks mengikuti urutan daftar ini.
+export const SERTIFIKAT_OPTIONS = ['SHM', 'SHGB', 'HGB', 'IMB', 'PGB', 'AJB', 'PPJB', 'Girik', 'Lainnya'];
+
+// "SHM & IMB" -> ['SHM', 'IMB'] (nilai tak dikenal diabaikan)
+export function parseSertifikat(value) {
+  const tokens = String(value || '')
+    .split('&')
+    .map((t) => t.trim())
+    .filter(Boolean);
+  return SERTIFIKAT_OPTIONS.filter((o) => tokens.includes(o));
+}
+
+// Centang / lepas centang satu pilihan, hasilnya teks yang siap disimpan
+export function toggleSertifikat(value, option) {
+  const current = parseSertifikat(value);
+  const next = current.includes(option) ? current.filter((o) => o !== option) : [...current, option];
+  return SERTIFIKAT_OPTIONS.filter((o) => next.includes(o)).join(' & ');
+}
