@@ -10,6 +10,7 @@ import { usePremium } from '../context/PremiumContext';
 import LocationAutocomplete from '../components/LocationAutocomplete';
 import InfoTip from '../components/InfoTip';
 import { FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import CheckboxDropdown from '../components/CheckboxDropdown';
 import {
   OVERVIEW_SECTIONS,
   isOverviewLocked,
@@ -1295,30 +1296,12 @@ export default function Posting() {
         </Field>
 
         <Field label="Sertifikat">
-          <p className="-mt-1 mb-2 text-[11px] text-ink/40">Boleh pilih lebih dari satu, misalnya SHM + IMB.</p>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-            {SERTIFIKAT_OPTIONS.map((o) => {
-              const checked = parseSertifikat(form.sertifikat).includes(o);
-              return (
-                <label
-                  key={o}
-                  className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition ${
-                    checked
-                      ? 'border-forest bg-forest/10 font-medium text-navy'
-                      : 'border-line bg-white text-ink/80'
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => update('sertifikat', toggleSertifikat(form.sertifikat, o))}
-                    className="h-4 w-4 shrink-0 accent-forest"
-                  />
-                  <span className="leading-tight">{o}</span>
-                </label>
-              );
-            })}
-          </div>
+          <CheckboxDropdown
+            options={SERTIFIKAT_OPTIONS}
+            selected={parseSertifikat(form.sertifikat)}
+            onToggle={(o) => update('sertifikat', toggleSertifikat(form.sertifikat, o))}
+            placeholder="Pilih Sertifikat (boleh lebih dari satu)"
+          />
         </Field>
 
         {form.type === 'perumahan' && (
