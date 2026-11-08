@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
-import { Pagination, Navigation, Keyboard } from 'swiper/modules';
+import { Pagination, Navigation, Keyboard, Zoom } from 'swiper/modules';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
+import 'swiper/css/zoom';
 
 // `ratio` dipakai lewat inline style (CSS aspect-ratio), BUKAN lewat
 // class Tailwind seperti sebelumnya -- supaya nggak bergantung pada
@@ -117,10 +118,15 @@ export default function ImageSlider({
               dan urutan itu bisa beda antara mode dev & hasil build
               production. Inline style selalu menang, jadi ini aman
               dari masalah "kadang jalan kadang nggak" itu. */}
+          {/* Zoom bawaan Swiper: cubit dua jari untuk memperbesar, ketuk dua kali
+              untuk zoom/kembali (di komputer: scroll mouse). Saat foto sedang
+              diperbesar, geser = menggeser foto, bukan pindah ke foto lain.
+              Tanpa ini, Swiper memblokir gestur cubit bawaan browser. */}
           <Swiper
-            modules={[Navigation, Keyboard]}
+            modules={[Navigation, Keyboard, Zoom]}
             navigation
             keyboard={{ enabled: true }}
+            zoom={{ maxRatio: 4, minRatio: 1 }}
             initialSlide={lightboxIndex}
             style={{ position: 'absolute', inset: 0 }}
           >
@@ -136,11 +142,13 @@ export default function ImageSlider({
                 }}
                 className="p-4"
               >
-                <img
-                  src={src}
-                  alt={`${alt} - foto ${i + 1}`}
-                  className="max-h-full max-w-full object-contain"
-                />
+                <div className="swiper-zoom-container">
+                  <img
+                    src={src}
+                    alt={`${alt} - foto ${i + 1}`}
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
               </SwiperSlide>
             ))}
           </Swiper>
