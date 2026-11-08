@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { d1Api } from '../lib/d1Api';
 import { useAuth } from '../context/AuthContext';
 import { isAdmin } from '../lib/admin';
 import ImageSlider from '../components/ImageSlider';
+import Pagination from '../components/Pagination';
 import { formatMonthlyShort, formatRupiahShort } from '../lib/kpr';
 import { FaEye } from 'react-icons/fa';
 
@@ -13,6 +14,8 @@ const STATUS_LABELS = {
   rejected: { text: 'Ditolak', className: 'bg-red-100 text-red-600' },
   sold: { text: 'Terjual', className: 'bg-slate-200 text-slate-600' },
 };
+
+const MY_PAGE_SIZE = 8; // jumlah iklan per halaman
 
 export default function MyListings() {
   const { user } = useAuth();
@@ -28,6 +31,31 @@ export default function MyListings() {
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
   const [processingId, setProcessingId] = useState(null);
+
+  // Filter kecamatan & nomor halaman disimpan di URL (?kec=...&hal=2) supaya
+  // tombol Back dari halaman lain kembali ke tampilan yang sama.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const kecParam = searchParams.get('kec') || 'all';
+  const rawPage = parseInt(searchParams.get('hal') || '1', 10);
+  const pageParam = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+  const gridRef = useRef(null);
+
+  function updateParams(changes, replace) {
+    const next = new URLSearchParams(searchParams);
+    Object.entries(changes).forEach(([k, v]) => {
+      if (v === null || v === '') next.delete(k);
+      else next.set(k, v);
+    });
+    setSearchParams(next, { replace });
+  }
+  // Ganti filter -> kembali ke halaman 1 (tanpa menambah riwayat Back)
+  const setKecFilter = (v) => updateParams({ kec: v === 'all' ? null : v, hal: null }, true);
+  function goToPage(n) {
+    updateParams({ hal: n <= 1 ? null : String(n) }, false);
+    requestAnimationFrame(() => {
+      gridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }
 
   // Menu "Hapus" versi lengkap (Sudah Terjual / Hapus Saja) berlaku buat
   // SEMUA user -- supaya dashboard statistik Admin (nilai properti terjual)
@@ -133,6 +161,39 @@ export default function MyListings() {
     }
   }
 
+  // Pilihan kecamatan dari iklan milik sendiri (semua status), lengkap dengan
+  // jumlahnya. Diurut abjad supaya gampang dicari: "sudah pernah upload rumah
+  // di kecamatan ini belum?". Nama kabupaten ikut ditulis karena nama kecamatan
+  // yang sama bisa ada di kota/kabupaten berbeda.
+  const kecamatanOptions = useMemo(() => {
+    const clean = (v) => String(v || '').trim().replace(/\s+/g, ' ');
+    const map = new Map();
+    for (const l of listings) {
+      const kec = clean(l.kecamatan);
+      if (!kec) continue;
+      const kab = clean(l.kabupaten);
+      const key = `${kec.toLowerCase()}|${kab.toLowerCase()}`;
+      const cur = map.get(key) || { value: key, label: kab ? `${kec}, ${kab}` : kec, count: 0 };
+      cur.count += 1;
+      map.set(key, cur);
+    }
+    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label, 'id'));
+  }, [listings]);
+
+  // Nilai ?kec= di URL yang pilihannya sudah tidak ada dianggap "semua"
+  const kecFilter =
+    kecParam === 'all' || kecamatanOptions.some((o) => o.value === kecParam) ? kecParam : 'all';
+
+  const filteredListings = useMemo(() => {
+    if (kecFilter === 'all') return listings;
+    const norm = (v) => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    return listings.filter((l) => `${norm(l.kecamatan)}|${norm(l.kabupaten)}` === kecFilter);
+  }, [listings, kecFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredListings.length / MY_PAGE_SIZE));
+  const currentPage = Math.min(pageParam, totalPages);
+  const pageListings = filteredListings.slice((currentPage - 1) * MY_PAGE_SIZE, currentPage * MY_PAGE_SIZE);
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="font-display text-2xl font-semibold text-navy">Iklan Saya</h1>
@@ -145,14 +206,33 @@ export default function MyListings() {
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {listings.map((listing) => {
+      {/* Filter kecamatan: bantu cek apakah rumah yang mau diunggah sudah ada */}
+      {kecamatanOptions.length > 0 && listings.length > 1 && (
+        <div className="mt-4 sm:max-w-xs">
+          <select
+            value={kecFilter}
+            onChange={(e) => setKecFilter(e.target.value)}
+            aria-label="Filter kecamatan"
+            className="w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink focus:border-navy focus:outline-none"
+          >
+            <option value="all">Semua kecamatan ({listings.length})</option>
+            {kecamatanOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label} ({o.count})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div ref={gridRef} className="mt-6 grid scroll-mt-28 grid-cols-2 gap-4 sm:grid-cols-4">
+        {pageListings.map((listing) => {
           const statusInfo = STATUS_LABELS[listing.status] || STATUS_LABELS.pending;
           const isSold = listing.status === 'sold';
           return (
             <div key={listing.id} className="overflow-hidden rounded-2xl border border-line bg-paper">
               <Link
-                to={listing.perumahanSlug ? `/perumahan/${listing.perumahanSlug}` : `/id/${listing.id}`}
+                to={`/id/${listing.id}`}
                 className="relative block"
               >
                 <ImageSlider images={listing.images} alt={listing.kecamatan} rounded="rounded-none" />
@@ -173,7 +253,7 @@ export default function MyListings() {
               </Link>
               <div className="p-3 sm:p-4">
                 <Link
-                  to={listing.perumahanSlug ? `/perumahan/${listing.perumahanSlug}` : `/id/${listing.id}`}
+                  to={`/id/${listing.id}`}
                   className="block"
                 >
                   <div className="flex flex-wrap items-baseline gap-x-1.5">
@@ -230,6 +310,8 @@ export default function MyListings() {
           );
         })}
       </div>
+
+      <Pagination page={currentPage} totalPages={totalPages} onChange={goToPage} />
 
       {/* Popup "Hapus" khusus premium/admin: pilih Sudah Terjual atau Hapus Saja */}
       {activeListing && (
