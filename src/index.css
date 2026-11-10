@@ -11,6 +11,16 @@ body {
 }
 
 @layer components {
+  /* Slider yang nyaman dipakai di browser dalam aplikasi (Threads, Instagram):
+     - touch-action: none -> menggeser slider TIDAK ikut menggulung halaman atau
+       memantul naik-turun (itu yang bikin slider "getar" dan susah digeser).
+     - tinggi 2rem -> area sentuh lebih besar, jari tidak perlu pas di bulatan. */
+  .range-input {
+    touch-action: none;
+    height: 2rem;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   .input {
     @apply w-full rounded-xl border border-line bg-white px-4 py-3 text-ink placeholder:text-ink/40 outline-none focus:border-forest;
   }
