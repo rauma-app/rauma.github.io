@@ -6,7 +6,7 @@ import { usePwaInstall } from '../lib/usePwaInstall';
 
 const SOCIAL_LINKS = [
   { label: 'Instagram', Icon: FaInstagram, href: 'https://www.instagram.com/alamproper.ty' },
-  { label: 'Facebook', Icon: FaFacebook, href: 'https://www.facebook.com/jhonson.gans.35' },
+  { label: 'Facebook', Icon: FaFacebook, href: 'https://www.threads.com/@alamproper.ty' },
   { label: 'TikTok', Icon: FaTiktok, href: 'https://tiktok.com/@alamproper.ty' },
   { label: 'YouTube', Icon: FaYoutube, href: 'https://youtube.com/@alamproperti?si=ri-H4skpOuZg9djI' },
 ];
