@@ -36,6 +36,7 @@ export default function MyListings() {
   // tombol Back dari halaman lain kembali ke tampilan yang sama.
   const [searchParams, setSearchParams] = useSearchParams();
   const kecParam = searchParams.get('kec') || 'all';
+  const sortBy = searchParams.get('urut') === 'dilihat' ? 'views' : 'newest'; // 'newest' | 'views'
   const rawPage = parseInt(searchParams.get('hal') || '1', 10);
   const pageParam = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
   const gridRef = useRef(null);
@@ -50,6 +51,7 @@ export default function MyListings() {
   }
   // Ganti filter -> kembali ke halaman 1 (tanpa menambah riwayat Back)
   const setKecFilter = (v) => updateParams({ kec: v === 'all' ? null : v, hal: null }, true);
+  const setSortBy = (v) => updateParams({ urut: v === 'views' ? 'dilihat' : null, hal: null }, true);
   function goToPage(n) {
     updateParams({ hal: n <= 1 ? null : String(n) }, false);
     requestAnimationFrame(() => {
@@ -190,9 +192,16 @@ export default function MyListings() {
     return listings.filter((l) => `${norm(l.kecamatan)}|${norm(l.kabupaten)}` === kecFilter);
   }, [listings, kecFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredListings.length / MY_PAGE_SIZE));
+  // Urutan: "Terbaru" = urutan dari server; "Paling banyak dilihat" = viewCount
+  // terbesar dulu (yang jumlahnya sama tetap berurutan terbaru, karena sort stabil).
+  const sortedListings = useMemo(() => {
+    if (sortBy !== 'views') return filteredListings;
+    return [...filteredListings].sort((a, b) => (Number(b.viewCount) || 0) - (Number(a.viewCount) || 0));
+  }, [filteredListings, sortBy]);
+
+  const totalPages = Math.max(1, Math.ceil(sortedListings.length / MY_PAGE_SIZE));
   const currentPage = Math.min(pageParam, totalPages);
-  const pageListings = filteredListings.slice((currentPage - 1) * MY_PAGE_SIZE, currentPage * MY_PAGE_SIZE);
+  const pageListings = sortedListings.slice((currentPage - 1) * MY_PAGE_SIZE, currentPage * MY_PAGE_SIZE);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -206,9 +215,31 @@ export default function MyListings() {
         </div>
       )}
 
+      {/* Urutan: terbaru / paling banyak dilihat (jumlah dilihat hanya terlihat di sini) */}
+      {listings.length > 1 && (
+        <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Urutkan iklan">
+          {[
+            { key: 'newest', label: 'Terbaru' },
+            { key: 'views', label: 'Paling banyak dilihat' },
+          ].map((opt) => (
+            <button
+              key={opt.key}
+              type="button"
+              onClick={() => setSortBy(opt.key)}
+              aria-pressed={sortBy === opt.key}
+              className={`rounded-full border px-4 py-1.5 text-sm font-medium transition ${
+                sortBy === opt.key ? 'border-navy bg-navy text-white' : 'border-line bg-white text-navy'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Filter kecamatan: bantu cek apakah rumah yang mau diunggah sudah ada */}
       {kecamatanOptions.length > 0 && listings.length > 1 && (
-        <div className="mt-4 sm:max-w-xs">
+        <div className="mt-3 sm:max-w-xs">
           <select
             value={kecFilter}
             onChange={(e) => setKecFilter(e.target.value)}
