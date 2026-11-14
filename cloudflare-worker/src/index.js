@@ -1079,11 +1079,42 @@ export default {
       if (path.startsWith("/api/listings")) {
         const pathParts = path.split("/").filter(Boolean);
 
-        // GET /api/listings/count?type=pribadi -- publik. Total iklan approved
-        // (dipakai untuk menghitung jumlah halaman di beranda). Di-cache 5 menit.
+        // GET /api/listings/locations?type=pribadi -- publik. Daftar kota/kabupaten
+        // beserta jumlah iklan approved (untuk dropdown filter lokasi di beranda).
+        // Nama dikelompokkan tanpa membedakan huruf besar-kecil & spasi berlebih.
+        // Di-cache 5 menit.
+        if (pathParts.length === 3 && pathParts[2] === "locations" && method === "GET") {
+          const type = url.searchParams.get("type");
+          const locKey = `${url.origin}/api/listings/locations?type=${type || ""}`;
+          return edgeCached(300, locKey, async () => {
+            const conditions = ["status = 'approved'", "kabupaten IS NOT NULL", "TRIM(kabupaten) != ''"];
+            const params = [];
+            if (type === "pribadi") {
+              conditions.push("(type = 'pribadi' OR type IS NULL OR type = '')");
+            } else if (type) {
+              conditions.push("type = ?");
+              params.push(type);
+            }
+            const { results } = await env.DB.prepare(
+              `SELECT LOWER(TRIM(kabupaten)) AS value, MIN(TRIM(kabupaten)) AS label, COUNT(*) AS total
+               FROM listings
+               WHERE ${conditions.join(" AND ")}
+               GROUP BY LOWER(TRIM(kabupaten))
+               ORDER BY total DESC, label ASC`
+            )
+              .bind(...params)
+              .all();
+            return results || [];
+          });
+        }
+
+        // GET /api/listings/count?type=pribadi&kabupaten=kota bandung -- publik.
+        // Total iklan approved (dipakai untuk menghitung jumlah halaman di beranda).
+        // Di-cache 5 menit.
         if (pathParts.length === 3 && pathParts[2] === "count" && method === "GET") {
           const type = url.searchParams.get("type");
-          const countKey = `${url.origin}/api/listings/count?type=${type || ""}`;
+          const kab = (url.searchParams.get("kabupaten") || "").trim().toLowerCase();
+          const countKey = `${url.origin}/api/listings/count?type=${type || ""}&kabupaten=${encodeURIComponent(kab)}`;
           return edgeCached(300, countKey, async () => {
             const conditions = ["status = 'approved'"];
             const params = [];
@@ -1092,6 +1123,10 @@ export default {
             } else if (type) {
               conditions.push("type = ?");
               params.push(type);
+            }
+            if (kab) {
+              conditions.push("LOWER(TRIM(kabupaten)) = ?");
+              params.push(kab);
             }
             const row = await env.DB.prepare(
               `SELECT COUNT(*) AS total FROM listings WHERE ${conditions.join(" AND ")}`
@@ -1357,6 +1392,12 @@ export default {
           } else if (type) {
             conditions.push("type = ?");
             params.push(type);
+          }
+          // Filter kota/kabupaten persis (tanpa membedakan huruf besar-kecil)
+          const kabupatenParam = (url.searchParams.get("kabupaten") || "").trim().toLowerCase();
+          if (kabupatenParam) {
+            conditions.push("LOWER(TRIM(kabupaten)) = ?");
+            params.push(kabupatenParam);
           }
           if (category) {
             conditions.push("category = ?");
