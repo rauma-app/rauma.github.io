@@ -99,7 +99,11 @@ export default function Home() {
   const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
   const [pribadi, setPribadi] = useState([]);
   const [pribadiTotal, setPribadiTotal] = useState(null); // null = belum diketahui
-  const pribadiTotalRef = useRef(null);
+  const totalsRef = useRef({}); // total iklan per lokasi: { all: 40, 'kota bandung': 12 }
+  const pribadiReqRef = useRef(0); // nomor permintaan terbaru (abaikan balasan yang sudah usang)
+  // Filter lokasi (kota/kabupaten). Disimpan di URL: ?lokasi=kota%20bandung
+  const lokasiParam = (searchParams.get('lokasi') || '').trim().toLowerCase();
+  const [locationOptions, setLocationOptions] = useState(null); // null = belum dimuat
   const [pribadiLoading, setPribadiLoading] = useState(true);
   const [pribadiError, setPribadiError] = useState('');
   const pribadiSectionRef = useRef(null);
@@ -127,46 +131,73 @@ export default function Home() {
     loadPerumahan();
   }, [loadPerumahan]);
 
-  const loadPribadi = useCallback(async (p) => {
+  // Daftar kota/kabupaten (semua iklan terdaftar) untuk dropdown filter
+  useEffect(() => {
+    let cancelled = false;
+    d1Api.getLocationOptions({ type: 'pribadi' }).then((opts) => {
+      if (!cancelled) setLocationOptions(opts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // ?lokasi= yang tidak ada di daftar dianggap "semua lokasi"
+  const lokasi =
+    lokasiParam && locationOptions && locationOptions.length > 0 && !locationOptions.some((o) => o.value === lokasiParam)
+      ? ''
+      : lokasiParam;
+  const totalAllLocations = (locationOptions || []).reduce((sum, o) => sum + o.total, 0);
+
+  const loadPribadi = useCallback(async (p, lok) => {
+    const reqId = ++pribadiReqRef.current;
+    const key = lok || 'all';
     setPribadiLoading(true);
     setPribadiError('');
     try {
-      // Total dihitung sekali saja (di-cache server 5 menit)
+      // Total dihitung sekali per lokasi (di-cache server 5 menit)
       const [raw, total] = await withRetry(() =>
         Promise.all([
           d1Api.getListings({
             type: 'pribadi',
+            kabupaten: lok || undefined,
             limit: PRIBADI_PAGE_SIZE,
             offset: (p - 1) * PRIBADI_PAGE_SIZE,
             throwOnError: true,
           }),
-          pribadiTotalRef.current === null
-            ? d1Api.getListingsCount({ type: 'pribadi' })
-            : Promise.resolve(pribadiTotalRef.current),
+          totalsRef.current[key] !== undefined
+            ? Promise.resolve(totalsRef.current[key])
+            : d1Api.getListingsCount({ type: 'pribadi', kabupaten: lok || undefined }),
         ])
       );
+      if (reqId !== pribadiReqRef.current) return; // sudah ada permintaan yang lebih baru
       if (total !== null) {
-        pribadiTotalRef.current = total;
+        totalsRef.current[key] = total;
         setPribadiTotal(total);
+      } else {
+        setPribadiTotal(null);
       }
       setPribadi((raw || []).map(normalizeHome));
     } catch (err) {
+      if (reqId !== pribadiReqRef.current) return;
       console.error('Gagal memuat rumah pribadi:', err);
       setPribadiError(err?.message || 'Koneksi bermasalah');
     } finally {
-      setPribadiLoading(false);
-      if (shouldScrollRef.current) {
-        shouldScrollRef.current = false;
-        requestAnimationFrame(() => {
-          pribadiSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        });
+      if (reqId === pribadiReqRef.current) {
+        setPribadiLoading(false);
+        if (shouldScrollRef.current) {
+          shouldScrollRef.current = false;
+          requestAnimationFrame(() => {
+            pribadiSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        }
       }
     }
   }, []);
 
   useEffect(() => {
-    loadPribadi(page);
-  }, [page, loadPribadi]);
+    loadPribadi(page, lokasi);
+  }, [page, lokasi, loadPribadi]);
 
   // Jumlah halaman: dari total kalau diketahui; kalau hitungan gagal, perkirakan
   // dari isi halaman ini (penuh -> kemungkinan masih ada halaman berikutnya).
@@ -177,18 +208,32 @@ export default function Home() {
         ? page + 1
         : page;
 
+  // Susun parameter URL: filter lokasi & nomor halaman selalu dibawa bersama
+  function paramsFor(nextPage, nextLokasi) {
+    const next = {};
+    if (nextLokasi) next.lokasi = nextLokasi;
+    if (nextPage > 1) next.hal = String(nextPage);
+    return next;
+  }
+
   // ?hal=99 (di luar jangkauan) -> kembalikan ke halaman terakhir
   useEffect(() => {
     if (pribadiTotal !== null && page > totalPages) {
-      setSearchParams(totalPages > 1 ? { hal: String(totalPages) } : {}, { replace: true });
+      setSearchParams(paramsFor(totalPages, lokasi), { replace: true });
     }
-  }, [pribadiTotal, page, totalPages, setSearchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pribadiTotal, page, totalPages, lokasi, setSearchParams]);
 
   function goToPage(n) {
     const target = Math.min(Math.max(n, 1), totalPages);
     if (target === page) return;
     shouldScrollRef.current = true;
-    setSearchParams(target === 1 ? {} : { hal: String(target) });
+    setSearchParams(paramsFor(target, lokasi));
+  }
+
+  // Ganti lokasi -> kembali ke halaman 1 (tanpa menambah riwayat tombol Back)
+  function changeLokasi(value) {
+    setSearchParams(paramsFor(1, value), { replace: true });
   }
 
   // Muat 8 iklan perumahan berikutnya (minta batch berikutnya ke server saja).
@@ -320,12 +365,32 @@ export default function Home() {
 
         {/* Baris 2+: Rumah Pribadi (grid bernomor halaman) */}
         <section ref={pribadiSectionRef} className="mt-10 scroll-mt-24">
-          <h2 className="font-display text-xl font-semibold text-navy">Rumah Pribadi</h2>
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="font-display text-xl font-semibold text-navy">Rumah Pribadi</h2>
+            {/* Filter kota/kabupaten dari SEMUA iklan terdaftar */}
+            {locationOptions && locationOptions.length > 0 && (
+              <select
+                value={lokasi}
+                onChange={(e) => changeLokasi(e.target.value)}
+                aria-label="Filter lokasi"
+                className="min-w-0 max-w-[55%] rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink focus:border-navy focus:outline-none"
+              >
+                <option value="">Semua lokasi ({!lokasi && pribadiTotal !== null ? pribadiTotal : totalAllLocations})</option>
+                {locationOptions.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label} ({o.total})
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
           {pribadi.length === 0 && !pribadiLoading ? (
             pribadiError ? (
-              <LoadErrorNotice message={pribadiError} onRetry={() => loadPribadi(page)} />
+              <LoadErrorNotice message={pribadiError} onRetry={() => loadPribadi(page, lokasi)} />
             ) : (
-              <p className="mt-4 text-sm text-ink/40">Belum ada listing rumah pribadi.</p>
+              <p className="mt-4 text-sm text-ink/40">
+                {lokasi ? 'Belum ada iklan di lokasi ini.' : 'Belum ada listing rumah pribadi.'}
+              </p>
             )
           ) : (
             <div
