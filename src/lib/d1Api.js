@@ -65,6 +65,7 @@ export const d1Api = {
       if (params.minPrice) qs.set('minPrice', params.minPrice);
       if (params.maxPrice) qs.set('maxPrice', params.maxPrice);
       if (params.location) qs.set('location', params.location);
+      if (params.kabupaten) qs.set('kabupaten', params.kabupaten);
       if (params.limit) qs.set('limit', params.limit);
       if (params.offset) qs.set('offset', params.offset);
 
@@ -84,11 +85,12 @@ export const d1Api = {
     }
   },
 
-  // Total iklan approved per jenis (untuk jumlah halaman). null kalau gagal.
-  async getListingsCount({ type } = {}) {
+  // Total iklan approved per jenis (& kota/kabupaten) untuk jumlah halaman. null kalau gagal.
+  async getListingsCount({ type, kabupaten } = {}) {
     try {
       const qs = new URLSearchParams();
       if (type) qs.set('type', type);
+      if (kabupaten) qs.set('kabupaten', kabupaten);
       const res = await fetch(`${API_BASE_URL}/listings/count?${qs.toString()}`);
       if (!res.ok) throw new Error('Gagal menghitung iklan');
       const data = await res.json();
@@ -96,6 +98,24 @@ export const d1Api = {
     } catch (err) {
       console.error('Error d1Api.getListingsCount:', err);
       return null;
+    }
+  },
+
+  // Daftar kota/kabupaten + jumlah iklan untuk dropdown filter lokasi di beranda.
+  // Bentuk: [{ value: 'kota bandung', label: 'Kota Bandung', total: 12 }]
+  async getLocationOptions({ type } = {}) {
+    try {
+      const qs = new URLSearchParams();
+      if (type) qs.set('type', type);
+      const res = await fetch(`${API_BASE_URL}/listings/locations?${qs.toString()}`);
+      if (!res.ok) throw new Error('Gagal mengambil daftar lokasi');
+      const data = await res.json();
+      return Array.isArray(data)
+        ? data.map((o) => ({ value: String(o.value), label: String(o.label), total: Number(o.total) || 0 }))
+        : [];
+    } catch (err) {
+      console.error('Error d1Api.getLocationOptions:', err);
+      return [];
     }
   },
 
