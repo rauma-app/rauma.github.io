@@ -132,6 +132,12 @@ function escHtml(str) {
     .replace(/\"/g, "&quot;");
 }
 
+// Nama kota/kabupaten sebuah iklan. Iklan lama (sebelum kolom `kabupaten` ada) hanya
+// punya `location`, jadi dipakai sebagai cadangan -- sama seperti di kartu iklan.
+// Dipakai untuk filter lokasi di beranda.
+const KAB_EXPR = "LOWER(TRIM(COALESCE(NULLIF(TRIM(kabupaten), ''), location, '')))";
+const KAB_LABEL_EXPR = "TRIM(COALESCE(NULLIF(TRIM(kabupaten), ''), location, ''))";
+
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
@@ -1087,7 +1093,7 @@ export default {
           const type = url.searchParams.get("type");
           const locKey = `${url.origin}/api/listings/locations?type=${type || ""}`;
           return edgeCached(300, locKey, async () => {
-            const conditions = ["status = 'approved'", "kabupaten IS NOT NULL", "TRIM(kabupaten) != ''"];
+            const conditions = ["status = 'approved'", `${KAB_EXPR} != ''`];
             const params = [];
             if (type === "pribadi") {
               conditions.push("(type = 'pribadi' OR type IS NULL OR type = '')");
@@ -1096,10 +1102,10 @@ export default {
               params.push(type);
             }
             const { results } = await env.DB.prepare(
-              `SELECT LOWER(TRIM(kabupaten)) AS value, MIN(TRIM(kabupaten)) AS label, COUNT(*) AS total
+              `SELECT ${KAB_EXPR} AS value, MIN(${KAB_LABEL_EXPR}) AS label, COUNT(*) AS total
                FROM listings
                WHERE ${conditions.join(" AND ")}
-               GROUP BY LOWER(TRIM(kabupaten))
+               GROUP BY ${KAB_EXPR}
                ORDER BY total DESC, label ASC`
             )
               .bind(...params)
@@ -1125,7 +1131,7 @@ export default {
               params.push(type);
             }
             if (kab) {
-              conditions.push("LOWER(TRIM(kabupaten)) = ?");
+              conditions.push(`${KAB_EXPR} = ?`);
               params.push(kab);
             }
             const row = await env.DB.prepare(
@@ -1396,7 +1402,7 @@ export default {
           // Filter kota/kabupaten persis (tanpa membedakan huruf besar-kecil)
           const kabupatenParam = (url.searchParams.get("kabupaten") || "").trim().toLowerCase();
           if (kabupatenParam) {
-            conditions.push("LOWER(TRIM(kabupaten)) = ?");
+            conditions.push(`${KAB_EXPR} = ?`);
             params.push(kabupatenParam);
           }
           if (category) {
