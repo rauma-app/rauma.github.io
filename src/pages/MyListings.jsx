@@ -32,10 +32,13 @@ export default function MyListings() {
   const [deletingId, setDeletingId] = useState(null);
   const [processingId, setProcessingId] = useState(null);
 
-  // Filter kecamatan & nomor halaman disimpan di URL (?kec=...&hal=2) supaya
+  // Filter lokasi & nomor halaman disimpan di URL (?lokasi=...&hal=2) supaya
   // tombol Back dari halaman lain kembali ke tampilan yang sama.
   const [searchParams, setSearchParams] = useSearchParams();
-  const kecParam = searchParams.get('kec') || 'all';
+  // Bentuk nilai: 'all' | 'kab::kota cimahi' | 'kec::coblong|kota bandung'.
+  // ?kec= adalah format lama (tanpa awalan) -> dianggap filter kecamatan.
+  const legacyKec = searchParams.get('kec');
+  const locParam = searchParams.get('lokasi') || (legacyKec ? `kec::${legacyKec}` : 'all');
   const sortBy = searchParams.get('urut') === 'dilihat' ? 'views' : 'newest'; // 'newest' | 'views'
   const rawPage = parseInt(searchParams.get('hal') || '1', 10);
   const pageParam = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
@@ -50,7 +53,7 @@ export default function MyListings() {
     setSearchParams(next, { replace });
   }
   // Ganti filter -> kembali ke halaman 1 (tanpa menambah riwayat Back)
-  const setKecFilter = (v) => updateParams({ kec: v === 'all' ? null : v, hal: null }, true);
+  const setLocFilter = (v) => updateParams({ lokasi: v === 'all' ? null : v, kec: null, hal: null }, true);
   const setSortBy = (v) => updateParams({ urut: v === 'views' ? 'dilihat' : null, hal: null }, true);
   function goToPage(n) {
     updateParams({ hal: n <= 1 ? null : String(n) }, false);
@@ -163,34 +166,54 @@ export default function MyListings() {
     }
   }
 
-  // Pilihan kecamatan dari iklan milik sendiri (semua status), lengkap dengan
-  // jumlahnya. Diurut abjad supaya gampang dicari: "sudah pernah upload rumah
-  // di kecamatan ini belum?". Nama kabupaten ikut ditulis karena nama kecamatan
-  // yang sama bisa ada di kota/kabupaten berbeda.
-  const kecamatanOptions = useMemo(() => {
+  // Pilihan lokasi dari iklan milik sendiri (semua status), lengkap dengan jumlahnya:
+  //  - Kota / Kabupaten: iklan lama yang tidak punya kecamatan tetap tercakup
+  //    (memakai field `location` kalau `kabupaten` kosong, sama seperti di kartu iklan).
+  //  - Kecamatan: nama kota/kabupaten ikut ditulis karena nama kecamatan yang sama
+  //    bisa ada di tempat berbeda.
+  // Diurut abjad supaya gampang dicari: "sudah pernah upload rumah di sini belum?".
+  const locationOptions = useMemo(() => {
     const clean = (v) => String(v || '').trim().replace(/\s+/g, ' ');
-    const map = new Map();
+    const kabMap = new Map();
+    const kecMap = new Map();
     for (const l of listings) {
+      const kab = clean(l.kabupaten || l.location);
       const kec = clean(l.kecamatan);
-      if (!kec) continue;
-      const kab = clean(l.kabupaten);
-      const key = `${kec.toLowerCase()}|${kab.toLowerCase()}`;
-      const cur = map.get(key) || { value: key, label: kab ? `${kec}, ${kab}` : kec, count: 0 };
-      cur.count += 1;
-      map.set(key, cur);
+      if (kab) {
+        const k = kab.toLowerCase();
+        const cur = kabMap.get(k) || { value: `kab::${k}`, label: kab, count: 0 };
+        cur.count += 1;
+        kabMap.set(k, cur);
+      }
+      if (kec) {
+        const k = `${kec.toLowerCase()}|${kab.toLowerCase()}`;
+        const cur = kecMap.get(k) || { value: `kec::${k}`, label: kab ? `${kec}, ${kab}` : kec, count: 0 };
+        cur.count += 1;
+        kecMap.set(k, cur);
+      }
     }
-    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label, 'id'));
+    const byLabel = (a, b) => a.label.localeCompare(b.label, 'id');
+    return { kabupaten: [...kabMap.values()].sort(byLabel), kecamatan: [...kecMap.values()].sort(byLabel) };
   }, [listings]);
 
-  // Nilai ?kec= di URL yang pilihannya sudah tidak ada dianggap "semua"
-  const kecFilter =
-    kecParam === 'all' || kecamatanOptions.some((o) => o.value === kecParam) ? kecParam : 'all';
+  // Nilai ?lokasi= di URL yang pilihannya sudah tidak ada dianggap "semua"
+  const locFilter =
+    locParam === 'all' ||
+    locationOptions.kabupaten.some((o) => o.value === locParam) ||
+    locationOptions.kecamatan.some((o) => o.value === locParam)
+      ? locParam
+      : 'all';
 
   const filteredListings = useMemo(() => {
-    if (kecFilter === 'all') return listings;
+    if (locFilter === 'all') return listings;
     const norm = (v) => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
-    return listings.filter((l) => `${norm(l.kecamatan)}|${norm(l.kabupaten)}` === kecFilter);
-  }, [listings, kecFilter]);
+    if (locFilter.startsWith('kab::')) {
+      const target = locFilter.slice(5);
+      return listings.filter((l) => norm(l.kabupaten || l.location) === target);
+    }
+    const [kec, kab] = locFilter.slice(5).split('|');
+    return listings.filter((l) => norm(l.kecamatan) === kec && norm(l.kabupaten || l.location) === (kab || ''));
+  }, [listings, locFilter]);
 
   // Urutan: "Terbaru" = urutan dari server; "Paling banyak dilihat" = viewCount
   // terbesar dulu (yang jumlahnya sama tetap berurutan terbaru, karena sort stabil).
@@ -237,21 +260,34 @@ export default function MyListings() {
         </div>
       )}
 
-      {/* Filter kecamatan: bantu cek apakah rumah yang mau diunggah sudah ada */}
-      {kecamatanOptions.length > 0 && listings.length > 1 && (
+      {/* Filter lokasi (kota/kabupaten & kecamatan): bantu cek apakah rumah yang mau diunggah sudah ada */}
+      {(locationOptions.kabupaten.length > 0 || locationOptions.kecamatan.length > 0) && listings.length > 1 && (
         <div className="mt-3 sm:max-w-xs">
           <select
-            value={kecFilter}
-            onChange={(e) => setKecFilter(e.target.value)}
-            aria-label="Filter kecamatan"
+            value={locFilter}
+            onChange={(e) => setLocFilter(e.target.value)}
+            aria-label="Filter lokasi"
             className="w-full rounded-xl border border-line bg-white px-3 py-2 text-sm text-ink focus:border-navy focus:outline-none"
           >
-            <option value="all">Semua kecamatan ({listings.length})</option>
-            {kecamatanOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label} ({o.count})
-              </option>
-            ))}
+            <option value="all">Semua lokasi ({listings.length})</option>
+            {locationOptions.kabupaten.length > 0 && (
+              <optgroup label="Kota / Kabupaten">
+                {locationOptions.kabupaten.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label} ({o.count})
+                  </option>
+                ))}
+              </optgroup>
+            )}
+            {locationOptions.kecamatan.length > 0 && (
+              <optgroup label="Kecamatan">
+                {locationOptions.kecamatan.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label} ({o.count})
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </select>
         </div>
       )}
