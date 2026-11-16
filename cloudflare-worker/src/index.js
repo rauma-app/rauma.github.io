@@ -1120,7 +1120,16 @@ export default {
         if (pathParts.length === 3 && pathParts[2] === "count" && method === "GET") {
           const type = url.searchParams.get("type");
           const kab = (url.searchParams.get("kabupaten") || "").trim().toLowerCase();
-          const countKey = `${url.origin}/api/listings/count?type=${type || ""}&kabupaten=${encodeURIComponent(kab)}`;
+          const minPriceParam = url.searchParams.get("minPrice");
+          const maxPriceParam = url.searchParams.get("maxPrice");
+          const excludeParam = (url.searchParams.get("excludeTypes") || "")
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean)
+            .slice(0, 10);
+          const countKey =
+            `${url.origin}/api/listings/count?type=${type || ""}&kabupaten=${encodeURIComponent(kab)}` +
+            `&min=${minPriceParam || ""}&max=${maxPriceParam || ""}&ex=${excludeParam.join(",")}`;
           return edgeCached(300, countKey, async () => {
             const conditions = ["status = 'approved'"];
             const params = [];
@@ -1133,6 +1142,18 @@ export default {
             if (kab) {
               conditions.push(`${KAB_EXPR} = ?`);
               params.push(kab);
+            }
+            if (minPriceParam) {
+              conditions.push("price >= ?");
+              params.push(Number(minPriceParam));
+            }
+            if (maxPriceParam) {
+              conditions.push("price <= ?");
+              params.push(Number(maxPriceParam));
+            }
+            if (excludeParam.length) {
+              conditions.push(`(type IS NULL OR type NOT IN (${excludeParam.map(() => "?").join(",")}))`);
+              params.push(...excludeParam);
             }
             const row = await env.DB.prepare(
               `SELECT COUNT(*) AS total FROM listings WHERE ${conditions.join(" AND ")}`
@@ -1424,6 +1445,16 @@ export default {
           if (maxPrice) {
             conditions.push("price <= ?");
             params.push(Number(maxPrice));
+          }
+          // Jenis iklan yang dikecualikan (mis. subsidi, jual_cepat). Iklan tanpa jenis tetap ikut.
+          const excludeTypes = (url.searchParams.get("excludeTypes") || "")
+            .split(",")
+            .map((t) => t.trim())
+            .filter(Boolean)
+            .slice(0, 10);
+          if (excludeTypes.length) {
+            conditions.push(`(type IS NULL OR type NOT IN (${excludeTypes.map(() => "?").join(",")}))`);
+            params.push(...excludeTypes);
           }
           if (location) {
             const words = location.split(/\s+/).filter(Boolean).slice(0, 5);
