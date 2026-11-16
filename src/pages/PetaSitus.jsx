@@ -8,9 +8,8 @@ const SECTIONS = [
     links: [
       { label: 'Beranda', to: '/' },
       { label: 'Cari Rumah', to: '/cari' },
-      { label: 'Perumahan', to: '/perumahan' },
-      { label: 'Rumah Termurah', to: '/termurah' },
-      { label: 'Rumah Termahal', to: '/termahal' },
+      { label: 'Dibawah 1M', to: '/termurah' },
+      { label: 'Rumah Premium', to: '/termahal' },
       { label: 'Rumah Subsidi', to: '/subsidi' },
       { label: 'Take Over KPR', to: '/take-over-kpr' },
     ],

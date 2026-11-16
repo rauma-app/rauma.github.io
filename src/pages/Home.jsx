@@ -16,8 +16,8 @@ import iconTakeOverKPR from '../assets/icons/kpr_syariah.svg';
 import iconKalkulatorKPR from '../assets/icons/nabung.svg';
 
 const CATEGORY_SHORTCUTS = [
-  { icon: iconTermurah, label: 'Pasti Pas', to: '/termurah' },
-  { icon: iconTermahal, label: 'HNWI', to: '/termahal' },
+  { icon: iconTermurah, label: 'Dibawah 1M', to: '/termurah' },
+  { icon: iconTermahal, label: 'Rumah Premium', to: '/termahal' },
   { icon: iconSubsidi, label: 'Rumah Subsidi', to: '/subsidi' },
   { icon: iconCariProperti, label: 'Carikan Properti', to: '/carikan-properti' },
   { icon: iconTakeOverKPR, label: 'Take Over KPR', to: '/take-over-kpr' },
