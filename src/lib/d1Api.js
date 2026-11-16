@@ -66,6 +66,7 @@ export const d1Api = {
       if (params.maxPrice) qs.set('maxPrice', params.maxPrice);
       if (params.location) qs.set('location', params.location);
       if (params.kabupaten) qs.set('kabupaten', params.kabupaten);
+      if (params.excludeTypes && params.excludeTypes.length) qs.set('excludeTypes', params.excludeTypes.join(','));
       if (params.limit) qs.set('limit', params.limit);
       if (params.offset) qs.set('offset', params.offset);
 
@@ -86,11 +87,14 @@ export const d1Api = {
   },
 
   // Total iklan approved per jenis (& kota/kabupaten) untuk jumlah halaman. null kalau gagal.
-  async getListingsCount({ type, kabupaten } = {}) {
+  async getListingsCount({ type, kabupaten, minPrice, maxPrice, excludeTypes } = {}) {
     try {
       const qs = new URLSearchParams();
       if (type) qs.set('type', type);
       if (kabupaten) qs.set('kabupaten', kabupaten);
+      if (minPrice) qs.set('minPrice', minPrice);
+      if (maxPrice) qs.set('maxPrice', maxPrice);
+      if (excludeTypes && excludeTypes.length) qs.set('excludeTypes', excludeTypes.join(','));
       const res = await fetch(`${API_BASE_URL}/listings/count?${qs.toString()}`);
       if (!res.ok) throw new Error('Gagal menghitung iklan');
       const data = await res.json();
