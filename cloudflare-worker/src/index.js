@@ -90,13 +90,17 @@ const ALLOWED_ORIGINS = [
 // di frontend -- kalau salah satu diubah, ubah yang lain juga.
 // `lock` sama = hanya boleh salah satu.
 const OVERVIEW_ITEMS = [
+  ["hook"],
+  ["hadap_utara", "hadap"], ["hadap_timur", "hadap"], ["hadap_selatan", "hadap"], ["hadap_barat", "hadap"],
+  ["lantai_1", "lantai"], ["lantai_2", "lantai"], ["lantai_3", "lantai"], ["lantai_4", "lantai"], ["lantai_5", "lantai"],
+  ["carport_1", "carport"], ["carport_2", "carport"], ["carport_3", "carport"], ["carport_4", "carport"], ["carport_5", "carport"],
   ["siap_huni"], ["furnished", "furnish"], ["semi_furnished", "furnish"], ["unfurnished", "furnish"],
-  ["nego", "harga"], ["harga_net", "harga"], ["kpr"],
+  ["nego", "harga"], ["harga_net", "harga"], ["kpr"], ["cash"],
   ["cctv"], ["security_24"], ["one_gate"], ["perumahan"], ["cluster"], ["bebas_banjir"],
   ["jalan_1_mobil", "jalan"], ["jalan_2_mobil", "jalan"], ["jalan_3_mobil", "jalan"],
   ["dekat_pasar"], ["dekat_tol"], ["dekat_sekolah"], ["dekat_rs"], ["dekat_transportasi"],
-  ["carport"], ["garasi"], ["hook"], ["taman"], ["balkon"], ["smart_home"],
-  ["hadap_utara", "hadap"], ["hadap_timur", "hadap"], ["hadap_selatan", "hadap"], ["hadap_barat", "hadap"],
+  ["garasi"], ["taman"], ["balkon"], ["smart_home"],
+  ["carport"], // pilihan lama (tanpa jumlah), tetap diterima agar iklan lama tidak kehilangan datanya
 ];
 
 // Bersihkan kiriman klien: buang key asing & duplikat, tegakkan aturan
@@ -109,8 +113,11 @@ function sanitizeOverview(value) {
   const lockCount = new Map();
   // Arah hadap: maks 1, atau 2 kalau Hook dipilih (sama dengan frontend).
   const maxFor = (lock) => (lock === "hadap" && value.includes("hook") ? 2 : 1);
+  // "carport" lama (tanpa jumlah) dibuang kalau sudah ada pilihan carport_N
+  const hasCarportCount = value.some((k) => typeof k === "string" && k.startsWith("carport_"));
   for (const key of value) {
     if (typeof key !== "string" || !lockOf.has(key) || picked.includes(key)) continue;
+    if (key === "carport" && hasCarportCount) continue;
     const lock = lockOf.get(key);
     if (lock) {
       const used = lockCount.get(lock) || 0;
