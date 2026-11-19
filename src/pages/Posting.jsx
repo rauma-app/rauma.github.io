@@ -15,6 +15,7 @@ import {
   OVERVIEW_SECTIONS,
   isOverviewLocked,
   toggleOverview,
+  setChoice,
   cleanOverview,
   normalizeAir,
   SERTIFIKAT_OPTIONS,
@@ -1087,21 +1088,21 @@ export default function Posting() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="Luas Bangunan (m²)">
-                    <input
-                      type="number"
-                      value={t.luasBangunan}
-                      onChange={(e) => updateUnitType(idx, 'luasBangunan', e.target.value)}
-                      placeholder="Masukkan luas bangunan"
-                      className="input"
-                    />
-                  </Field>
                   <Field label="Luas Tanah (m²)">
                     <input
                       type="number"
                       value={t.luasTanah}
                       onChange={(e) => updateUnitType(idx, 'luasTanah', e.target.value)}
                       placeholder="Masukkan luas tanah"
+                      className="input"
+                    />
+                  </Field>
+                  <Field label="Luas Bangunan (m²)">
+                    <input
+                      type="number"
+                      value={t.luasBangunan}
+                      onChange={(e) => updateUnitType(idx, 'luasBangunan', e.target.value)}
+                      placeholder="Masukkan luas bangunan"
                       className="input"
                     />
                   </Field>
@@ -1200,21 +1201,21 @@ export default function Posting() {
 
         {!isMultiType && (
           <div className="grid grid-cols-2 gap-4">
-            <Field label="Luas Bangunan (m²)">
-              <input
-                type="number"
-                value={form.luasBangunan}
-                onChange={(e) => update('luasBangunan', e.target.value)}
-                placeholder="Masukkan luas bangunan"
-                className="input"
-              />
-            </Field>
             <Field label="Luas Tanah (m²)">
               <input
                 type="number"
                 value={form.luasTanah}
                 onChange={(e) => update('luasTanah', e.target.value)}
                 placeholder="Masukkan luas tanah"
+                className="input"
+              />
+            </Field>
+            <Field label="Luas Bangunan (m²)">
+              <input
+                type="number"
+                value={form.luasBangunan}
+                onChange={(e) => update('luasBangunan', e.target.value)}
+                placeholder="Masukkan luas bangunan"
                 className="input"
               />
             </Field>
@@ -1245,6 +1246,39 @@ export default function Posting() {
           </div>
         )}
 
+        <Field label="Air">
+          <select value={form.air} onChange={(e) => update('air', e.target.value)} className="input">
+            <option value="">Pilih Jenis Air</option>
+            {AIR_OPTIONS.map((o) => (
+              <option key={o} value={o}>{o}</option>
+            ))}
+          </select>
+        </Field>
+
+        {!isMultiType && (
+          <Field label="Daya Listrik">
+            <select
+              value={form.electricity}
+              onChange={(e) => update('electricity', e.target.value)}
+              className="input"
+            >
+              <option value="">Pilih Daya Listrik</option>
+              {ELECTRICITY_OPTIONS.map((o) => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+          </Field>
+        )}
+
+        <Field label="Sertifikat">
+          <CheckboxDropdown
+            options={SERTIFIKAT_OPTIONS}
+            selected={parseSertifikat(form.sertifikat)}
+            onToggle={(o) => update('sertifikat', toggleSertifikat(form.sertifikat, o))}
+            placeholder="Pilih Sertifikat (boleh lebih dari satu)"
+          />
+        </Field>
+
         {/* Satu nilai per iklan (juga untuk iklan multi-tipe). Tampil di Overview. */}
         <div className="grid grid-cols-2 gap-4">
           <Field label="Lebar Muka">
@@ -1270,39 +1304,6 @@ export default function Posting() {
             />
           </Field>
         </div>
-
-        {!isMultiType && (
-          <Field label="Daya Listrik">
-            <select
-              value={form.electricity}
-              onChange={(e) => update('electricity', e.target.value)}
-              className="input"
-            >
-              <option value="">Pilih Daya Listrik</option>
-              {ELECTRICITY_OPTIONS.map((o) => (
-                <option key={o} value={o}>{o}</option>
-              ))}
-            </select>
-          </Field>
-        )}
-
-        <Field label="Air">
-          <select value={form.air} onChange={(e) => update('air', e.target.value)} className="input">
-            <option value="">Pilih Jenis Air</option>
-            {AIR_OPTIONS.map((o) => (
-              <option key={o} value={o}>{o}</option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="Sertifikat">
-          <CheckboxDropdown
-            options={SERTIFIKAT_OPTIONS}
-            selected={parseSertifikat(form.sertifikat)}
-            onToggle={(o) => update('sertifikat', toggleSertifikat(form.sertifikat, o))}
-            placeholder="Pilih Sertifikat (boleh lebih dari satu)"
-          />
-        </Field>
 
         {form.type === 'perumahan' && (
           <Field label="Unit Tersedia">
@@ -1349,7 +1350,41 @@ export default function Posting() {
           </button>
           {overviewOpen && (
             <div className="space-y-5 border-t border-line px-4 py-4">
-              {OVERVIEW_SECTIONS.map((section) => (
+              {OVERVIEW_SECTIONS.map((section) =>
+                section.groups ? (
+                  <div key={section.title}>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">{section.title}</p>
+                    {section.hint && <p className="mt-0.5 text-[11px] text-ink/40">{section.hint}</p>}
+                    <div className="mt-2 space-y-3">
+                      {section.groups.map((group) => (
+                        <div key={group.title}>
+                          <p className="text-xs font-medium text-ink/70">{group.title}</p>
+                          <div className="mt-1.5 flex flex-wrap gap-2">
+                            {group.items.map((item) => {
+                              const active = form.overview.includes(item.key);
+                              return (
+                                <button
+                                  key={item.key}
+                                  type="button"
+                                  aria-pressed={active}
+                                  aria-label={item.label}
+                                  onClick={() => update('overview', setChoice(form.overview, item.key))}
+                                  className={`h-10 w-10 rounded-full border text-sm font-semibold transition ${
+                                    active
+                                      ? 'border-forest bg-forest text-white'
+                                      : 'border-line bg-white text-ink/70'
+                                  }`}
+                                >
+                                  {item.short}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
                 <div key={section.title}>
                   <p className="text-xs font-semibold uppercase tracking-wide text-ink/50">{section.title}</p>
                   {section.hint && <p className="mt-0.5 text-[11px] text-ink/40">{section.hint}</p>}
@@ -1381,7 +1416,8 @@ export default function Posting() {
                     })}
                   </div>
                 </div>
-              ))}
+                )
+              )}
             </div>
           )}
         </div>
