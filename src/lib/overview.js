@@ -9,7 +9,46 @@
 // cloudflare-worker/src/index.js (OVERVIEW_ITEMS). Kalau menambah/mengubah
 // di sini, ubah juga di sana supaya server tidak menolak pilihan baru.
 
+// Pilihan jumlah (1-5) untuk lantai & carport. Tiap angka = satu key, dan satu grup
+// (`lock`) hanya boleh satu pilihan. Di halaman iklan tampil "3 lantai" / "Carport 3 mobil".
+const LANTAI_ITEMS = [1, 2, 3, 4, 5].map((n) => ({
+  key: `lantai_${n}`,
+  label: `${n} lantai`,
+  short: String(n),
+  lock: 'lantai',
+}));
+const CARPORT_ITEMS = [1, 2, 3, 4, 5].map((n) => ({
+  key: `carport_${n}`,
+  label: `Carport ${n} mobil`,
+  short: String(n),
+  lock: 'carport',
+  replaces: 'carport', // pilihan "Carport" lama (tanpa jumlah) otomatis diganti
+}));
+
+// Pilihan lama yang sudah tidak ada di form tapi masih tersimpan di iklan lama.
+// Tetap dikenali & ditampilkan supaya tidak hilang diam-diam.
+const LEGACY_ITEMS = [{ key: 'carport', label: 'Carport' }];
+
 export const OVERVIEW_SECTIONS = [
+  {
+    title: 'Arah Hadap & Posisi',
+    hint: 'Arah hadap: pilih salah satu. Kalau Hook dicentang, boleh pilih 2 arah',
+    items: [
+      { key: 'hook', label: 'Hook' },
+      { key: 'hadap_utara', label: 'Hadap Utara', lock: 'hadap' },
+      { key: 'hadap_timur', label: 'Hadap Timur', lock: 'hadap' },
+      { key: 'hadap_selatan', label: 'Hadap Selatan', lock: 'hadap' },
+      { key: 'hadap_barat', label: 'Hadap Barat', lock: 'hadap' },
+    ],
+  },
+  {
+    title: 'Bangunan',
+    hint: 'Pilih jumlahnya. Ketuk angka yang sama lagi untuk membatalkan',
+    groups: [
+      { title: 'Jumlah Lantai', items: LANTAI_ITEMS },
+      { title: 'Carport (jumlah mobil)', items: CARPORT_ITEMS },
+    ],
+  },
   {
     title: 'Kondisi',
     hint: 'Furnished, Semi Furnished, dan Unfurnished: pilih salah satu',
@@ -27,6 +66,7 @@ export const OVERVIEW_SECTIONS = [
       { key: 'nego', label: 'Nego', lock: 'harga' },
       { key: 'harga_net', label: 'Harga Net', lock: 'harga' },
       { key: 'kpr', label: 'KPR' },
+      { key: 'cash', label: 'Cash' },
     ],
   },
   {
@@ -57,27 +97,18 @@ export const OVERVIEW_SECTIONS = [
   {
     title: 'Fasilitas',
     items: [
-      { key: 'carport', label: 'Carport' },
       { key: 'garasi', label: 'Garasi' },
       { key: 'taman', label: 'Taman' },
       { key: 'balkon', label: 'Balkon' },
       { key: 'smart_home', label: 'Smart Home' },
     ],
   },
-  {
-    title: 'Arah Hadap & Posisi',
-    hint: 'Arah hadap: pilih salah satu. Kalau Hook dicentang, boleh pilih 2 arah',
-    items: [
-      { key: 'hook', label: 'Hook' },
-      { key: 'hadap_utara', label: 'Hadap Utara', lock: 'hadap' },
-      { key: 'hadap_timur', label: 'Hadap Timur', lock: 'hadap' },
-      { key: 'hadap_selatan', label: 'Hadap Selatan', lock: 'hadap' },
-      { key: 'hadap_barat', label: 'Hadap Barat', lock: 'hadap' },
-    ],
-  },
 ];
 
-export const OVERVIEW_ITEMS = OVERVIEW_SECTIONS.flatMap((s) => s.items);
+export const OVERVIEW_ITEMS = [
+  ...OVERVIEW_SECTIONS.flatMap((s) => (s.groups ? s.groups.flatMap((g) => g.items) : s.items)),
+  ...LEGACY_ITEMS,
+];
 const ITEM_BY_KEY = Object.fromEntries(OVERVIEW_ITEMS.map((i) => [i.key, i]));
 
 // Batas jumlah pilihan per grup `lock`. Biasanya 1. Khusus arah hadap: 1,
@@ -114,14 +145,27 @@ export function toggleOverview(selected, key) {
   return [...selected, key];
 }
 
+// Pilih satu angka di grup pilihan (lantai / carport): menggantikan pilihan lain di
+// grup yang sama; mengetuk angka yang sama lagi membatalkannya.
+export function setChoice(selected, key) {
+  const item = ITEM_BY_KEY[key];
+  if (!item || !item.lock) return selected;
+  const without = selected.filter(
+    (k) => ITEM_BY_KEY[k]?.lock !== item.lock && k !== item.replaces
+  );
+  return selected.includes(key) ? without : [...without, key];
+}
+
 // Bersihkan data (mis. dari server): buang key tak dikenal & duplikat,
 // pastikan batas per grup terjaga, urutkan sesuai urutan daftar.
 export function cleanOverview(value) {
   const input = Array.isArray(value) ? value : [];
   const picked = [];
+  // Pilihan lama (mis. "Carport" tanpa jumlah) dibuang kalau penggantinya sudah dipilih
+  const replaced = new Set(input.map((k) => ITEM_BY_KEY[k]?.replaces).filter(Boolean));
   for (const key of input) {
     const item = ITEM_BY_KEY[key];
-    if (!item || picked.includes(key)) continue;
+    if (!item || picked.includes(key) || replaced.has(key)) continue;
     if (item.lock) {
       const used = picked.filter((k) => ITEM_BY_KEY[k]?.lock === item.lock).length;
       if (used >= lockMax(item.lock, input)) continue;
